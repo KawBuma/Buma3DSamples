@@ -1,0 +1,66 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30621.155
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Buma3DSamples", "Buma3DSamples\Buma3DSamples.vcxproj", "{B6A485DB-0C7D-450F-BC15-6D6764F1B2F8}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7B15D9B5-597E-45C7-ACA0-98DA246B5755} = {7B15D9B5-597E-45C7-ACA0-98DA246B5755}
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{BBF7681E-1ACD-4E1B-A8F6-3CAE92BCEFBB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Framework", "Buma3DSamples\Framework\Framework\Framework.vcxproj", "{DCE42634-12C0-41FC-93A7-367D6BC5DB5E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E4C6B317-111C-4F33-BC19-32A2CADC0C07} = {E4C6B317-111C-4F33-BC19-32A2CADC0C07}
+		{2647224D-0083-43DF-9DD7-CC74F286BBEA} = {2647224D-0083-43DF-9DD7-CC74F286BBEA}
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Frameworks", "Frameworks", "{81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Imgui", "Buma3DSamples\Framework\Imgui\Imgui.vcxproj", "{2647224D-0083-43DF-9DD7-CC74F286BBEA}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Inputs", "Buma3DSamples\Framework\Inputs\Inputs.vcxproj", "{E4C6B317-111C-4F33-BC19-32A2CADC0C07}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SampleBase", "Buma3DSamples\Samples\SampleBase\SampleBase.vcxproj", "{7B15D9B5-597E-45C7-ACA0-98DA246B5755}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B6A485DB-0C7D-450F-BC15-6D6764F1B2F8}.Debug|x64.ActiveCfg = Debug|x64
+		{B6A485DB-0C7D-450F-BC15-6D6764F1B2F8}.Debug|x64.Build.0 = Debug|x64
+		{B6A485DB-0C7D-450F-BC15-6D6764F1B2F8}.Release|x64.ActiveCfg = Release|x64
+		{B6A485DB-0C7D-450F-BC15-6D6764F1B2F8}.Release|x64.Build.0 = Release|x64
+		{DCE42634-12C0-41FC-93A7-367D6BC5DB5E}.Debug|x64.ActiveCfg = Debug|x64
+		{DCE42634-12C0-41FC-93A7-367D6BC5DB5E}.Debug|x64.Build.0 = Debug|x64
+		{DCE42634-12C0-41FC-93A7-367D6BC5DB5E}.Release|x64.ActiveCfg = Release|x64
+		{DCE42634-12C0-41FC-93A7-367D6BC5DB5E}.Release|x64.Build.0 = Release|x64
+		{2647224D-0083-43DF-9DD7-CC74F286BBEA}.Debug|x64.ActiveCfg = Debug|x64
+		{2647224D-0083-43DF-9DD7-CC74F286BBEA}.Debug|x64.Build.0 = Debug|x64
+		{2647224D-0083-43DF-9DD7-CC74F286BBEA}.Release|x64.ActiveCfg = Release|x64
+		{2647224D-0083-43DF-9DD7-CC74F286BBEA}.Release|x64.Build.0 = Release|x64
+		{E4C6B317-111C-4F33-BC19-32A2CADC0C07}.Debug|x64.ActiveCfg = Debug|x64
+		{E4C6B317-111C-4F33-BC19-32A2CADC0C07}.Debug|x64.Build.0 = Debug|x64
+		{E4C6B317-111C-4F33-BC19-32A2CADC0C07}.Release|x64.ActiveCfg = Release|x64
+		{E4C6B317-111C-4F33-BC19-32A2CADC0C07}.Release|x64.Build.0 = Release|x64
+		{7B15D9B5-597E-45C7-ACA0-98DA246B5755}.Debug|x64.ActiveCfg = Debug|x64
+		{7B15D9B5-597E-45C7-ACA0-98DA246B5755}.Debug|x64.Build.0 = Debug|x64
+		{7B15D9B5-597E-45C7-ACA0-98DA246B5755}.Release|x64.ActiveCfg = Release|x64
+		{7B15D9B5-597E-45C7-ACA0-98DA246B5755}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DCE42634-12C0-41FC-93A7-367D6BC5DB5E} = {81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}
+		{2647224D-0083-43DF-9DD7-CC74F286BBEA} = {81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}
+		{E4C6B317-111C-4F33-BC19-32A2CADC0C07} = {81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}
+		{7B15D9B5-597E-45C7-ACA0-98DA246B5755} = {BBF7681E-1ACD-4E1B-A8F6-3CAE92BCEFBB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B61617D9-7ECD-40F0-B8B1-1087FB9F2216}
+	EndGlobalSection
+EndGlobal
