@@ -359,5 +359,4 @@ MigrationBackup/
 # End of https://www.toptal.com/developers/gitignore/api/visualstudio
 
 #Buma3DSample Externals
-/Buma3DSamples/External/
-!/Buma3DSamples/External/list.txt
+/Buma3DSamples/External/imgui
