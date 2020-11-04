@@ -18,12 +18,12 @@
     <ClInclude Include="..\..\External\imgui\imgui.h">
       <Filter>Sources</Filter>
     </ClInclude>
-    <ClInclude Include="MyImgui.h">
+    <ClInclude Include="Inc\MyImgui.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MyImgui.cpp">
+    <ClCompile Include="Src\MyImgui.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>

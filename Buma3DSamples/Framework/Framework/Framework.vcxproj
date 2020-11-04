@@ -58,6 +58,9 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\Imgui\Inc;$(ProjectDir);D:\anyData\Projects\MyProjects\Buma3DSamples\Buma3DSamples\Framework\Framework\Inc;$(ProjectDir)\..\..\..\..\Buma3D\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -76,6 +79,9 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\Imgui\Inc;$(ProjectDir);D:\anyData\Projects\MyProjects\Buma3DSamples\Buma3DSamples\Framework\Framework\Inc;$(ProjectDir)\..\..\..\..\Buma3D\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -90,9 +96,13 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Src\DeviceResources.cpp" />
+    <ClCompile Include="Src\Framework.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Inc\Framework.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Src\DeviceResources.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

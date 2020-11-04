@@ -1,12 +1,29 @@
 #ifndef PCH_H
 #define PCH_H
 
-#include "DirectXColors.h"
-#include "DirectXCollision.h"
-#include "DirectXMath.h"
-#include "SimpleMath.h"
+#include <memory> 
+#include <array> 
+#include <vector> 
+#include <map> 
+#include <unordered_map> 
+#include <list> 
+#include <stack> 
+#include <queue> 
+#include <deque> 
+#include <iomanip> 
+#include <Buma3D.h>
+#include <Util/Buma3DPtr.h>
+#include <new>
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <utility>
+#include <sstream>
+#include <iostream>
 
-#include "GLTFSDK/GLTF.h"
+#define NOMINMAX
+#include "./Src/DeviceResources.h"
+#include "Framework.h"
 
 
 #endif //PCH_H
