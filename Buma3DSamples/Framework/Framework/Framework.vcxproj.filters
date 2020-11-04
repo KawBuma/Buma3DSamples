@@ -15,10 +15,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
-    <ClCompile Include="Src\Framework.cpp">
-      <Filter>Resources</Filter>
-    </ClCompile>
     <ClCompile Include="Src\DeviceResources.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Framework.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
@@ -26,6 +26,9 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Inc\Framework.h" />
     <ClInclude Include="Src\DeviceResources.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\Window.h">
       <Filter>Sources</Filter>
     </ClInclude>
   </ItemGroup>

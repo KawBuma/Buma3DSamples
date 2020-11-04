@@ -11,8 +11,6 @@
 #include <queue> 
 #include <deque> 
 #include <iomanip> 
-#include <Buma3D.h>
-#include <Util/Buma3DPtr.h>
 #include <new>
 #include <cstdio>
 #include <cstdlib>
@@ -20,6 +18,9 @@
 #include <utility>
 #include <sstream>
 #include <iostream>
+
+#include <Buma3D.h>
+#include <Util/Buma3DPtr.h>
 
 #define NOMINMAX
 #include "./Src/DeviceResources.h"

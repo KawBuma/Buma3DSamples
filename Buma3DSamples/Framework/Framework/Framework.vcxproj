@@ -59,7 +59,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\Imgui\Inc;$(ProjectDir);D:\anyData\Projects\MyProjects\Buma3DSamples\Buma3DSamples\Framework\Framework\Inc;$(ProjectDir)\..\..\..\..\Buma3D\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\Imgui\Inc;$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)\..\..\..\..\Buma3D\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -80,7 +80,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\Imgui\Inc;$(ProjectDir);D:\anyData\Projects\MyProjects\Buma3DSamples\Buma3DSamples\Framework\Framework\Inc;$(ProjectDir)\..\..\..\..\Buma3D\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\Imgui\Inc;$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)\..\..\..\..\Buma3D\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -101,6 +101,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inc\Framework.h" />
+    <ClInclude Include="Inc\Window.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Src\DeviceResources.h" />
   </ItemGroup>
