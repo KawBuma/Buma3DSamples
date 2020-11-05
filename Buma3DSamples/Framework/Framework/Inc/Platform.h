@@ -18,12 +18,11 @@ public:
 
 protected:
     virtual bool Prepare() = 0;
-    virtual bool CreateWindow() = 0;
+    virtual bool PrepareWindow() = 0;
 
-private:
+protected:
     std::shared_ptr<ApplicationBase>    app;
     std::shared_ptr<WindowBase>         window;
-
 
 };
 

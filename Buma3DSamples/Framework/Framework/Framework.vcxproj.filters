@@ -35,6 +35,12 @@
     <ClCompile Include="Src\Application.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="Src\PlatformWindows.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\WindowWindows.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h">
@@ -56,6 +62,12 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="Inc\StepTimer.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\PlatformWindows.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\WindowWdindows.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

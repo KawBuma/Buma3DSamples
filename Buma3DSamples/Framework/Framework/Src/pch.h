@@ -30,5 +30,7 @@
 #include "Application.h"
 #include "Framework.h"
 
+#include "PlatformWindows.h"
+#include "WindowWindows.h"
 
 #endif //PCH_H
