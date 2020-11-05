@@ -67,7 +67,10 @@
     <ClInclude Include="Inc\PlatformWindows.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="Inc\WindowWdindows.h">
+    <ClInclude Include="Inc\Utils.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\WindowWindows.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

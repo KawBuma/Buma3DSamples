@@ -5,7 +5,10 @@ namespace buma
 {
 
 PlatformBase::PlatformBase()
+    : app       {}
+    , window    {}
 {
+    
 
 }
 

@@ -8,6 +8,10 @@
 #include "Window.h"
 #include "Application.h"
 
+
+#include "PCInputs.h"
+
+
 #ifdef B3D_BUILD_D3D12
 namespace buma
 {

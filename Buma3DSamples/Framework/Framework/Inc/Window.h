@@ -27,13 +27,14 @@ public:
     buma3d::util::Ptr<buma3d::ISwapChain>   GetSwapChain()  const { return swapchain; }
     const std::vector<SWAP_CHAIN_BUFFER>&   GetBuffers()    const { return back_buffers; }
 
-private:
-    virtual void Init(PlatformBase&                     _platform,
+protected:
+    virtual bool Init(PlatformBase&                     _platform,
+                      uint32_t                          _back_buffer_count,
                       const buma3d::UINT2&              _size,
                       buma3d::RESOURCE_FORMAT           _format         = buma3d::RESOURCE_FORMAT_UNKNOWN,
                       buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags   = false) = 0;
 
-private:
+protected:
     buma3d::util::Ptr<buma3d::ISurface>     surface;
     buma3d::util::Ptr<buma3d::ISwapChain>   swapchain;
     std::vector<SWAP_CHAIN_BUFFER>          back_buffers;
