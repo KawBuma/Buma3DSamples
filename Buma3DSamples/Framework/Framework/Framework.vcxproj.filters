@@ -9,27 +9,54 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{9a0f2e7b-ffa1-4b44-a395-9bd6fd53d016}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="pch.cpp" />
     <ClCompile Include="Src\DeviceResources.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="Src\Framework.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="Src\pch.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Window.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Platform.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Application.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pch.h" />
-    <ClInclude Include="Inc\Framework.h" />
-    <ClInclude Include="Src\DeviceResources.h">
+    <ClInclude Include="Src\pch.h">
       <Filter>Sources</Filter>
     </ClInclude>
+    <ClInclude Include="Src\DeviceResources.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
     <ClInclude Include="Inc\Window.h">
-      <Filter>Sources</Filter>
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\Framework.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\Platform.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\Application.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\StepTimer.h">
+      <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

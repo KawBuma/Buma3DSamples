@@ -92,18 +92,21 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="Src\Application.cpp" />
     <ClCompile Include="Src\DeviceResources.cpp" />
     <ClCompile Include="Src\Framework.cpp" />
+    <ClCompile Include="Src\pch.cpp" />
+    <ClCompile Include="Src\Platform.cpp" />
+    <ClCompile Include="Src\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Inc\Application.h" />
     <ClInclude Include="Inc\Framework.h" />
+    <ClInclude Include="Inc\Platform.h" />
+    <ClInclude Include="Inc\StepTimer.h" />
     <ClInclude Include="Inc\Window.h" />
-    <ClInclude Include="pch.h" />
     <ClInclude Include="Src\DeviceResources.h" />
+    <ClInclude Include="Src\pch.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

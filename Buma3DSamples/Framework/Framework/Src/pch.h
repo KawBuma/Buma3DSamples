@@ -23,7 +23,11 @@
 #include <Util/Buma3DPtr.h>
 
 #define NOMINMAX
-#include "./Src/DeviceResources.h"
+//#include "DeviceResources.h"
+#include "StepTimer.h"
+#include "Platform.h"
+#include "Window.h"
+#include "Application.h"
 #include "Framework.h"
 
 

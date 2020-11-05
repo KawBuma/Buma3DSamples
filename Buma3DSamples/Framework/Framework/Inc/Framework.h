@@ -1,10 +1,19 @@
 #pragma once
 
 #define B3D_BUILD_D3D12
+//#define B3D_BUILD_VULKAN
+
+#include "StepTimer.h"
+#include "Platform.h"
+#include "Window.h"
+#include "Application.h"
 
 #ifdef B3D_BUILD_D3D12
+namespace buma
+{
 constexpr bool B3D_IS_D3D12  = true;
 constexpr bool B3D_IS_VULKAN = false;
+}// namespace buma
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
@@ -19,8 +28,11 @@ constexpr bool B3D_IS_VULKAN = false;
 #endif
 
 #elif defined B3D_BUILD_VULKAN
-constexpr bool B3D_IS_D3D12  = false;
+namespace buma
+{
+constexpr bool B3D_IS_D3D12 = false;
 constexpr bool B3D_IS_VULKAN = true;
+}// namespace buma
 
 #pragma comment(lib,"vulkan-1.lib")
 
