@@ -119,19 +119,23 @@ DeviceResources::DeviceResources()
 
 DeviceResources::~DeviceResources()
 {
-
     WaitForGpu();
 }
 
 bool DeviceResources::Init()
 {
+    if (!InitB3D())             return false;
+    if (!PickAdapter())         return false;
+    if (!CreateDevice())        return false;
+    if (!GetCommandQueues())    return false;
+    if (!CreateMyImGui())       return false;
 
     return true;
 }
 
 bool DeviceResources::InitB3D()
 {
-    return false;
+    return true;
 }
 
 bool DeviceResources::PickAdapter()

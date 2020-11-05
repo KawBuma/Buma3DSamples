@@ -26,6 +26,7 @@ public:
     }
     
     bool Resize(const buma3d::UINT2& _size) override;
+    friend static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
 
 protected:
     bool Init(PlatformBase&                     _platform,
@@ -33,9 +34,10 @@ protected:
               const buma3d::EXTENT2D&           _size,
               const char*                       _window_name,
               buma3d::RESOURCE_FORMAT           _format         = buma3d::RESOURCE_FORMAT_UNKNOWN,
-              buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags   = false) override;
+              buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags   = buma3d::FRAMEBUFFER_FLAG_NONE) override;
 
 private:
+    bool RegisterWndClass();
     bool CreateWnd(uint32_t _width, uint32_t _height);
     bool CreateSwapSurface();
     bool CreateSwapChain();

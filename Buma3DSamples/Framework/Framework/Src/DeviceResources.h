@@ -19,6 +19,8 @@ public:
     bool Init();
 
 public:
+    const buma3d::util::Ptr<buma3d::IDeviceFactory>&                GetFactory()                                    const { return factory; }
+    const buma3d::util::Ptr<buma3d::IDeviceAdapter>&                GetAdapter()                                    const { return adapter; }
     const buma3d::util::Ptr<buma3d::IDevice>&                       GetDevice()                                     const { return device; }
     const std::vector<buma3d::util::Ptr<buma3d::ICommandQueue>>&    GetCommandQueues(buma3d::COMMAND_TYPE _type)    const { return cmd_queues[_type]; }
 
@@ -38,8 +40,8 @@ protected:
     bool CreateMyImGui();
 
 private:
-    buma3d::util::Ptr<buma3d::IDevice>                      factory;
-    buma3d::util::Ptr<buma3d::IDevice>                      adapter;
+    buma3d::util::Ptr<buma3d::IDeviceFactory>               factory;
+    buma3d::util::Ptr<buma3d::IDeviceAdapter>               adapter;
     buma3d::util::Ptr<buma3d::IDevice>                      device;
     std::vector<buma3d::util::Ptr<buma3d::ICommandQueue>>   cmd_queues[buma3d::COMMAND_TYPE_NUM_TYPES];         // [COMMAND_TYPE]
     buma3d::util::Ptr<buma3d::IFence>                       gpu_wait_fence;

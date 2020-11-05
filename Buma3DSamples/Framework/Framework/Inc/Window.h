@@ -30,9 +30,10 @@ public:
 protected:
     virtual bool Init(PlatformBase&                     _platform,
                       uint32_t                          _back_buffer_count,
-                      const buma3d::UINT2&              _size,
+                      const buma3d::EXTENT2D&           _size,
+                      const char*                       _window_name,
                       buma3d::RESOURCE_FORMAT           _format         = buma3d::RESOURCE_FORMAT_UNKNOWN,
-                      buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags   = false) = 0;
+                      buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags   = buma3d::FRAMEBUFFER_FLAG_NONE) = 0;
 
 protected:
     buma3d::util::Ptr<buma3d::ISurface>     surface;
