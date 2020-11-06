@@ -135,19 +135,86 @@ bool DeviceResources::Init()
 
 bool DeviceResources::InitB3D()
 {
-    return true;
+    buma3d::ALLOCATOR_DESC desc{};
+    desc.is_enable_allocator_debug = false;
+    desc.custom_allocator          = nullptr;
+
+    auto bmr = buma3d::Buma3DInitialize(desc);
+    return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
 bool DeviceResources::PickAdapter()
 {
+    // ファクトリ作成
+    buma3d::DEVICE_FACTORY_DESC fac_desc{};
 
-    return true;
+    fac_desc.flags           = buma3d::DEVICE_FACTORY_FLAG_NONE;
+    fac_desc.debug.is_enable = true; // デバッグレポート
+
+    if (fac_desc.debug.is_enable)
+    {
+        fac_desc.debug.debug_message_callback.user_data = (console_session = std::make_shared<ConsoleSession>()).get();
+        fac_desc.debug.debug_message_callback.Callback  = B3DMessageCallback;
+    }
+    buma3d::DEBUG_MESSAGE_DESC descs[buma3d::DEBUG_MESSAGE_SEVERITY_END]{};
+    for (size_t i = 0; i < buma3d::DEBUG_MESSAGE_SEVERITY_END; i++)
+    {
+        auto&& desc = descs[i];
+        desc.is_enable_debug_break = false;// レポート時のブレイク
+        desc.severity              = buma3d::DEBUG_MESSAGE_SEVERITY(i);
+        desc.category_flags        = buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_ALL;
+        if (desc.severity == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
+            desc.is_enable_debug_break = false;// レポート時のブレイク
+    }
+    fac_desc.debug.num_debug_messages             = ARRAYSIZE(descs);
+    fac_desc.debug.debug_messages                 = descs;
+    fac_desc.debug.gpu_based_validation.is_enable = false;// GPU検証
+    fac_desc.debug.gpu_based_validation.flags     = buma3d::GPU_BASED_VALIDATION_FLAG_NONE;
+
+    // 作成
+    auto bmr = buma3d::Buma3DCreateDeviceFactory(fac_desc, &factory);
+    if (bmr != buma3d::BMRESULT_SUCCEED)
+        return false;
+
+    auto bmr = factory->EnumAdapters(0, &adapter);
+    return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
 bool DeviceResources::CreateDevice()
 {
+    // デバイス作成
+    buma3d::DEVICE_DESC dd{};
+    dd.adapter = adapter.Get();
 
-    return true;
+    // コマンドキューの情報を取得。
+    auto num_queue_tyeps = dd.adapter->GetCommandQueueProperties(nullptr);// サイズを返します。
+    queue_props.resize(num_queue_tyeps);
+    adapter->GetCommandQueueProperties(queue_props.data());
+
+    // コマンドキュー作成情報を構成
+    std::vector<buma3d::COMMAND_QUEUE_CREATE_DESC>           queue_descs     (num_queue_tyeps);
+    std::vector<std::vector<buma3d::COMMAND_QUEUE_PRIORITY>> queue_priorities(num_queue_tyeps);
+    std::vector<std::vector<buma3d::NodeMask>>               queue_node_masks(num_queue_tyeps);
+    for (uint32_t i = 0; i < num_queue_tyeps; i++)
+    {
+        auto&& qd = queue_descs[i];
+        qd.type       = queue_props[i].type;
+        qd.flags      = buma3d::COMMAND_QUEUE_FLAG_NONE;
+        qd.num_queues = std::min(std::thread::hardware_concurrency(), queue_props[i].num_max_queues);
+
+        auto&& qps  = queue_priorities[i];
+        auto&& qnms = queue_node_masks[i];
+        qps .resize(qd.num_queues, buma3d::COMMAND_QUEUE_PRIORITY_DEFAULT);
+        qnms.resize(qd.num_queues, buma3d::B3D_DEFAULT_NODE_MASK);
+        qd.priorities = qps.data();
+        qd.node_masks = qnms.data();
+    }
+    dd.num_queue_create_descs   = (uint32_t)queue_descs.size();
+    dd.queue_create_descs       = queue_descs.data();
+    dd.flags                    = buma3d::DEVICE_FLAG_NONE;
+
+    auto bmr = factory->CreateDevice(dd, &device);
+    return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
 bool DeviceResources::GetCommandQueues()

@@ -9,7 +9,6 @@
 namespace buma
 {
 
-
 class DeviceResources
 {
 public:
@@ -30,7 +29,7 @@ public:
     bool WaitForGpu();
 
 protected:
-    void B3D_APIENTRY B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVERITY _sev, buma3d::DEBUG_MESSAGE_CATEGORY_FLAG _category, const buma3d::Char8T* const _msg, void* _user_data);
+    static void B3D_APIENTRY B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVERITY _sev, buma3d::DEBUG_MESSAGE_CATEGORY_FLAG _category, const buma3d::Char8T* const _msg, void* _user_data);
 
 protected:
     bool InitB3D();
@@ -49,6 +48,9 @@ private:
     util::FenceSubmitDesc                                   fence_submit_desc;
     //std::vector<std::shared_ptr<buma::GpuTimerPool>>      gpu_timer_pools[buma3d::COMMAND_TYPE_NUM_TYPES];    // [COMMAND_TYPE]
     //std::shared_ptr<buma::MyImGui>                        my_imugi;
+    std::shared_ptr<ConsoleSession>                         console_session;
+
+    std::vector<buma3d::COMMAND_QUEUE_PROPERTIES> queue_props;
 
 };
 

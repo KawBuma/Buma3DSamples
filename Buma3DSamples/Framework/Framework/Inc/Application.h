@@ -19,7 +19,8 @@ public:
     virtual void Init() = 0;
     virtual void Tick() = 0;
 
-private:
+protected:
+    std::shared_ptr<DeviceResources>            dr;
     buma3d::util::Ptr<buma3d::IDeviceFactory>   factory;
     buma3d::util::Ptr<buma3d::IDeviceAdapter>   adapter;
     buma3d::util::Ptr<buma3d::IDevice>          device;

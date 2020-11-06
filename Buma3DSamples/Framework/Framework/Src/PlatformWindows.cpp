@@ -48,11 +48,11 @@ bool PlatformWindows::Prepare()
 
 bool PlatformWindows::PrepareWindow()
 {
-    window = window_windows = std::make_shared<WindowWindows>(WindowWindows(*this, 3, { 1280,720 }, "Buma3DSample"
-                                                                            , buma3d::RESOURCE_FORMAT_UNKNOWN
-                                                                            , buma3d::SWAP_CHAIN_BUFFER_FLAG_COPY_DST |
-                                                                              buma3d::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT));
+    window = window_windows = std::make_shared<WindowWindows>(WindowWindows(*this, 3, { 1280,720 }, "Buma3DSample",
+                                                                            buma3d::RESOURCE_FORMAT_UNKNOWN,
+                                                                            buma3d::SWAP_CHAIN_BUFFER_FLAG_COPY_DST | buma3d::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT));
     return true;
 }
+
 
 }// namespace buma
