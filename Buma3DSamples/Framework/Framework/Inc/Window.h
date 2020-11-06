@@ -21,7 +21,10 @@ public:
     [[nodiscard]]
     virtual uint32_t AcquireNextBuffer(const buma3d::SWAP_CHAIN_ACQUIRE_NEXT_BUFFER_INFO& _info);
     virtual bool     Present(const buma3d::SWAP_CHAIN_PRESENT_INFO& _info);
-    virtual bool     Resize(const buma3d::UINT2& _size) = 0;
+    virtual bool     Resize(const buma3d::EXTENT2D& _size) = 0;
+
+    virtual bool     ProcessMessage() = 0;
+    virtual bool     Exit() = 0;
 
     buma3d::util::Ptr<buma3d::ISurface>     GetSurface()    const { return surface; }
     buma3d::util::Ptr<buma3d::ISwapChain>   GetSwapChain()  const { return swapchain; }

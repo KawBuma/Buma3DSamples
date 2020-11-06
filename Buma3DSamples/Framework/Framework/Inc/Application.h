@@ -14,8 +14,10 @@ public:
     buma3d::util::Ptr<buma3d::IDeviceAdapter>   GetDeviceAdapter() const { return adapter; }
     buma3d::util::Ptr<buma3d::IDevice>          GetDevice       () const { return device ; }
 
+    virtual void Prepare(PlatformBase& _platform) = 0;
+
     virtual void Init() = 0;
-    virtual void Update(const StepTimer& _timer);
+    virtual void Tick() = 0;
 
 private:
     buma3d::util::Ptr<buma3d::IDeviceFactory>   factory;
