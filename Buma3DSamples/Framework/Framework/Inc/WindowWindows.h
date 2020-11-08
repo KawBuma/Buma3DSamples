@@ -62,6 +62,8 @@ private:
     bool CreateSurface();
     bool CreateSwapChain();
 
+    bool GetBackBuffers();
+
 private:
     PlatformWindows&                    platform;
     const WNDCLASSEXW&                  wnd_class;

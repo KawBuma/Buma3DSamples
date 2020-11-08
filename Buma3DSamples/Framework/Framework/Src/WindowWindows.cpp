@@ -45,11 +45,18 @@ bool WindowWindows::Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLA
     if (!swapchain)
         return false;
 
+    platform.GetDeviceResources()->WaitForGpu();
+    back_buffers.clear();
     swapchain_desc = swapchain->GetDesc();
     swapchain_desc.buffer.width  = windowed_size.width;
     swapchain_desc.buffer.height = windowed_size.height;
     swapchain_desc.flags         = _swapchain_flags;
     auto bmr = swapchain->Recreate(swapchain_desc);
+    if (bmr >= buma3d::BMRESULT_FAILED_INVALID_PARAMETER)
+        return buma3d::BMRESULT_FAILED;
+
+    if (!GetBackBuffers()) return false;
+
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
@@ -179,19 +186,23 @@ bool WindowWindows::CreateSwapChain()
     }
 
     // バックバッファを取得
+    if (!GetBackBuffers()) return false;
+
+    return true;
+}
+
+bool WindowWindows::GetBackBuffers()
+{
+    auto&& scd = swapchain->GetDesc();
+    back_buffers.resize(scd.buffer.count);
+    for (uint32_t i = 0; i < scd.buffer.count; i++)
     {
-        auto&& scd = swapchain->GetDesc();
-        back_buffers.resize(scd.buffer.count);
-        for (uint32_t i = 0; i < scd.buffer.count; i++)
-        {
-            auto bmr = swapchain->GetBuffer(i, &back_buffers[i]);
-            if (bmr >= buma3d::BMRESULT_FAILED)
-                return false;
-
-            back_buffers[i]->SetName((std::string("SwapChain buffer") + std::to_string(i)).c_str());
-        }
+        auto bmr = swapchain->GetBuffer(i, &back_buffers[i]);
+        if (bmr >= buma3d::BMRESULT_FAILED)
+            return false;
+    
+        back_buffers[i]->SetName((std::string("SwapChain buffer") + std::to_string(i)).c_str());
     }
-
     return true;
 }
 

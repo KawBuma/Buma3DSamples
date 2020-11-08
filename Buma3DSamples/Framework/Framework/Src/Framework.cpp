@@ -11,7 +11,7 @@ PlatformBase* CreatePlatform()
 
 void DestroyPlatform(PlatformBase* _platform)
 {
-    delete (PlatformWindows*)_platform;
+    delete _platform;
 }
 
 }// namespace buma
