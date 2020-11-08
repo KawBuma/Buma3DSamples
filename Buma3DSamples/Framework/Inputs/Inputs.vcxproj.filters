@@ -42,10 +42,10 @@
     <ClInclude Include="inc\GamepadInputs.h">
       <Filter>inc</Filter>
     </ClInclude>
-    <ClInclude Include="inc\InputStructs.h">
-      <Filter>ソース ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="inc\PCInputs.h">
+      <Filter>inc</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\InputStructs.h">
       <Filter>inc</Filter>
     </ClInclude>
   </ItemGroup>
@@ -72,6 +72,9 @@
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="source\GamepadInputs.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PCInputs.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>

@@ -41,6 +41,12 @@
     <ClCompile Include="Src\WindowWindows.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="Src\StepTimer.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Utils.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h">

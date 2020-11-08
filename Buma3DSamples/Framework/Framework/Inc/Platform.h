@@ -3,6 +3,9 @@
 namespace buma
 {
 
+class WindowBase;
+class ApplicationBase;
+
 class PlatformBase
 {
 public:
@@ -13,9 +16,9 @@ public:
     virtual void AttachApplication(std::shared_ptr<ApplicationBase> _app);
     virtual int MainLoop() = 0;
 
-    std::shared_ptr<ApplicationBase> GetApplication()     const { return app; }
-    std::shared_ptr<DeviceResources> GetDeviceResources() const { return device_resources; }
-    std::shared_ptr<WindowBase>      GetWindow()          const { return window; }
+    std::shared_ptr<ApplicationBase> GetApplication()     { return app; }
+    std::shared_ptr<DeviceResources> GetDeviceResources() { return device_resources; }
+    std::shared_ptr<WindowBase>      GetWindow()          { return window; }
 
 protected:
     virtual bool Prepare() = 0;

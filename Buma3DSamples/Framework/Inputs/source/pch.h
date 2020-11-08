@@ -1,4 +1,4 @@
-﻿// pch.h: プリコンパイル済みヘッダー ファイルです。
+// pch.h: プリコンパイル済みヘッダー ファイルです。
 // 次のファイルは、その後のビルドのビルド パフォーマンスを向上させるため 1 回だけコンパイルされます。
 // コード補完や多くのコード参照機能などの IntelliSense パフォーマンスにも影響します。
 // ただし、ここに一覧表示されているファイルは、ビルド間でいずれかが更新されると、すべてが再コンパイルされます。
@@ -10,6 +10,7 @@
 //#include "GamePad.h"
 //#include "Keyboard.h"
 //#include "Mouse.h"
+#include "InputStructs.h"
 //
 //#include <memory>
 
@@ -96,34 +97,34 @@
 #define NOHELP
 #pragma warning(pop)
 
-#include <Windows.h>
+//#include <Windows.h>
 
-#ifndef _WIN32_WINNT_WIN10
-#define _WIN32_WINNT_WIN10 0x0A00
-#endif
-
-#if defined(_XBOX_ONE) && defined(_TITLE)
-#include <xdk.h>
-
-#if _XDK_VER < 0x295A044C /* XDK Edition 160200 */
-#error DirectX Tool Kit for Direct3D 12 requires the February 2016 XDK or later
-#endif
-
-#include <d3d12_x.h> // core 12.x header
-#include <d3dx12_x.h>  // utility 12.x header
-#else
-#include <dxgi1_4.h>
-#include <d3d12.h>
-
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-conversion"
-#pragma clang diagnostic ignored "-Wtautological-type-limit-compare"
-#endif
-
-#define D3DX12_NO_STATE_OBJECT_HELPERS
-//#include "d3dx12.h"
-#endif
+//#ifndef _WIN32_WINNT_WIN10
+//#define _WIN32_WINNT_WIN10 0x0A00
+//#endif
+//
+//#if defined(_XBOX_ONE) && defined(_TITLE)
+//#include <xdk.h>
+//
+//#if _XDK_VER < 0x295A044C /* XDK Edition 160200 */
+//#error DirectX Tool Kit for Direct3D 12 requires the February 2016 XDK or later
+//#endif
+//
+//#include <d3d12_x.h> // core 12.x header
+//#include <d3dx12_x.h>  // utility 12.x header
+//#else
+//#include <dxgi1_4.h>
+//#include <d3d12.h>
+//
+//#ifdef __clang__
+//#pragma clang diagnostic push
+//#pragma clang diagnostic ignored "-Wsign-conversion"
+//#pragma clang diagnostic ignored "-Wtautological-type-limit-compare"
+//#endif
+//
+//#define D3DX12_NO_STATE_OBJECT_HELPERS
+////#include "d3dx12.h"
+//#endif
 
 #ifdef __clang__
 #pragma clang diagnostic pop
@@ -135,12 +136,6 @@
 #include <Windows.UI.Core.h>
 #pragma warning(pop)
 #endif
-
-#define _XM_NO_XMVECTOR_OVERLOADS_
-
-#include <DirectXMath.h>
-#include <DirectXPackedVector.h>
-#include <DirectXCollision.h>
 
 #include <algorithm>
 #include <array>
@@ -157,6 +152,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <cassert>
 
 #pragma warning(push)
 #pragma warning(disable : 4702)
@@ -172,23 +168,4 @@
 #include <wrl.h>
 #pragma warning(pop)
 
-#include <wincodec.h>
-
-// DirectX Tool Kit for Audio is in all versions of DirectXTK12
-#include <mmreg.h>
-#include <Audioclient.h>
-
-#ifndef XAUDIO2_HELPER_FUNCTIONS
-#define XAUDIO2_HELPER_FUNCTIONS
-#endif
-
-#include <xaudio2.h>
-#include <xaudio2fx.h>
-#include <x3daudio.h>
-#include <xapofx.h>
-
-#if defined(_XBOX_ONE) && defined(_TITLE)
-#include <apu.h>
-#include <shapexmacontext.h>
-#include <xma2defs.h>
-#endif
+//#include <wincodec.h>

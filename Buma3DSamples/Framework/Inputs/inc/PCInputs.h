@@ -1,7 +1,5 @@
 #pragma once
-#include "KeyboardInput.h"
-#include "MouseInput.h"
-#include "GamepadInputs.h"
+#include "InputStructs.h"
 
 //#define KEY   buma::input::KeyboardInput::GetIns().KeyPressData()
 //#define MOUSE buma::input::MouseInput::GetIns().MouseData()
@@ -12,9 +10,9 @@ namespace buma
 namespace input
 {
 
-const KEY_PRESS_DATA&   GetKey()                    { return buma::input::KeyboardInput::GetIns().KeyPressData(); }
-const MOUSE_DATA&       GetMouse()                  { return buma::input::MouseInput::GetIns().MouseData(); }
-const GAMEPAD_DATA&     GetGpad(int _player = 0)    { return buma::input::GamePadInputs::GetIns().GamePadData(_player); }
+const KEY_PRESS_DATA& GetKey();
+const MOUSE_DATA& GetMouse();
+const GAMEPAD_DATA& GetGpad(int _player = 0);
 
 }// namespace input
 }// namespace buma

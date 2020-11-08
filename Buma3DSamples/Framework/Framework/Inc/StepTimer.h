@@ -7,7 +7,6 @@
 #include <cmath>
 #include <exception>
 #include <stdint.h>
-#include <profileapi.h>
 
 namespace buma
 {
@@ -16,33 +15,7 @@ namespace buma
 class StepTimer
 {
 public:
-    StepTimer() noexcept(false)
-    #pragma region initialize member variables
-        : elapsed_ticks             (0)
-        , total_ticks               (0)
-        , left_over_ticks           (0)
-        , frame_count               (0)
-        , frames_per_second         (0)
-        , frames_this_second        (0)
-        , qpc_second_counter        (0)
-        , is_fixed_time_step        (false)
-        , target_elapsed_ticks      (ticks_per_second / 60)
-        , is_one_sec_elapsed        (false)
-#pragma endregion
-    {
-        if (!QueryPerformanceFrequency(&qpc_frequency))
-        {
-            throw std::exception("QueryPerformanceFrequency");
-        }
-
-        if (!QueryPerformanceCounter(&qpc_last_time))
-        {
-            throw std::exception("QueryPerformanceCounter");
-        }
-
-        // Initialize max delta to 1/10 of a second.
-        qpc_max_delta = static_cast<uint64_t>(qpc_frequency.QuadPart / 10);
-    }
+    StepTimer() noexcept(false);
 
     // Get elapsed time since the previous Update call.
     const uint64_t& GetElapsedTicks()               const                { return elapsed_ticks; }
@@ -81,106 +54,16 @@ public:
     // call this to avoid having the fixed timestep logic attempt a set of catch-up
     // Update calls.
 
-    void ResetElapsedTime()
-    {
-        if (!QueryPerformanceCounter(&qpc_last_time))
-        {
-            throw std::exception("QueryPerformanceCounter");
-        }
-        
-        left_over_ticks        = 0;
-        frames_per_second      = 0;
-        frames_this_second     = 0;
-        qpc_second_counter     = 0;
-    }
+    void ResetElapsedTime();
     
     // Update timer state, calling the specified Update function the appropriate number of times.
-    void Tick()
-    {
-        // Query the current time.
-        LARGE_INTEGER current_time{};
-        
-        if (!QueryPerformanceCounter(&current_time))
-        {
-            throw std::exception("QueryPerformanceCounter");
-        }
-        
-        uint64_t time_delta = static_cast<uint64_t>(current_time.QuadPart - qpc_last_time.QuadPart);
-        
-        qpc_last_time        = current_time;
-        qpc_second_counter += time_delta;
-        
-        // Clamp excessively large time deltas (e.g. after paused in the debugger).
-        if (time_delta > qpc_max_delta)
-        {
-            time_delta = qpc_max_delta;
-        }
-        
-        // Convert QPC units into a canonical tick format. This cannot overflow due to the previous clamp.
-        time_delta *= ticks_per_second;
-        time_delta /= static_cast<uint64_t>(qpc_frequency.QuadPart);
-        
-        uint32_t last_frame_count = frame_count;
-        
-        if (is_fixed_time_step)
-        {
-            // Fixed timestep update logic
-            
-            /*
-                If the app is running very close to the target elapsed time (within 1/4 of a millisecond) just clamp the clock to
-                exactly match the target value.
-                This prevents tiny and irrelevant errors from accumulating over time.
-                Without this clamping, a game that requested a 60 fps fixed update,
-                running with vsync enabled on a 59.94 NTSC display, would eventually
-                accumulate enough tiny errors that it would drop a frame.
-                It is better to just round small deviations down to zero to leave things running smoothly.
-            */
-            if (static_cast<uint64_t>(std::llabs(static_cast<int64_t>(time_delta - target_elapsed_ticks))) < ticks_per_second / 4000)
-            {
-                time_delta = target_elapsed_ticks;
-            }
-            
-            left_over_ticks += time_delta;
-            
-            while (left_over_ticks >= target_elapsed_ticks)
-            {
-                elapsed_ticks     = target_elapsed_ticks;
-                total_ticks        += target_elapsed_ticks;
-                left_over_ticks -= target_elapsed_ticks;
-                frame_count++;
-            }
-        }
-        else
-        {
-            // Variable timestep update logic.
-            elapsed_ticks     = time_delta;
-            total_ticks        += time_delta;
-            left_over_ticks  = 0;
-            frame_count++;
-        }
-        
-        // Track the current framerate.
-        if (frame_count != last_frame_count)
-        {
-            frames_this_second++;
-        }
-        
-        if (qpc_second_counter >= static_cast<uint64_t>(qpc_frequency.QuadPart))
-        {
-            frames_per_second    = frames_this_second;
-            frames_this_second    = 0;
-            qpc_second_counter %= static_cast<uint64_t>(qpc_frequency.QuadPart);
-            is_one_sec_elapsed    = true;
-        }
-        else
-            is_one_sec_elapsed = false;
-    }
+    void Tick();
 
 private:
     // Source timing data uses QPC units.
     // https://ja.wikipedia.org/wiki/%E9%87%8F%E5%AD%90%E3%83%9D%E3%82%A4%E3%83%B3%E3%83%88%E3%82%B3%E3%83%B3%E3%82%BF%E3%82%AF%E3%83%88#%E5%BF%9C%E7%94%A8
-    LARGE_INTEGER    qpc_frequency;
-    LARGE_INTEGER    qpc_last_time;
+    int64_t         qpc_frequency_quad_part;
+    int64_t         qpc_last_time_quad_part;
     uint64_t        qpc_max_delta;
 
     // Derived timing data uses a canonical tick format.

@@ -9,6 +9,8 @@
 namespace buma
 {
 
+class ConsoleSession;
+
 class DeviceResources
 {
 public:

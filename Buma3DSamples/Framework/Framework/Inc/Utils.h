@@ -5,6 +5,33 @@ namespace buma
 namespace util
 {
 
+inline std::string GetUUIDString(const uint8_t _uuid[16])
+{
+#define B3DFW std::setfill('0') << std::setw(2) 
+    std::stringstream ss;
+    ss << std::hex 
+        << B3DFW << (uint32_t)_uuid[0]  << B3DFW << (uint32_t)_uuid[1] << B3DFW << (uint32_t)_uuid[2] << B3DFW << (uint32_t)_uuid[3] << "-"
+        << B3DFW << (uint32_t)_uuid[4]  << B3DFW << (uint32_t)_uuid[5] << '-'
+        << B3DFW << (uint32_t)_uuid[6]  << B3DFW << (uint32_t)_uuid[7] << '-'
+        << B3DFW << (uint32_t)_uuid[8]  << B3DFW << (uint32_t)_uuid[9] << '-'
+        << B3DFW << (uint32_t)_uuid[10] << B3DFW << (uint32_t)_uuid[11] << B3DFW << (uint32_t)_uuid[12] << B3DFW << (uint32_t)_uuid[13] << B3DFW << (uint32_t)_uuid[14] << B3DFW << (uint32_t)_uuid[15]
+        << std::dec;
+    return ss.str();
+#undef B3DFW
+}
+
+inline std::string GetLUIDString(const uint8_t _luid[8])
+{
+#define B3DFW std::setfill('0') << std::setw(2) 
+    std::stringstream ss;
+    ss << std::hex
+        << "Low: "    << B3DFW << (uint32_t)_luid[0] << B3DFW << (uint32_t)_luid[1] << B3DFW << (uint32_t)_luid[2] << B3DFW << (uint32_t)_luid[3]
+        << ", High: " << B3DFW << (uint32_t)_luid[4] << B3DFW << (uint32_t)_luid[5] << B3DFW << (uint32_t)_luid[6] << B3DFW << (uint32_t)_luid[7]
+        << std::dec;
+    return ss.str();
+#undef B3DFW
+}
+
 enum CODEPAGE : uint32_t
 {
       CODEPAGE_ACP        = 0        // default to ANSI code page
@@ -17,29 +44,8 @@ enum CODEPAGE : uint32_t
     , CODEPAGE_UTF8       = 65001    // UTF-8 translation
 };
 
-inline std::string ConvertWideToCp(CODEPAGE _code_page /*= CP_UTF8*/, int _len_with_null_term, const wchar_t* _wstr)
-{
-    auto l = WideCharToMultiByte(_code_page, 0, _wstr, _len_with_null_term, nullptr, 0, nullptr, FALSE);
-    if (l == 0) return std::string();
-
-    std::string str(l, '\0');// 結果のUnicode文字列にはnull終端文字があり、関数によって返される長さにはこの文字が含まれます。
-    if (WideCharToMultiByte(_code_page, 0, _wstr, _len_with_null_term, str.data(), l, nullptr, FALSE) == 0)
-        return std::string();
-
-    return str;
-}
-inline std::wstring ConvertCpToWide(CODEPAGE _code_page /*= CP_UTF8*/, int _len_with_null_term, const char* _str)
-{
-    auto l = MultiByteToWideChar(_code_page, 0, _str, _len_with_null_term, nullptr, 0);
-    if (l == 0)
-        return std::wstring();
-
-    std::wstring str(l, L'\0');// 結果のUnicode文字列にはnull終端文字があり、関数によって返される長さにはこの文字が含まれます。
-    if (MultiByteToWideChar(_code_page, 0, _str, _len_with_null_term, str.data(), l) == 0)
-        return std::wstring();
-
-    return str;
-}
+std::string ConvertWideToCp(CODEPAGE _code_page /*= CP_UTF8*/, int _len_with_null_term, const wchar_t* _wstr);
+std::wstring ConvertCpToWide(CODEPAGE _code_page /*= CP_UTF8*/, int _len_with_null_term, const char* _str);
 
 inline std::string  ConvertWideToCp  (CODEPAGE _code_page, const std::wstring& _wstr)    { return ConvertWideToCp(_code_page, int(_wstr.size() + 1ull), _wstr.c_str()); }
 inline std::wstring ConvertCpToWide  (CODEPAGE _code_page, const std::string& _str)      { return ConvertCpToWide(_code_page, int(_str.size() + 1ull), _str.c_str()); }
@@ -134,6 +140,11 @@ class FenceSubmitDesc
 {
 public:
     FenceSubmitDesc()
+        : signal_desc  {}
+        , wait_desc    {}
+        , num_fences   {}
+        , fences       {}
+        , fence_values {}
     {
 
     }

@@ -14,10 +14,5 @@ ApplicationBase::~ApplicationBase()
 
 }
 
-void ApplicationBase::Update(const StepTimer& _timer)
-{
-
-}
-
 
 }// namespace buma

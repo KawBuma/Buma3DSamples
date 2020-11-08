@@ -176,7 +176,7 @@ bool DeviceResources::PickAdapter()
     if (bmr != buma3d::BMRESULT_SUCCEED)
         return false;
 
-    auto bmr = factory->EnumAdapters(0, &adapter);
+    bmr = factory->EnumAdapters(0, &adapter);
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
@@ -242,11 +242,11 @@ bool DeviceResources::WaitForGpu()
     bool result = true;
     for (size_t i = 0; i < size_t(buma3d::COMMAND_TYPE_NUM_TYPES); i++)
     {        
-        for (auto& i : cmd_queues[i])
+        for (auto& i_que : cmd_queues[i])
         {
             fence_submit_desc.Reset();
             fence_submit_desc.AddFence(gpu_wait_fence.Get(), gpu_wait_fence_val.signal());
-            i->SubmitSignal(fence_submit_desc.GetAsSignal());
+            i_que->SubmitSignal(fence_submit_desc.GetAsSignal());
 
             ++gpu_wait_fence_val;
             auto bmr = gpu_wait_fence->Wait(gpu_wait_fence_val.wait(), UINT32_MAX);

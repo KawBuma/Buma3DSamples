@@ -9,36 +9,6 @@ namespace buma
 namespace input
 {
 
-struct INPUT_POS_PARAMS
-{
-	int val;
-	int old;
-	int delta;
-};
-
-#pragma region MouseInput
-
-#pragma region structs
-
-struct MOUSE_PRESS_DATA
-{
-	INPUT_PRESS_PARAMS left;
-	INPUT_PRESS_PARAMS middle;
-	INPUT_PRESS_PARAMS right;
-	INPUT_PRESS_PARAMS x_button1;
-	INPUT_PRESS_PARAMS x_button2;
-};
-
-struct MOUSE_DATA
-{
-	MOUSE_PRESS_DATA buttons;
-	INPUT_POS_PARAMS x;
-	INPUT_POS_PARAMS y;
-	INPUT_POS_PARAMS rot;
-};
-
-#pragma endregion
-
 class MouseInput
 {
 private:
@@ -93,8 +63,6 @@ private:
 	MOUSE_DATA mouse_data;
 
 };
-
-#pragma endregion
 
 }
 }

@@ -21,7 +21,7 @@ public:
     [[nodiscard]]
     virtual uint32_t AcquireNextBuffer(const buma3d::SWAP_CHAIN_ACQUIRE_NEXT_BUFFER_INFO& _info);
     virtual bool     Present(const buma3d::SWAP_CHAIN_PRESENT_INFO& _info);
-    virtual bool     Resize(const buma3d::EXTENT2D& _size) = 0;
+    virtual bool     Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags) = 0;
 
     virtual bool     ProcessMessage() = 0;
     virtual bool     Exit() = 0;
@@ -35,8 +35,9 @@ protected:
                       uint32_t                          _back_buffer_count,
                       const buma3d::EXTENT2D&           _size,
                       const char*                       _window_name,
-                      buma3d::RESOURCE_FORMAT           _format         = buma3d::RESOURCE_FORMAT_UNKNOWN,
-                      buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags   = buma3d::FRAMEBUFFER_FLAG_NONE) = 0;
+                      buma3d::RESOURCE_FORMAT           _format          = buma3d::RESOURCE_FORMAT_UNKNOWN,
+                      buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags    = buma3d::FRAMEBUFFER_FLAG_NONE,
+                      buma3d::SWAP_CHAIN_FLAGS          _swapchain_flags = buma3d::SWAP_CHAIN_FLAG_NONE) = 0;
 
 protected:
     buma3d::util::Ptr<buma3d::ISurface>     surface;

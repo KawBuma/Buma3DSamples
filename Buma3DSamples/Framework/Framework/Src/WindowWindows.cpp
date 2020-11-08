@@ -6,13 +6,45 @@ namespace buma
 
 static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
 
-bool WindowWindows::Resize(const buma3d::EXTENT2D& _size)
+WindowWindows::WindowWindows(PlatformWindows&                  _platform,
+                             uint32_t                          _back_buffer_count,
+                             const buma3d::EXTENT2D&           _size,
+                             const char*                       _window_name,
+                             buma3d::RESOURCE_FORMAT           _format,
+                             buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags,
+                             buma3d::SWAP_CHAIN_FLAGS          _swapchain_flags)
+    : WindowBase            ()
+    , platform              { _platform }
+    , wnd_class             {}
+    , hwnd                  {}
+    , wnd_name              {}
+    , window_state_flags    {}
+    , windowed_size         {}
+    , aspect_ratio          {}
+    , swapchain_desc        {}
+    , supported_formats     {}
+    , back_buffers          {}
 {
-    auto desc = swapchain->GetDesc();
-    desc.buffer.width  = windowed_size.width;
-    desc.buffer.height = windowed_size.height;
-    auto bmr = swapchain->Recreate(desc);
+    Init(_platform, _back_buffer_count, _size, _window_name, _format, _buffer_flags, _swapchain_flags);
+}
 
+WindowWindows::~WindowWindows()
+{
+    if (hwnd)
+        DestroyWindow(hwnd);
+    hwnd = NULL;
+}
+
+bool WindowWindows::Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags)
+{
+    windowed_size = _size;
+    aspect_ratio = float(_size.width) / float(_size.height);
+
+    swapchain_desc = swapchain->GetDesc();
+    swapchain_desc.buffer.width  = windowed_size.width;
+    swapchain_desc.buffer.height = windowed_size.height;
+    swapchain_desc.flags         = _swapchain_flags;
+    auto bmr = swapchain->Recreate(swapchain_desc);
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
@@ -42,8 +74,19 @@ bool WindowWindows::Init(PlatformBase&                      _platform,
                          const buma3d::EXTENT2D&            _size,
                          const char*                        _window_name,
                          buma3d::RESOURCE_FORMAT            _format,
-                         buma3d::SWAP_CHAIN_BUFFER_FLAGS    _buffer_flags)
+                         buma3d::SWAP_CHAIN_BUFFER_FLAGS    _buffer_flags,
+                         buma3d::SWAP_CHAIN_FLAGS           _swapchain_flags)
 {
+    swapchain_desc.color_space                  = buma3d::COLOR_SPACE_SRGB_NONLINEAR;
+    swapchain_desc.pre_roration                 = buma3d::ROTATION_MODE_IDENTITY;
+    swapchain_desc.buffer.width                 = _size.width;
+    swapchain_desc.buffer.height                = _size.height;
+    swapchain_desc.buffer.count                 = _buffer_count;
+    swapchain_desc.buffer.format_desc.format    = _format;
+    swapchain_desc.buffer.flags                 = _buffer_flags;
+    swapchain_desc.alpha_mode                   = buma3d::SWAP_CHAIN_ALPHA_MODE_DEFAULT;
+    swapchain_desc.flags                        = _swapchain_flags;
+
     if (!RegisterWndClass())                    return false;
     if (!CreateWnd(_size.width, _size.height))  return false;
     if (!CreateSurface())                       return false;
@@ -56,27 +99,26 @@ bool WindowWindows::RegisterWndClass()
 {
     SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-    WNDCLASSEXW wcex{};
-    wcex.cbSize            = sizeof(WNDCLASSEXW);
-    wcex.style             = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc       = WndProc;
-    wcex.cbClsExtra        = 0;
-    wcex.cbWndExtra        = 0;
-    wcex.hInstance         = platform.GetHinstance();
-    wcex.hIcon             = LoadIcon(wcex.hInstance, L"IDI_ICON");
-    wcex.hCursor           = LoadCursor(nullptr, IDC_ARROW);
-    wcex.hbrBackground     = (HBRUSH)(COLOR_WINDOW + 1);
-    wcex.lpszMenuName      = nullptr;
-    wcex.lpszClassName     = WND_CLASS_NAME;
-    wcex.hIconSm           = LoadIcon(wcex.hInstance, L"IDI_ICON");
+    wnd_class.cbSize            = sizeof(WNDCLASSEXW);
+    wnd_class.style             = CS_HREDRAW | CS_VREDRAW;
+    wnd_class.lpfnWndProc       = WndProc;
+    wnd_class.cbClsExtra        = 0;
+    wnd_class.cbWndExtra        = 0;
+    wnd_class.hInstance         = platform.GetHinstance();
+    wnd_class.hIcon             = LoadIcon(wnd_class.hInstance, MAKEINTRESOURCE(IDI_APPLICATION));
+    wnd_class.hCursor           = LoadCursor(nullptr, IDC_ARROW);
+    wnd_class.hbrBackground     = (HBRUSH)(COLOR_WINDOW + 1);
+    wnd_class.lpszMenuName      = nullptr;
+    wnd_class.lpszClassName     = WND_CLASS_NAME;
+    wnd_class.hIconSm           = LoadIcon(wnd_class.hInstance, MAKEINTRESOURCE(IDI_APPLICATION));
 
-    auto res =  RegisterClassEx(&wcex);
+    auto res =  RegisterClassEx(&wnd_class);
     return res != 0;
 }
 
 bool WindowWindows::CreateWnd(uint32_t _width, uint32_t _height)
 {
-    RECT window_rect = { 0, 0, _width, _height };
+    RECT window_rect = { 0, 0, (LONG)_width, (LONG)_height };
     AdjustWindowRect(&window_rect, WS_OVERLAPPEDWINDOW, FALSE);
 
     hwnd = CreateWindowEx(0
@@ -101,11 +143,12 @@ bool WindowWindows::CreateWnd(uint32_t _width, uint32_t _height)
 
 bool WindowWindows::CreateSurface()
 {
-    auto dr = platform.GetDeviceResources();
-    buma3d::SURFACE_DESC                               sd{};
-    buma3d::SURFACE_PLATFORM_DATA_WINDOWS              data_win{ platform.GetHinstance(), hwnd };
-    buma3d::SURFACE_DESC                               sfs_desc{ buma3d::SURFACE_PLATFORM_DATA_TYPE_WINDOWS, &data_win };
-    if (auto res = dr->GetAdapter()->CreateSurface(sd, &surface); res == buma3d::BMRESULT_FAILED)
+    auto&& dr = platform.GetDeviceResources();
+    buma3d::SURFACE_PLATFORM_DATA_WINDOWS data_win{ platform.GetHinstance(), hwnd };
+    buma3d::SURFACE_DESC                  sfs_desc{ buma3d::SURFACE_PLATFORM_DATA_TYPE_WINDOWS, &data_win };
+
+    auto res = dr->GetAdapter()->CreateSurface(sfs_desc, &surface);
+    if (res == buma3d::BMRESULT_FAILED)
         return false;
 
     return true;
@@ -113,8 +156,60 @@ bool WindowWindows::CreateSurface()
 
 bool WindowWindows::CreateSwapChain()
 {
-    auto hins = platform.GetHinstance();
-    buma3d::SWAP_CHAIN_DESC scd{};
+    // スワップチェインのフォーマットを取得
+    buma3d::SURFACE_FORMAT sfs_format{};
+    {
+        supported_formats.resize(surface->GetSupportedSurfaceFormats(nullptr));
+        surface->GetSupportedSurfaceFormats(supported_formats.data());
+
+        auto&& it_find = std::find_if(supported_formats.begin(), supported_formats.end(),[this](const buma3d::SURFACE_FORMAT& _format)
+        {
+            return _format.format      == swapchain_desc.buffer.format_desc.format &&
+                   _format.color_space == swapchain_desc.color_space;
+        });
+
+        if (it_find != supported_formats.end())
+            sfs_format = supported_formats[0];
+        else
+            sfs_format = *it_find;
+    }
+
+    // スワップチェインを作成
+    {
+        auto&& state = surface->GetState();
+        aspect_ratio = float(state.size.width) / float(state.size.height);
+        windowed_size = state.size;
+
+        swapchain_desc.surface                      = surface.Get();
+        swapchain_desc.color_space                  = sfs_format.color_space;
+        swapchain_desc.buffer.format_desc.format    = sfs_format.format;
+
+        auto&& dr = platform.GetDeviceResources();
+        auto&& cmd_que = dr->GetCommandQueues(buma3d::COMMAND_TYPE_DIRECT);
+        buma3d::ICommandQueue* queues[] = { cmd_que[0].Get() };
+        swapchain_desc.num_present_queues           = 1;
+        swapchain_desc.present_queues               = queues;
+
+        auto bmr = dr->GetDevice()->CreateSwapChain(swapchain_desc, &swapchain);
+        if (bmr == buma3d::BMRESULT_FAILED)
+            return false;
+
+        swapchain->SetName("SwapChain");
+    }
+
+    // バックバッファを取得
+    {
+        auto&& scd = swapchain->GetDesc();
+        back_buffers.resize(scd.buffer.count);
+        for (uint32_t i = 0; i < scd.buffer.count; i++)
+        {
+            auto bmr = swapchain->GetBuffer(i, &back_buffers[i]);
+            if (bmr == buma3d::BMRESULT_FAILED)
+                return false;
+
+            back_buffers[i]->SetName((std::string("SwapChain buffer") + std::to_string(i)).c_str());
+        }
+    }
 
     return true;
 }
@@ -168,7 +263,7 @@ static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARA
         RECT rc{};
         GetClientRect(_hwnd, &rc);
 
-        fw->Resize({ rc.right - rc.left, rc.bottom - rc.top });
+        fw->Resize({ uint32_t(rc.right - rc.left), uint32_t(rc.bottom - rc.top) });
         break;
     }
     case WM_GETMINMAXINFO:
@@ -256,8 +351,8 @@ static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARA
                 SetWindowLongPtr(_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
                 SetWindowLongPtr(_hwnd, GWL_EXSTYLE, 0);
 
-                int width = 1280;
-                int height = 720;
+                uint32_t width = 1280;
+                uint32_t height = 720;
 
                 fw->Resize({ width, height });
                 ShowWindow(_hwnd, SW_SHOWNORMAL);

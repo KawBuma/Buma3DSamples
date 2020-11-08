@@ -23,6 +23,7 @@ enum WINDOW_STATE_FLAGS
 };
 DEFINE_ENUM_FLAG_OPERATORS(WINDOW_STATE_FLAGS);
 
+class PlatformWindows;
 
 class WindowWindows : public WindowBase
 {
@@ -34,24 +35,14 @@ public:
                   uint32_t                          _back_buffer_count,
                   const buma3d::EXTENT2D&           _size,
                   const char*                       _window_name,
-                  buma3d::RESOURCE_FORMAT           _format            = buma3d::RESOURCE_FORMAT_UNKNOWN,
-                  buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags      = buma3d::FRAMEBUFFER_FLAG_NONE)   
-        : WindowBase()
-        , platform  { _platform }
-        , hwnd      {}
-        , wnd_name  {}
-    {
-        Init(_platform, _back_buffer_count, _size, _window_name, _format, _buffer_flags);
-    }
+                  buma3d::RESOURCE_FORMAT           _format          = buma3d::RESOURCE_FORMAT_UNKNOWN,
+                  buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags    = buma3d::FRAMEBUFFER_FLAG_NONE,
+                  buma3d::SWAP_CHAIN_FLAGS          _swapchain_flags = buma3d::SWAP_CHAIN_FLAG_NONE);
 
-    ~WindowWindows()
-    {
-        if (hwnd)
-            DestroyWindow(hwnd);
-        hwnd = NULL;
-    }
+    WindowWindows(const WindowWindows&) = delete;
+    ~WindowWindows();
     
-    bool Resize(const buma3d::EXTENT2D& _size) override;
+    virtual bool Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags = buma3d::SWAP_CHAIN_FLAG_NONE) override;
     friend static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
 
     bool ProcessMessage() override;
@@ -64,8 +55,9 @@ protected:
               uint32_t                          _back_buffer_count,
               const buma3d::EXTENT2D&           _size,
               const char*                       _window_name,
-              buma3d::RESOURCE_FORMAT           _format            = buma3d::RESOURCE_FORMAT_UNKNOWN,
-              buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags      = buma3d::FRAMEBUFFER_FLAG_NONE) override;
+              buma3d::RESOURCE_FORMAT           _format             = buma3d::RESOURCE_FORMAT_UNKNOWN,
+              buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags       = buma3d::FRAMEBUFFER_FLAG_NONE, 
+              buma3d::SWAP_CHAIN_FLAGS          _swapchain_flags    = buma3d::SWAP_CHAIN_FLAG_NONE) override;
 
 private:
     bool RegisterWndClass();
@@ -75,10 +67,16 @@ private:
 
 private:
     PlatformWindows&                    platform;
+    WNDCLASSEXW                         wnd_class;
     HWND                                hwnd;
     std::string                         wnd_name;
     WINDOW_STATE_FLAGS                  window_state_flags;
     buma3d::EXTENT2D                    windowed_size;
+    float                               aspect_ratio;
+
+    buma3d::SWAP_CHAIN_DESC                             swapchain_desc;
+    std::vector<buma3d::SURFACE_FORMAT>                 supported_formats;
+    std::vector<buma3d::util::Ptr<buma3d::ITexture>>    back_buffers;
 
 };
 
