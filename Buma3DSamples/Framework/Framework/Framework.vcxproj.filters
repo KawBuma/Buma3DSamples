@@ -47,13 +47,13 @@
     <ClCompile Include="Src\Utils.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="Src\ShaderLoader.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h">
       <Filter>Sources</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\DeviceResources.h">
-      <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="Inc\Window.h">
       <Filter>Headers</Filter>
@@ -77,6 +77,12 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="Inc\WindowWindows.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\ShaderLoader.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\DeviceResources.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

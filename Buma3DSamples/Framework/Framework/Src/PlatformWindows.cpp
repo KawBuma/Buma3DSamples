@@ -15,12 +15,11 @@ PlatformWindows::PlatformWindows(HINSTANCE   _h_instance,
     , cmdline       { util::ConvertWideToAnsi(_lp_cmdline) }
     , num_cmdshow   { _n_cmdshow } 
 {
-    Prepare();
 }
 
 PlatformWindows::~PlatformWindows()
 {
-
+    Prepare();
 }
 
 int PlatformWindows::MainLoop()
@@ -41,11 +40,16 @@ int PlatformWindows::MainLoop()
 
 bool PlatformWindows::Prepare()
 {
-    auto res = PrepareWindow();
+    if (!PrepareWindow()) return false;
     device_resources = std::make_shared<DeviceResources>();
-    device_resources->Init();
+
+    // FIXME: INTERNAL_API_TYPE type = INTERNAL_API_TYPE_D3D12;
+    INTERNAL_API_TYPE type = INTERNAL_API_TYPE_D3D12;
+    if (!device_resources->Init(type)) return false;
+
     app->Prepare(*this);
-    return res;
+
+    return true;
 }
 
 bool PlatformWindows::PrepareWindow()

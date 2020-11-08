@@ -41,7 +41,6 @@ private:
 
 };
 
-
 void B3D_APIENTRY DeviceResources::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVERITY _sev, buma3d::DEBUG_MESSAGE_CATEGORY_FLAG _category, const buma3d::Char8T* const _msg, void* _user_data)
 {
     static const char* SEVERITIES[]
@@ -106,13 +105,18 @@ void B3D_APIENTRY DeviceResources::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVE
 }
 
 DeviceResources::DeviceResources()
-    : device                {}
+    : b3d_module            {}
+    , pfn                   {}
+    , type                  {}
+    , factory               {}
+    , adapter               {}
+    , device                {}
     , cmd_queues            {}
-    , gpu_wait_fence        {}
-    , gpu_wait_fence_val    {}
-    , fence_submit_desc     {}
-    //, gpu_timer_pools       {}
-    //, my_imugi              {}
+    //, gpu_timer_pools     {}
+    //, my_imugi            {}
+    , console_session       {}
+    , queue_props           {}
+    , shader_laoder         {}
 {
 
 }
@@ -120,26 +124,54 @@ DeviceResources::DeviceResources()
 DeviceResources::~DeviceResources()
 {
     WaitForGpu();
+    UninitB3D();
 }
 
-bool DeviceResources::Init()
+bool DeviceResources::Init(INTERNAL_API_TYPE _type)
 {
-    if (!InitB3D())             return false;
+    if (!InitB3D(_type))        return false;
     if (!PickAdapter())         return false;
     if (!CreateDevice())        return false;
     if (!GetCommandQueues())    return false;
     if (!CreateMyImGui())       return false;
+    shader_laoder = std::make_unique<shader::ShaderLoader>(type);
 
     return true;
 }
 
-bool DeviceResources::InitB3D()
+bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type)
 {
     buma3d::ALLOCATOR_DESC desc{};
     desc.is_enable_allocator_debug = false;
     desc.custom_allocator          = nullptr;
 
-    auto bmr = buma3d::Buma3DInitialize(desc);
+#ifdef _DEBUG
+    const char* BUILD = "_Debug.dll";
+#else
+    const char* BUILD = "_Release.dll";
+#endif // _DEBUG
+
+    switch (_type)
+    {
+    case buma::INTERNAL_API_TYPE_D3D12:
+        b3d_module = LoadLibraryA((std::string("Buma3D_D3D12_DLL") + BUILD).c_str());
+        break;
+
+    case buma::INTERNAL_API_TYPE_VULKAN:
+        b3d_module = LoadLibraryA((std::string("Buma3D_Vulkan_DLL") + BUILD).c_str());
+        break;
+
+    default:
+        break;
+    }
+    assert(b3d_module != NULL);
+
+    pfn.Buma3DInitialize               = (buma3d::PFN_Buma3DInitialize)              GetProcAddress(b3d_module, "Buma3DInitialize");
+    pfn.Buma3DGetInternalHeaderVersion = (buma3d::PFN_Buma3DGetInternalHeaderVersion)GetProcAddress(b3d_module, "Buma3DGetInternalHeaderVersion");
+    pfn.Buma3DCreateDeviceFactory      = (buma3d::PFN_Buma3DCreateDeviceFactory)     GetProcAddress(b3d_module, "Buma3DCreateDeviceFactory");
+    pfn.Buma3DUninitialize             = (buma3d::PFN_Buma3DUninitialize)            GetProcAddress(b3d_module, "Buma3DUninitialize");
+
+    auto bmr = pfn.Buma3DInitialize(desc);
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
@@ -153,7 +185,9 @@ bool DeviceResources::PickAdapter()
 
     if (fac_desc.debug.is_enable)
     {
-        fac_desc.debug.debug_message_callback.user_data = (console_session = std::make_shared<ConsoleSession>()).get();
+        console_session = std::make_shared<ConsoleSession>();
+        console_session->Begin();
+        fac_desc.debug.debug_message_callback.user_data = console_session.get();
         fac_desc.debug.debug_message_callback.Callback  = B3DMessageCallback;
     }
     buma3d::DEBUG_MESSAGE_DESC descs[buma3d::DEBUG_MESSAGE_SEVERITY_END]{};
@@ -172,12 +206,22 @@ bool DeviceResources::PickAdapter()
     fac_desc.debug.gpu_based_validation.flags     = buma3d::GPU_BASED_VALIDATION_FLAG_NONE;
 
     // 作成
-    auto bmr = buma3d::Buma3DCreateDeviceFactory(fac_desc, &factory);
+    auto bmr = pfn.Buma3DCreateDeviceFactory(fac_desc, &factory);
     if (bmr != buma3d::BMRESULT_SUCCEED)
         return false;
 
-    bmr = factory->EnumAdapters(0, &adapter);
-    return bmr == buma3d::BMRESULT_SUCCEED;
+    // 高パフォーマンスアダプタを取得
+    size_t cnt = 0;
+    uint64_t max_vram = 0;
+    buma3d::util::Ptr<buma3d::IDeviceAdapter> adapter_tmp{};
+    while (factory->EnumAdapters(cnt++, &adapter_tmp) != buma3d::BMRESULT_FAILED_OUT_OF_RANGE)
+    {
+        auto&& desc = adapter_tmp->GetDesc();
+        if (max_vram < desc.dedicated_video_memory)
+            adapter = adapter_tmp;
+    }
+
+    return true;
 }
 
 bool DeviceResources::CreateDevice()
@@ -236,26 +280,33 @@ bool DeviceResources::CreateMyImGui()
     return false;
 }
 
+void DeviceResources::UninitB3D()
+{
+    if (!b3d_module)
+        return;
+
+    //gpu_timer_pools.reset();
+    //my_imugi.reset();
+
+    for (auto& i_que : cmd_queues)
+        for (auto& i : i_que)
+            i.Reset();
+
+    device.Reset();
+    adapter.Reset();
+    factory.Reset();
+
+    console_session.reset();
+
+    pfn.Buma3DUninitialize();
+
+    FreeLibrary(b3d_module);
+    b3d_module = NULL;
+}
+
 bool DeviceResources::WaitForGpu()
 {
-    // 全てのコマンドキューの実行を待機する。
-    bool result = true;
-    for (size_t i = 0; i < size_t(buma3d::COMMAND_TYPE_NUM_TYPES); i++)
-    {        
-        for (auto& i_que : cmd_queues[i])
-        {
-            fence_submit_desc.Reset();
-            fence_submit_desc.AddFence(gpu_wait_fence.Get(), gpu_wait_fence_val.signal());
-            i_que->SubmitSignal(fence_submit_desc.GetAsSignal());
-
-            ++gpu_wait_fence_val;
-            auto bmr = gpu_wait_fence->Wait(gpu_wait_fence_val.wait(), UINT32_MAX);
-
-            if (bmr != buma3d::BMRESULT_SUCCEED)
-                result = false;
-        }
-    }
-    return result;
+    return device->WaitIdle() == buma3d::BMRESULT_SUCCEED;
 }
 
 

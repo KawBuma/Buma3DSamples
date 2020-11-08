@@ -20,7 +20,6 @@ public:
 
 protected:
     bool Prepare() override;
-
     bool PrepareWindow() override;
 
 private:
