@@ -3,28 +3,24 @@
 namespace buma
 {
 
-class SampleAppBase : ApplicationBase
+class SampleAppBase : public ApplicationBase
 {
 public:
-    SampleAppBase()
-        : ApplicationBase()
-    {
-    }
+    SampleAppBase();
+    virtual ~SampleAppBase();
 
-    virtual ~SampleAppBase()
-    {
-    }
+    static SampleAppBase* Create();
 
-    // void Prepare(PlatformBase& _platform) {}
+    void Prepare(PlatformBase& _platform) {}
 
-    // void Init() override {}
+    void Init() override {}
     virtual void LoadAssets() {}
 
-    // void Tick() override {}
+    void Tick() override {}
     virtual void Update() {}
     virtual void Render() {}
 
-    // void Term() override {}
+    void Term() override {}
 
 private:
 

@@ -55,17 +55,8 @@ protected:
     void UninitB3D();
 
 private:
-    struct B3D_PFN
-    {
-        buma3d::PFN_Buma3DInitialize                Buma3DInitialize;
-        buma3d::PFN_Buma3DGetInternalHeaderVersion  Buma3DGetInternalHeaderVersion;
-        buma3d::PFN_Buma3DCreateDeviceFactory       Buma3DCreateDeviceFactory;
-        buma3d::PFN_Buma3DUninitialize              Buma3DUninitialize;
-    };
-
-private:
-    HMODULE                                                 b3d_module;
-    B3D_PFN                                                 pfn;
+    struct B3D_PFN;
+    std::unique_ptr<B3D_PFN>                                pfn;
     INTERNAL_API_TYPE                                       type;
     buma3d::util::Ptr<buma3d::IDeviceFactory>               factory;
     buma3d::util::Ptr<buma3d::IDeviceAdapter>               adapter;

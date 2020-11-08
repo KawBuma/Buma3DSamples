@@ -12,6 +12,12 @@ namespace buma
 namespace shader
 {
 
+ShaderLoader::ShaderLoader(INTERNAL_API_TYPE _type)
+    : type{ _type }
+{
+
+}
+
 void ShaderLoader::LoadShaderFromBinary(const char* _filename, std::vector<uint8_t>* _dst)
 {
     std::ifstream file(_filename, std::ios::in | std::ios::binary);

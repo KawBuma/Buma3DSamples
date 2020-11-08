@@ -65,7 +65,7 @@ struct LOAD_SHADER_DESC
 class ShaderLoader
 {
 public:
-    ShaderLoader(INTERNAL_API_TYPE _type) : type{ _type } {}
+    ShaderLoader(INTERNAL_API_TYPE _type);
     ~ShaderLoader() {}
 
     void LoadShaderFromBinary(const char* _filename, std::vector<uint8_t>* _dst);

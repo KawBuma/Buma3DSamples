@@ -31,6 +31,7 @@
 #include "StepTimer.h"
 
 #include "Utils.h"
+#include "Utils.h"
 #include "DeviceResources.h"
 
 #include "Application.h"

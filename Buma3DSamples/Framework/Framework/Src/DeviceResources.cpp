@@ -4,6 +4,48 @@
 namespace buma
 {
 
+namespace /*anonymous*/
+{
+
+std::string GetCurrentDir()
+{
+    char c_dir[MAX_PATH];
+    memset(c_dir, 0, sizeof(c_dir));
+
+    GetCurrentDirectoryA(MAX_PATH, c_dir);
+    return std::string(c_dir);
+}
+
+void ConvertBackShashToSlash(std::string* _str)
+{
+    auto&& str = *_str;
+    auto pos = str.find('\\');
+    if (pos != std::string::npos)
+    {
+        while (pos != std::string::npos)
+        {
+            str[pos] = '/';
+            pos = str.find('\\');
+        }
+    }
+}
+
+void ConvertSlashToBackShash(std::string* _str)
+{
+    auto&& str = *_str;
+    auto pos = str.find('/');
+    if (pos != std::string::npos)
+    {
+        while (pos != std::string::npos)
+        {
+            str[pos] = '\\';
+            pos = str.find('/');
+        }
+    }
+}
+
+}
+
 class ConsoleSession
 {
 public:
@@ -39,6 +81,15 @@ public:
 private:
     FILE*         stream;
 
+};
+
+struct DeviceResources::B3D_PFN
+{
+    HMODULE                                     b3d_module;
+    buma3d::PFN_Buma3DInitialize                Buma3DInitialize;
+    buma3d::PFN_Buma3DGetInternalHeaderVersion  Buma3DGetInternalHeaderVersion;
+    buma3d::PFN_Buma3DCreateDeviceFactory       Buma3DCreateDeviceFactory;
+    buma3d::PFN_Buma3DUninitialize              Buma3DUninitialize;
 };
 
 void B3D_APIENTRY DeviceResources::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVERITY _sev, buma3d::DEBUG_MESSAGE_CATEGORY_FLAG _category, const buma3d::Char8T* const _msg, void* _user_data)
@@ -104,9 +155,8 @@ void B3D_APIENTRY DeviceResources::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVE
     E();
 }
 
-DeviceResources::DeviceResources()
-    : b3d_module            {}
-    , pfn                   {}
+DeviceResources::DeviceResources()    
+    : pfn                   {}
     , type                  {}
     , factory               {}
     , adapter               {}
@@ -141,37 +191,57 @@ bool DeviceResources::Init(INTERNAL_API_TYPE _type)
 
 bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type)
 {
+    pfn = std::make_unique<B3D_PFN>();
+
     buma3d::ALLOCATOR_DESC desc{};
     desc.is_enable_allocator_debug = false;
     desc.custom_allocator          = nullptr;
 
+    auto path = GetCurrentDir();
+    ConvertBackShashToSlash(&path);
+
 #ifdef _DEBUG
+    const char* CONFIG = "Debug";
     const char* BUILD = "_Debug.dll";
 #else
+    const char* CONFIG = "Release";
     const char* BUILD = "_Release.dll";
 #endif // _DEBUG
+    path += "/External/Buma3D/Project/";
 
     switch (_type)
     {
     case buma::INTERNAL_API_TYPE_D3D12:
-        b3d_module = LoadLibraryA((std::string("Buma3D_D3D12_DLL") + BUILD).c_str());
+        path += "D3D12/v16/DLLBuild/";
+        path += CONFIG;
+        path += "/x64/Out/";
+        path = path + "Buma3D_D3D12_DLL" + BUILD;
+        ConvertSlashToBackShash(&path);
+        pfn->b3d_module = LoadLibraryA(path.c_str());
+        //pfn->b3d_module = LoadLibraryA((std::string("Buma3D_D3D12_DLL") + BUILD).c_str());
         break;
 
     case buma::INTERNAL_API_TYPE_VULKAN:
-        b3d_module = LoadLibraryA((std::string("Buma3D_Vulkan_DLL") + BUILD).c_str());
+        path += "Vulkan/v16/DLLBuild/";
+        path += CONFIG;
+        path += "/x64/Out/";
+        path = path + "Buma3D_Vulkan_DLL" + BUILD;
+        ConvertSlashToBackShash(&path);
+        pfn->b3d_module = LoadLibraryA(path.c_str());
+        //pfn->b3d_module = LoadLibraryA((std::string("Buma3D_Vulkan_DLL") + BUILD).c_str());
         break;
 
     default:
         break;
     }
-    assert(b3d_module != NULL);
+    assert(pfn->b3d_module != NULL);
 
-    pfn.Buma3DInitialize               = (buma3d::PFN_Buma3DInitialize)              GetProcAddress(b3d_module, "Buma3DInitialize");
-    pfn.Buma3DGetInternalHeaderVersion = (buma3d::PFN_Buma3DGetInternalHeaderVersion)GetProcAddress(b3d_module, "Buma3DGetInternalHeaderVersion");
-    pfn.Buma3DCreateDeviceFactory      = (buma3d::PFN_Buma3DCreateDeviceFactory)     GetProcAddress(b3d_module, "Buma3DCreateDeviceFactory");
-    pfn.Buma3DUninitialize             = (buma3d::PFN_Buma3DUninitialize)            GetProcAddress(b3d_module, "Buma3DUninitialize");
+    pfn->Buma3DInitialize               = (buma3d::PFN_Buma3DInitialize)              GetProcAddress(pfn->b3d_module, "Buma3DInitialize");
+    pfn->Buma3DGetInternalHeaderVersion = (buma3d::PFN_Buma3DGetInternalHeaderVersion)GetProcAddress(pfn->b3d_module, "Buma3DGetInternalHeaderVersion");
+    pfn->Buma3DCreateDeviceFactory      = (buma3d::PFN_Buma3DCreateDeviceFactory)     GetProcAddress(pfn->b3d_module, "Buma3DCreateDeviceFactory");
+    pfn->Buma3DUninitialize             = (buma3d::PFN_Buma3DUninitialize)            GetProcAddress(pfn->b3d_module, "Buma3DUninitialize");
 
-    auto bmr = pfn.Buma3DInitialize(desc);
+    auto bmr = pfn->Buma3DInitialize(desc);
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
@@ -206,7 +276,7 @@ bool DeviceResources::PickAdapter()
     fac_desc.debug.gpu_based_validation.flags     = buma3d::GPU_BASED_VALIDATION_FLAG_NONE;
 
     // 作成
-    auto bmr = pfn.Buma3DCreateDeviceFactory(fac_desc, &factory);
+    auto bmr = pfn->Buma3DCreateDeviceFactory(fac_desc, &factory);
     if (bmr != buma3d::BMRESULT_SUCCEED)
         return false;
 
@@ -277,12 +347,12 @@ bool DeviceResources::GetCommandQueues()
 bool DeviceResources::CreateMyImGui()
 {
     // TODO: ImGui
-    return false;
+    return true;
 }
 
 void DeviceResources::UninitB3D()
 {
-    if (!b3d_module)
+    if (!pfn || !pfn->b3d_module)
         return;
 
     //gpu_timer_pools.reset();
@@ -298,10 +368,11 @@ void DeviceResources::UninitB3D()
 
     console_session.reset();
 
-    pfn.Buma3DUninitialize();
+    pfn->Buma3DUninitialize();
 
-    FreeLibrary(b3d_module);
-    b3d_module = NULL;
+    FreeLibrary(pfn->b3d_module);
+    pfn->b3d_module = NULL;
+    pfn.reset();
 }
 
 bool DeviceResources::WaitForGpu()

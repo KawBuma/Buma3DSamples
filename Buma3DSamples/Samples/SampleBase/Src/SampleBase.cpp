@@ -1,5 +1,24 @@
-// SampleBase.cpp : スタティック ライブラリ用の関数を定義します。
-//
-
 #include "pch.h"
+#include "SampleBase.h"
 
+namespace buma
+{
+
+SampleAppBase::SampleAppBase()
+    : ApplicationBase()
+{
+
+}
+
+SampleAppBase::~SampleAppBase()
+{
+
+}
+
+SampleAppBase* SampleAppBase::Create()
+{
+    return new SampleAppBase();
+}
+
+
+}// namespace buma

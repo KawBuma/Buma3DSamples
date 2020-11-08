@@ -28,22 +28,20 @@ class PlatformWindows;
 class WindowWindows : public WindowBase
 {
 public:
-    inline static constexpr const wchar_t* WND_CLASS_NAME = L"Buma3DSamples Framework";
-
-public:
     WindowWindows(PlatformWindows&                  _platform,
+                  WNDCLASSEXW&                      _wnd_class,
                   uint32_t                          _back_buffer_count,
                   const buma3d::EXTENT2D&           _size,
                   const char*                       _window_name,
-                  buma3d::RESOURCE_FORMAT           _format          = buma3d::RESOURCE_FORMAT_UNKNOWN,
+                  buma3d::RESOURCE_FORMAT           _format          = buma3d::RESOURCE_FORMAT_B8G8R8A8_UNORM,
                   buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags    = buma3d::FRAMEBUFFER_FLAG_NONE,
                   buma3d::SWAP_CHAIN_FLAGS          _swapchain_flags = buma3d::SWAP_CHAIN_FLAG_NONE);
 
     WindowWindows(const WindowWindows&) = delete;
-    ~WindowWindows();
+    virtual ~WindowWindows();
     
     virtual bool Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags = buma3d::SWAP_CHAIN_FLAG_NONE) override;
-    friend static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
+    static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
 
     bool ProcessMessage() override;
     bool Exit() override;
@@ -60,19 +58,19 @@ protected:
               buma3d::SWAP_CHAIN_FLAGS          _swapchain_flags    = buma3d::SWAP_CHAIN_FLAG_NONE) override;
 
 private:
-    bool RegisterWndClass();
     bool CreateWnd(uint32_t _width, uint32_t _height);
     bool CreateSurface();
     bool CreateSwapChain();
 
 private:
     PlatformWindows&                    platform;
-    WNDCLASSEXW                         wnd_class;
+    const WNDCLASSEXW&                  wnd_class;
     HWND                                hwnd;
     std::string                         wnd_name;
     WINDOW_STATE_FLAGS                  window_state_flags;
     buma3d::EXTENT2D                    windowed_size;
     float                               aspect_ratio;
+    MSG                                 msg;
 
     buma3d::SWAP_CHAIN_DESC                             swapchain_desc;
     std::vector<buma3d::SURFACE_FORMAT>                 supported_formats;

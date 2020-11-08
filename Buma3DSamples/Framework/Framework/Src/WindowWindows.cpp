@@ -7,6 +7,7 @@ namespace buma
 static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
 
 WindowWindows::WindowWindows(PlatformWindows&                  _platform,
+                             WNDCLASSEXW&                      _wnd_class,
                              uint32_t                          _back_buffer_count,
                              const buma3d::EXTENT2D&           _size,
                              const char*                       _window_name,
@@ -15,12 +16,13 @@ WindowWindows::WindowWindows(PlatformWindows&                  _platform,
                              buma3d::SWAP_CHAIN_FLAGS          _swapchain_flags)
     : WindowBase            ()
     , platform              { _platform }
-    , wnd_class             {}
+    , wnd_class             { _wnd_class }
     , hwnd                  {}
-    , wnd_name              {}
+    , wnd_name              { _window_name }
     , window_state_flags    {}
-    , windowed_size         {}
+    , windowed_size         { _size }
     , aspect_ratio          {}
+    , msg                   {}
     , swapchain_desc        {}
     , supported_formats     {}
     , back_buffers          {}
@@ -40,6 +42,9 @@ bool WindowWindows::Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLA
     windowed_size = _size;
     aspect_ratio = float(_size.width) / float(_size.height);
 
+    if (!swapchain)
+        return false;
+
     swapchain_desc = swapchain->GetDesc();
     swapchain_desc.buffer.width  = windowed_size.width;
     swapchain_desc.buffer.height = windowed_size.height;
@@ -50,7 +55,8 @@ bool WindowWindows::Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLA
 
 bool WindowWindows::ProcessMessage()
 {
-    MSG msg{};
+    window_state_flags &= ~WINDOW_STATE_FLAG_ACTIVATED;
+    window_state_flags &= ~WINDOW_STATE_FLAG_DEACTIVATED;
     if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
     {
         TranslateMessage(&msg);
@@ -87,33 +93,11 @@ bool WindowWindows::Init(PlatformBase&                      _platform,
     swapchain_desc.alpha_mode                   = buma3d::SWAP_CHAIN_ALPHA_MODE_DEFAULT;
     swapchain_desc.flags                        = _swapchain_flags;
 
-    if (!RegisterWndClass())                    return false;
     if (!CreateWnd(_size.width, _size.height))  return false;
     if (!CreateSurface())                       return false;
     if (!CreateSwapChain())                     return false;
 
     return true;
-}
-
-bool WindowWindows::RegisterWndClass()
-{
-    SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-
-    wnd_class.cbSize            = sizeof(WNDCLASSEXW);
-    wnd_class.style             = CS_HREDRAW | CS_VREDRAW;
-    wnd_class.lpfnWndProc       = WndProc;
-    wnd_class.cbClsExtra        = 0;
-    wnd_class.cbWndExtra        = 0;
-    wnd_class.hInstance         = platform.GetHinstance();
-    wnd_class.hIcon             = LoadIcon(wnd_class.hInstance, MAKEINTRESOURCE(IDI_APPLICATION));
-    wnd_class.hCursor           = LoadCursor(nullptr, IDC_ARROW);
-    wnd_class.hbrBackground     = (HBRUSH)(COLOR_WINDOW + 1);
-    wnd_class.lpszMenuName      = nullptr;
-    wnd_class.lpszClassName     = WND_CLASS_NAME;
-    wnd_class.hIconSm           = LoadIcon(wnd_class.hInstance, MAKEINTRESOURCE(IDI_APPLICATION));
-
-    auto res =  RegisterClassEx(&wnd_class);
-    return res != 0;
 }
 
 bool WindowWindows::CreateWnd(uint32_t _width, uint32_t _height)
@@ -122,21 +106,18 @@ bool WindowWindows::CreateWnd(uint32_t _width, uint32_t _height)
     AdjustWindowRect(&window_rect, WS_OVERLAPPEDWINDOW, FALSE);
 
     hwnd = CreateWindowEx(0
-                          , WND_CLASS_NAME, util::ConvertAnsiToWide(wnd_name).c_str()
+                          , wnd_class.lpszClassName, util::ConvertAnsiToWide(wnd_name).c_str()
                           , WS_OVERLAPPEDWINDOW
                           , CW_USEDEFAULT, CW_USEDEFAULT
                           , window_rect.right - window_rect.left
                           , window_rect.bottom - window_rect.top
                           , nullptr, nullptr
-                          , platform.GetHinstance(), reinterpret_cast<void*>(&platform));
+                          , platform.GetHinstance(), reinterpret_cast<void*>(this));
 
     if (!hwnd)
         return false;
 
     input::MouseInput::GetIns().SetWindow(hwnd);
-
-    ShowWindow(hwnd, SW_SHOW);
-    SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&platform));
 
     return true;
 }
@@ -162,13 +143,13 @@ bool WindowWindows::CreateSwapChain()
         supported_formats.resize(surface->GetSupportedSurfaceFormats(nullptr));
         surface->GetSupportedSurfaceFormats(supported_formats.data());
 
-        auto&& it_find = std::find_if(supported_formats.begin(), supported_formats.end(),[this](const buma3d::SURFACE_FORMAT& _format)
+        auto it_find = std::find_if(supported_formats.begin(), supported_formats.end(),[this](const buma3d::SURFACE_FORMAT& _format)
         {
             return _format.format      == swapchain_desc.buffer.format_desc.format &&
                    _format.color_space == swapchain_desc.color_space;
         });
 
-        if (it_find != supported_formats.end())
+        if (it_find == supported_formats.end())
             sfs_format = supported_formats[0];
         else
             sfs_format = *it_find;
@@ -191,7 +172,7 @@ bool WindowWindows::CreateSwapChain()
         swapchain_desc.present_queues               = queues;
 
         auto bmr = dr->GetDevice()->CreateSwapChain(swapchain_desc, &swapchain);
-        if (bmr == buma3d::BMRESULT_FAILED)
+        if (bmr >= buma3d::BMRESULT_FAILED)
             return false;
 
         swapchain->SetName("SwapChain");
@@ -204,7 +185,7 @@ bool WindowWindows::CreateSwapChain()
         for (uint32_t i = 0; i < scd.buffer.count; i++)
         {
             auto bmr = swapchain->GetBuffer(i, &back_buffers[i]);
-            if (bmr == buma3d::BMRESULT_FAILED)
+            if (bmr >= buma3d::BMRESULT_FAILED)
                 return false;
 
             back_buffers[i]->SetName((std::string("SwapChain buffer") + std::to_string(i)).c_str());
@@ -215,7 +196,7 @@ bool WindowWindows::CreateSwapChain()
 }
 
 
-static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam)
+LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam)
 {
     // if (myimgui->WndProcHandler(_hwnd, _message, _wparam, _lparam))
     //     return true;
@@ -224,8 +205,6 @@ static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARA
     input::MouseInput::ProcessMessage(_message, _wparam, _lparam);
 
     auto fw = reinterpret_cast<WindowWindows*>(GetWindowLongPtr(_hwnd, GWLP_USERDATA));
-    fw->window_state_flags &= ~WINDOW_STATE_FLAG_ACTIVATED;
-    fw->window_state_flags &= ~WINDOW_STATE_FLAG_DEACTIVATED;
 
     switch (_message)
     {
@@ -277,8 +256,7 @@ static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARA
     {
         if (fw)
             fw->Exit();
-        else
-            PostQuitMessage(0);
+        PostQuitMessage(0);
         break;
     }
     case WM_ACTIVATEAPP:
@@ -294,11 +272,14 @@ static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARA
     }
     case WM_CREATE:
     {
+        LPCREATESTRUCT create_struct = reinterpret_cast<LPCREATESTRUCT>(_lparam);
+        SetWindowLongPtr(_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create_struct->lpCreateParams));
         SetWindowLongPtr(_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
         SetWindowLongPtr(_hwnd, GWL_EXSTYLE, 0);
 
-        int width = fw->windowed_size.width;
-        int height = fw->windowed_size.height;
+        auto lpfw = reinterpret_cast<WindowWindows*>(create_struct->lpCreateParams);
+        int width = lpfw->windowed_size.width;
+        int height = lpfw->windowed_size.height;
 
         //fw->OnWindowSizeChanged(width, height);
         ShowWindow(_hwnd, SW_SHOWNORMAL);

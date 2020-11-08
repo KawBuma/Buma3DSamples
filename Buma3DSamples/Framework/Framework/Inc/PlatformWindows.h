@@ -6,23 +6,26 @@ namespace buma
 class PlatformWindows : public PlatformBase
 {
 public:
-    PlatformWindows(HINSTANCE   _h_instance,
-                    HINSTANCE   _h_previnstance,
-                    LPWSTR      _lp_cmdline,
-                    int         _n_cmdshow);
+    inline static constexpr const wchar_t* CLASS_NAME = L"Buma3DSamples Framework";
 
-    ~PlatformWindows();
+public:
+    PlatformWindows();
+    virtual ~PlatformWindows();
 
     int MainLoop() override;
 
     HINSTANCE GetHinstance() const { return hins; }
 
+    bool Init(const PLATFORM_DESC& _desc) override;
+    bool Term() override;
 
 protected:
-    bool Prepare() override;
+    bool PrepareDeviceResources() override;
     bool PrepareWindow() override;
+    bool RegisterWndClass();
 
 private:
+    WNDCLASSEXW                     wnd_class;
     HINSTANCE                       hins;
     HINSTANCE                       prev_hins;
     std::string                     cmdline;

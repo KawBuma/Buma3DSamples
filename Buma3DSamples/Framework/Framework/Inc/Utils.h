@@ -1,4 +1,8 @@
 #pragma once
+#include <string>
+#include <sstream>
+#include <iomanip>
+#include "Util/Buma3DPtr.h"
 
 namespace buma
 {
@@ -76,10 +80,10 @@ public:
             if (data)
                 data[_index] = _src;
         }
-        bool WriteRaw(const void* _src, size_t _size)
+        bool WriteRaw(size_t _offset, const void* _src, size_t _size)
         {
             if (data)
-                memcpy((void*)data, _src, _size);
+                memcpy((uint8_t*)data + _offset, _src, _size);
         }
 
     private:
