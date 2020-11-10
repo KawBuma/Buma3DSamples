@@ -7,10 +7,13 @@ namespace buma
 {
 
 PlatformWindows::PlatformWindows()
-    : hins          {}
-    , prev_hins     {} 
-    , cmdline       {}
-    , num_cmdshow   {} 
+    : PlatformBase      ()
+    , wnd_class         {}
+    , hins              {}
+    , prev_hins         {}
+    , cmdline           {}
+    , num_cmdshow       {}
+    , window_windows    {}
 {
 }
 

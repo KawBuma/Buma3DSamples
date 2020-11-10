@@ -11,9 +11,8 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
                       _In_     int       nCmdShow      )
 {
     int code = -1;
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     {
-        _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-
         auto platform = buma::CreatePlatform();
         {
             auto app = std::shared_ptr<buma::SampleAppBase>(buma::SampleAppBase::Create());
@@ -30,8 +29,6 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
         }
         buma::DestroyPlatform(platform);
         platform = nullptr;
-
-        _CrtDumpMemoryLeaks();
     }
 
     return code;
