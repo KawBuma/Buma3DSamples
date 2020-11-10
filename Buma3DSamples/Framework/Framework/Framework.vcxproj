@@ -117,6 +117,7 @@
     <ClInclude Include="Inc\Application.h" />
     <ClInclude Include="Inc\DeviceResources.h" />
     <ClInclude Include="Inc\Framework.h" />
+    <ClInclude Include="Inc\ImmediateContext.h" />
     <ClInclude Include="Inc\Platform.h" />
     <ClInclude Include="Inc\PlatformWindows.h" />
     <ClInclude Include="Inc\ShaderLoader.h" />

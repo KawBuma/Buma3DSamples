@@ -59,5 +59,6 @@
 
 #include "ShaderLoader.h"
 
+#include "ImmediateContext.h"
 
 #endif //PCH_H

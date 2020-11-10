@@ -85,5 +85,8 @@
     <ClInclude Include="Inc\DeviceResources.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="Inc\ImmediateContext.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
