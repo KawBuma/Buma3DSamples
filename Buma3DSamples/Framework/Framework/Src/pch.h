@@ -26,13 +26,15 @@
 #include "Buma3D.h"
 #include "Util/Buma3DPtr.h"
 
+#include "B3DInit.h"
+
 #define NOMINMAX
 //#include "DeviceResources.h"
 #include "StepTimer.h"
 
 #include "Utils.h"
-#include "Utils.h"
 #include "DeviceResources.h"
+#include "SwapChain.h"
 
 #include "Application.h"
 #include "Platform.h"

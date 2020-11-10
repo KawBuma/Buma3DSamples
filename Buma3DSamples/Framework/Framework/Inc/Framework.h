@@ -5,6 +5,7 @@
 #include "StepTimer.h"
 #include "Utils.h"
 #include "DeviceResources.h"
+#include "SwapChain.h"
 #include "Platform.h"
 #include "Window.h"
 #include "Application.h"

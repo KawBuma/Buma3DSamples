@@ -11,9 +11,9 @@ public:
 
     static SampleAppBase* Create();
 
-    void Prepare(PlatformBase& _platform) {}
+    bool Prepare(PlatformBase& _platform) override { return true; }
 
-    void Init() override {}
+    bool Init() override { return true; }
     virtual void LoadAssets() {}
 
     void Tick() override {}

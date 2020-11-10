@@ -14,9 +14,9 @@ public:
 
     std::shared_ptr<DeviceResources> GetDeviceResources() const { return dr; }
 
-    virtual void Prepare(PlatformBase& _platform) = 0;
+    virtual bool Prepare(PlatformBase& _platform) = 0;
 
-    virtual void Init() = 0;
+    virtual bool Init() = 0;
     virtual void Tick() = 0;
     virtual void Term() = 0;
 

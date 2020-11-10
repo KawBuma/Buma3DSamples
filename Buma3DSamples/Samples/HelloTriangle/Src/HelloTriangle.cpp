@@ -30,8 +30,10 @@ HelloTriangle* HelloTriangle::Create()
 void HelloTriangle::Prepare(PlatformBase& _platform)
 {
     platform     = &_platform;
-    deivce       = dr->GetDevice();
+    device       = dr->GetDevice();
     back_buffers = &platform->GetWindow()->GetBuffers();
+    platform->GetWindow()->Resize();
+
 }
 
 void HelloTriangle::Init()

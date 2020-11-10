@@ -26,9 +26,9 @@ private:
     PlatformBase*                                           platform;
     buma3d::util::Ptr<buma3d::IDevice>                      device;
 
-    const std::vector<buma::WindowBase::SWAP_CHAIN_BUFFER>* back_buffers;
-    buma3d::util::Ptr<buma3d::ISwapChain>                   swapchain;
     buma3d::SURFACE_FORMAT                                  sfs_format;
+    buma3d::util::Ptr<buma3d::ISwapChain>                   swapchain;
+    const std::vector<buma::WindowBase::SWAP_CHAIN_BUFFER>* back_buffers;
 
     Ptr<b::IRootSignature> signature;
 

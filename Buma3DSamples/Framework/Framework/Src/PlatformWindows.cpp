@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "PlatformWindows.h"
 
+#include <shellapi.h>
+
 #include <memory>
 
 namespace buma
@@ -14,6 +16,7 @@ PlatformWindows::PlatformWindows()
     , cmdline           {}
     , num_cmdshow       {}
     , window_windows    {}
+    , execution_path    {}
 {
 }
 
@@ -34,11 +37,9 @@ int PlatformWindows::MainLoop()
 
 bool PlatformWindows::Init(const PLATFORM_DESC& _desc)
 {
-    if (!app)
-        return false;
-
-    if (_desc.type != PLATFORM_TYPE_WINDOWS)
-        return false;
+    if (_desc.type != PLATFORM_TYPE_WINDOWS) return false;
+    if (!ParseCommandLines(_desc))           return false;
+    if (!app)                                return false;
 
     auto dat = reinterpret_cast<const PLATFORM_DATA_WINDOWS*>(_desc.data);
     hins        = (HINSTANCE)dat->hInstance;
@@ -46,9 +47,9 @@ bool PlatformWindows::Init(const PLATFORM_DESC& _desc)
     cmdline     = util::ConvertWideToAnsi(dat->lpCmdLine);
     num_cmdshow = dat->nCmdShow;
 
-    if (!RegisterWndClass())       return false;
-    if (!PrepareDeviceResources()) return false;
-    if (!PrepareWindow())          return false;
+    if (!RegisterWndClass())                return false;
+    if (!PrepareDeviceResources())          return false;
+    if (!PrepareWindow(_desc.window_desc))  return false;
 
     app->Prepare(*this);
 
@@ -70,6 +71,23 @@ bool PlatformWindows::Term()
     return true;
 }
 
+bool PlatformWindows::ParseCommandLines(const PLATFORM_DESC& _desc)
+{
+    auto dat = reinterpret_cast<const PLATFORM_DATA_WINDOWS*>(_desc.data);
+
+	int  argc{};
+	auto argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    execution_path = std::move(util::ConvertWideToAnsi(argv[0]));
+    for (size_t i = 1; i < argc; i++)
+    {
+        cmd_lines.emplace_back(
+            std::make_unique<std::string>(
+                std::move(util::ConvertWideToAnsi(argv[i]))));
+    }
+
+    return true;
+}
+
 bool PlatformWindows::PrepareDeviceResources()
 {
     device_resources = std::make_shared<DeviceResources>();
@@ -81,11 +99,9 @@ bool PlatformWindows::PrepareDeviceResources()
     return true;
 }
 
-bool PlatformWindows::PrepareWindow()
+bool PlatformWindows::PrepareWindow(const WINDOW_DESC& _desc)
 {
-    window_windows = std::make_shared<WindowWindows>(*this, wnd_class, 3, buma3d::EXTENT2D{ 1280,720 }, "Buma3DSample",
-                                                     buma3d::RESOURCE_FORMAT_B8G8R8A8_UNORM,
-                                                     buma3d::SWAP_CHAIN_BUFFER_FLAG_COPY_DST | buma3d::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT);
+    window_windows = std::make_shared<WindowWindows>(*this, wnd_class, _desc);
     window = window_windows;
 
     return true;
@@ -111,5 +127,6 @@ bool PlatformWindows::RegisterWndClass()
     auto res =  RegisterClassEx(&wnd_class);
     return res != 0;
 }
+
 
 }// namespace buma

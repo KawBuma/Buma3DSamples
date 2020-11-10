@@ -4,30 +4,23 @@
 namespace buma
 {
 
-static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
-
-WindowWindows::WindowWindows(PlatformWindows&                  _platform,
-                             WNDCLASSEXW&                      _wnd_class,
-                             uint32_t                          _back_buffer_count,
-                             const buma3d::EXTENT2D&           _size,
-                             const char*                       _window_name,
-                             buma3d::RESOURCE_FORMAT           _format,
-                             buma3d::SWAP_CHAIN_BUFFER_FLAGS   _buffer_flags,
-                             buma3d::SWAP_CHAIN_FLAGS          _swapchain_flags)
+WindowWindows::WindowWindows(PlatformWindows&           _platform,
+                             WNDCLASSEXW&               _wnd_class,
+                             const WINDOW_DESC&         _desc)
     : WindowBase            ()
     , platform              { _platform }
     , wnd_class             { _wnd_class }
     , hwnd                  {}
-    , wnd_name              { _window_name }
+    , wnd_name              { _desc.name }
     , window_state_flags    {}
-    , windowed_size         { _size }
-    , aspect_ratio          {}
+    , windowed_size         { _desc.width,_desc.height }
+    , aspect_ratio          { float(_desc.width) / float(_desc.height) }
     , msg                   {}
-    , swapchain_desc        {}
+    , surface               {}
     , supported_formats     {}
-    , back_buffers          {}
+    , swapchain             {}
 {
-    Init(_platform, _back_buffer_count, _size, _window_name, _format, _buffer_flags, _swapchain_flags);
+    Init(_platform, windowed_size, wnd_name.c_str());
 }
 
 WindowWindows::~WindowWindows()
@@ -46,16 +39,7 @@ bool WindowWindows::Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLA
         return false;
 
     platform.GetDeviceResources()->WaitForGpu();
-    back_buffers.clear();
-    swapchain_desc = swapchain->GetDesc();
-    swapchain_desc.buffer.width  = windowed_size.width;
-    swapchain_desc.buffer.height = windowed_size.height;
-    swapchain_desc.flags         = _swapchain_flags;
-    auto bmr = swapchain->Recreate(swapchain_desc);
-    if (bmr >= buma3d::BMRESULT_FAILED_INVALID_PARAMETER)
-        return buma3d::BMRESULT_FAILED;
-
-    if (!GetBackBuffers()) return false;
+    auto bmr = swapchain->Resize(_size, _swapchain_flags);
 
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
@@ -82,27 +66,29 @@ bool WindowWindows::Exit()
     return true;
 }
 
-bool WindowWindows::Init(PlatformBase&                      _platform,
-                         uint32_t                           _buffer_count,
-                         const buma3d::EXTENT2D&            _size,
-                         const char*                        _window_name,
-                         buma3d::RESOURCE_FORMAT            _format,
-                         buma3d::SWAP_CHAIN_BUFFER_FLAGS    _buffer_flags,
-                         buma3d::SWAP_CHAIN_FLAGS           _swapchain_flags)
+bool WindowWindows::CreateSwapChain(const buma3d::SWAP_CHAIN_DESC& _desc, std::shared_ptr<buma::SwapChain>* _dst)
 {
-    swapchain_desc.color_space                  = buma3d::COLOR_SPACE_SRGB_NONLINEAR;
-    swapchain_desc.pre_roration                 = buma3d::ROTATION_MODE_IDENTITY;
-    swapchain_desc.buffer.width                 = _size.width;
-    swapchain_desc.buffer.height                = _size.height;
-    swapchain_desc.buffer.count                 = _buffer_count;
-    swapchain_desc.buffer.format_desc.format    = _format;
-    swapchain_desc.buffer.flags                 = _buffer_flags;
-    swapchain_desc.alpha_mode                   = buma3d::SWAP_CHAIN_ALPHA_MODE_DEFAULT;
-    swapchain_desc.flags                        = _swapchain_flags;
+    auto&& dr = platform.GetDeviceResources();
+    buma3d::util::Ptr<buma3d::ISwapChain> ptr;
+    auto bmr = dr->GetDevice()->CreateSwapChain(_desc, &ptr);
+    if (bmr >= buma3d::BMRESULT_FAILED)
+        return false;
 
+    swapchain = std::make_shared<SwapChain>(dr, surface, ptr, _desc);
+    swapchain->GetSwapChain()->SetName("SwapChain");
+
+    return true;
+}
+
+const std::vector<buma3d::SURFACE_FORMAT>& WindowWindows::GetSupportedFormats() const 
+{
+    return supported_formats;
+}
+
+bool WindowWindows::Init(PlatformBase& _platform, const buma3d::EXTENT2D& _size, const char* _window_name)
+{
     if (!CreateWnd(_size.width, _size.height))  return false;
     if (!CreateSurface())                       return false;
-    if (!CreateSwapChain())                     return false;
 
     return true;
 }
@@ -135,87 +121,24 @@ bool WindowWindows::CreateSurface()
     buma3d::SURFACE_PLATFORM_DATA_WINDOWS data_win{ platform.GetHinstance(), hwnd };
     buma3d::SURFACE_DESC                  sfs_desc{ buma3d::SURFACE_PLATFORM_DATA_TYPE_WINDOWS, &data_win };
 
-    auto res = dr->GetAdapter()->CreateSurface(sfs_desc, &surface);
-    if (res == buma3d::BMRESULT_FAILED)
+    auto bmr = dr->GetAdapter()->CreateSurface(sfs_desc, &surface);
+    if (bmr == buma3d::BMRESULT_FAILED)
         return false;
 
-    return true;
-}
-
-bool WindowWindows::CreateSwapChain()
-{
-    // スワップチェインのフォーマットを取得
-    buma3d::SURFACE_FORMAT sfs_format{};
-    {
-        supported_formats.resize(surface->GetSupportedSurfaceFormats(nullptr));
-        surface->GetSupportedSurfaceFormats(supported_formats.data());
-
-        auto it_find = std::find_if(supported_formats.begin(), supported_formats.end(),[this](const buma3d::SURFACE_FORMAT& _format)
-        {
-            return _format.format      == swapchain_desc.buffer.format_desc.format &&
-                   _format.color_space == swapchain_desc.color_space;
-        });
-
-        if (it_find == supported_formats.end())
-            sfs_format = supported_formats[0];
-        else
-            sfs_format = *it_find;
-    }
-
-    // スワップチェインを作成
-    {
-        auto&& state = surface->GetState();
-        aspect_ratio = float(state.size.width) / float(state.size.height);
-        windowed_size = state.size;
-
-        swapchain_desc.surface                      = surface.Get();
-        swapchain_desc.color_space                  = sfs_format.color_space;
-        swapchain_desc.buffer.format_desc.format    = sfs_format.format;
-
-        auto&& dr = platform.GetDeviceResources();
-        auto&& cmd_que = dr->GetCommandQueues(buma3d::COMMAND_TYPE_DIRECT);
-        buma3d::ICommandQueue* queues[] = { cmd_que[0].Get() };
-        swapchain_desc.num_present_queues           = 1;
-        swapchain_desc.present_queues               = queues;
-
-        auto bmr = dr->GetDevice()->CreateSwapChain(swapchain_desc, &swapchain);
-        if (bmr >= buma3d::BMRESULT_FAILED)
-            return false;
-
-        swapchain->SetName("SwapChain");
-    }
-
-    // バックバッファを取得
-    if (!GetBackBuffers()) return false;
+    supported_formats.resize(surface->GetSupportedSurfaceFormats(nullptr));
+    surface->GetSupportedSurfaceFormats(supported_formats.data());
 
     return true;
 }
-
-bool WindowWindows::GetBackBuffers()
-{
-    auto&& scd = swapchain->GetDesc();
-    back_buffers.resize(scd.buffer.count);
-    for (uint32_t i = 0; i < scd.buffer.count; i++)
-    {
-        auto bmr = swapchain->GetBuffer(i, &back_buffers[i]);
-        if (bmr >= buma3d::BMRESULT_FAILED)
-            return false;
-    
-        back_buffers[i]->SetName((std::string("SwapChain buffer") + std::to_string(i)).c_str());
-    }
-    return true;
-}
-
 
 LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam)
 {
-    // if (myimgui->WndProcHandler(_hwnd, _message, _wparam, _lparam))
-    //     return true;
+    auto fw = reinterpret_cast<WindowWindows*>(GetWindowLongPtr(_hwnd, GWLP_USERDATA));
+
+    //myimgui->WndProcHandler(_hwnd, _message, _wparam, _lparam);
 
     input::KeyboardInput::ProcessMessage(_message, _wparam, _lparam);
     input::MouseInput::ProcessMessage(_message, _wparam, _lparam);
-
-    auto fw = reinterpret_cast<WindowWindows*>(GetWindowLongPtr(_hwnd, GWLP_USERDATA));
 
     switch (_message)
     {

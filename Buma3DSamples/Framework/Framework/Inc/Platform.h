@@ -19,10 +19,18 @@ struct PLATFORM_DATA_WINDOWS
     int             nCmdShow;
 };
 
+struct WINDOW_DESC
+{
+    uint32_t    width;
+    uint32_t    height;
+    const char* name;
+};
+
 struct PLATFORM_DESC
 {
     PLATFORM_TYPE   type;
     const void*     data;
+    WINDOW_DESC     window_desc;
 };
 
 class PlatformBase
@@ -35,22 +43,24 @@ public:
     virtual void AttachApplication(std::shared_ptr<ApplicationBase> _app);
     virtual int MainLoop() = 0;
 
-    std::shared_ptr<ApplicationBase> GetApplication()     { return app; }
-    std::shared_ptr<DeviceResources> GetDeviceResources() { return device_resources; }
-    std::shared_ptr<WindowBase>      GetWindow()          { return window; }
+    std::shared_ptr<ApplicationBase>                    GetApplication()     const { return app; }
+    std::shared_ptr<DeviceResources>                    GetDeviceResources() const { return device_resources; }
+    std::shared_ptr<WindowBase>                         GetWindow()          const { return window; }
+    const std::vector<std::unique_ptr<std::string>>&    GetCommandLines()    const { return cmd_lines; }
 
     virtual bool Init(const PLATFORM_DESC& _desc) = 0;
     virtual bool Term() = 0;
 
 protected:
+    virtual bool ParseCommandLines(const PLATFORM_DESC& _desc) = 0;
     virtual bool PrepareDeviceResources() = 0;
-    virtual bool PrepareWindow() = 0;
+    virtual bool PrepareWindow(const WINDOW_DESC& _desc) = 0;
 
 protected:
-    std::shared_ptr<ApplicationBase>    app;
-    std::shared_ptr<DeviceResources>    device_resources;
-    std::shared_ptr<WindowBase>         window;
-
+    std::vector<std::unique_ptr<std::string>>   cmd_lines;
+    std::shared_ptr<ApplicationBase>            app;
+    std::shared_ptr<DeviceResources>            device_resources;
+    std::shared_ptr<WindowBase>                 window;
 
 };
 

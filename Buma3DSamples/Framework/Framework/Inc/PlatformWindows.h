@@ -20,8 +20,9 @@ public:
     bool Term() override;
 
 protected:
+    bool ParseCommandLines(const PLATFORM_DESC& _desc) override;
     bool PrepareDeviceResources() override;
-    bool PrepareWindow() override;
+    bool PrepareWindow(const WINDOW_DESC& _desc) override;
     bool RegisterWndClass();
 
 private:
@@ -31,6 +32,7 @@ private:
     std::string                     cmdline;
     int                             num_cmdshow;
     std::shared_ptr<WindowWindows>  window_windows;
+    std::string                     execution_path;
 
 };
 
