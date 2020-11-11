@@ -11,6 +11,8 @@
 #include "Window.h"
 #include "Application.h"
 
+#include "ShaderLoader.h"
+
 namespace buma
 {
 PlatformBase* CreatePlatform();

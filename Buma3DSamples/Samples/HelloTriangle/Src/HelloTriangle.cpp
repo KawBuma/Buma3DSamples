@@ -3,6 +3,8 @@
 
 #include <cassert>
 
+namespace init = buma3d::hlp::init;
+
 namespace buma
 {
 
@@ -29,24 +31,32 @@ HelloTriangle* HelloTriangle::Create()
 
 bool HelloTriangle::Prepare(PlatformBase& _platform)
 {
-    platform     = &_platform;
-    device       = dr->GetDevice();
+    platform = &_platform;
+    device   = dr->GetDevice();
 
-    namespace init = b::hlp::init;
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
-                                                 init::SwapChainBufferDesc(1280, 720, 3, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
+                                                 init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
-    if (platform->GetWindow()->CreateSwapChain(scd, &swapchain));
+    if (!(platform->GetWindow()->CreateSwapChain(scd, &swapchain)))
+        return false;
 
     back_buffers = &swapchain->GetBuffers();
-    platform->GetWindow()->Resize();
+    swapchain_fences = &swapchain->GetPresentCompleteFences();
+
+    present_info.num_present_regions = 0;
+    present_info.present_regions     = &present_region;
+    present_region = { { 0, 0 }, scissor_rect.extent };
 
     return true;
 }
 
 bool HelloTriangle::Init()
 {
-
+    auto&& resolution = swapchain->GetSwapChain()->GetDesc().buffer;
+    vpiewport       = {   0, 0  ,  (float)resolution.width, (float)resolution.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
+    scissor_rect    = { { 0, 0 },        {resolution.width,        resolution.height} };
+    command_queue   = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
+    return command_queue;
 }
 
 void HelloTriangle::LoadAssets()
@@ -70,31 +80,7 @@ void HelloTriangle::LoadAssets()
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
-    // RTVの作成
-    std::vector<Ptr<b::IRenderTargetView>> back_buffer_rtvs(swapchain->GetDesc().buffer.count);
-    {
-        auto&& back_buffer_desc = swapchain->GetDesc().buffer;
-        b::RENDER_TARGET_VIEW_DESC rtv_desc{};
-        rtv_desc.view.type          = b::VIEW_TYPE_RENDER_TARGET;
-        rtv_desc.view.format        = sfs_format.format;
-        rtv_desc.view.dimension     = b::VIEW_DIMENSION_TEXTURE_2D;
-        rtv_desc.texture.components                           = { b::COMPONENT_SWIZZLE_IDENTITY, b::COMPONENT_SWIZZLE_IDENTITY, b::COMPONENT_SWIZZLE_IDENTITY, b::COMPONENT_SWIZZLE_IDENTITY };
-        rtv_desc.texture.subresource_range.offset.aspect      = b::TEXTURE_ASPECT_FLAG_COLOR;
-        rtv_desc.texture.subresource_range.offset.mip_slice   = 0;
-        rtv_desc.texture.subresource_range.offset.array_slice = 0;
-        rtv_desc.texture.subresource_range.array_size         = 1;
-        rtv_desc.texture.subresource_range.mip_levels         = 1;
-        rtv_desc.flags                                        = b::RENDER_TARGET_VIEW_FLAG_NONE;
-
-        for (uint32_t i = 0; i < back_buffer_desc.count; i++)
-        {
-            bmr = device->CreateRenderTargetView((*back_buffers)[i].tex.Get(), rtv_desc, &back_buffer_rtvs[i]);
-            assert(bmr == b::BMRESULT_SUCCEED);
-        }
-    }
-
     // レンダーパスの作成
-    Ptr<b::IRenderPass> render_pass{};
     {
         b::RENDER_PASS_DESC render_pass_desc{};
 
@@ -156,12 +142,12 @@ void HelloTriangle::LoadAssets()
     }
 
     // フレームバッファの作成
-    std::vector<Ptr<b::IFramebuffer>> framebuffers(BACK_BUFFER_COUNT);
+    framebuffers.resize(BACK_BUFFER_COUNT);
     {
         b::FRAMEBUFFER_DESC fb_desc{};
         for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
         {
-            b::IView* attachment = back_buffer_rtvs[i].Get();
+            b::IView* attachment = (*back_buffers)[i].rtv.Get();
             fb_desc.flags           = b::FRAMEBUFFER_FLAG_NONE;
             fb_desc.render_pass     = render_pass.Get();
             fb_desc.num_attachments = 1;
@@ -173,9 +159,9 @@ void HelloTriangle::LoadAssets()
     }
 
     // シェーダモジュールを作成
-    std::vector<Ptr<b::IShaderModule>> shader_modules(2);
+    shader_modules.resize(2);
     {
-        LOAD_SHADER_DESC desc{};
+        shader::LOAD_SHADER_DESC desc{};
         desc.options.packMatricesInRowMajor     = true;        // Experimental: Decide how a matrix get packed
         desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
         desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
@@ -189,14 +175,15 @@ void HelloTriangle::LoadAssets()
         desc.options.shiftAllCBuffersBindings   = 0;
         desc.options.shiftAllUABuffersBindings  = 0;
 
+        auto&& loader = dr->GetShaderLoader();
         // vs
         {
             desc.entry_point    = "main";
             desc.filename       = "./VertexShader.hlsl";
             desc.defines        = {};
-            desc.stage          = { ShaderConductor::ShaderStage::VertexShader };
+            desc.stage          = { shader::SHADER_STAGE_VERTEX };
             std::vector<uint8_t> bytecode;
-            LoadShaderFromHLSL(desc, &bytecode);
+            loader->LoadShaderFromHLSL(desc, &bytecode);
             assert(!bytecode.empty());
 
             b::SHADER_MODULE_DESC module_desc{};
@@ -212,9 +199,9 @@ void HelloTriangle::LoadAssets()
             desc.entry_point    = "main";
             desc.filename       = "./PixelShader.hlsl";
             desc.defines        = {};
-            desc.stage          = { ShaderConductor::ShaderStage::PixelShader };
+            desc.stage          = { shader::SHADER_STAGE_PIXEL };
             std::vector<uint8_t> bytecode;
-            LoadShaderFromHLSL(desc, &bytecode);
+            loader->LoadShaderFromHLSL(desc, &bytecode);
             assert(!bytecode.empty());
 
             b::SHADER_MODULE_DESC module_desc{};
@@ -227,7 +214,6 @@ void HelloTriangle::LoadAssets()
     }
 
     // グラフィックスパイプラインの作成
-    Ptr<b::IPipelineState> pipeline{};
     {
         b::GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
 
@@ -390,7 +376,7 @@ void HelloTriangle::LoadAssets()
     }
 
     // コマンドアロケータを作成
-    std::vector<Ptr<b::ICommandAllocator>> cmd_allocator(BACK_BUFFER_COUNT);
+    cmd_allocator.resize(BACK_BUFFER_COUNT);
     {
         for (auto& i : cmd_allocator)
         {
@@ -404,9 +390,8 @@ void HelloTriangle::LoadAssets()
         }
     }
 
-
     // コマンドリストを作成
-    std::vector<Ptr<b::ICommandList>> cmd_lists(BACK_BUFFER_COUNT);
+    cmd_lists.resize(BACK_BUFFER_COUNT);
     {
         b::COMMAND_LIST_DESC cld{};
         cld.type      = b::COMMAND_TYPE_DIRECT;
@@ -423,18 +408,7 @@ void HelloTriangle::LoadAssets()
     }
 
     // フェンスを作成
-    struct FENCE_VALUES
-    {
-        FENCE_VALUES& operator++()    { ++wait; ++signal; return *this; } 
-        FENCE_VALUES  operator++(int) { auto tmp = *this; wait++; signal++; return tmp; }
-        uint64_t wait   = 0;
-        uint64_t signal = 1;
-    };
-    enum SCF { PRESENT_COMPLETE, RENDER_COMPLETE, SWAPCHAIN_FENCE_NUM };
-    Ptr<b::IFence>                  util_fence;
-    FENCE_VALUES                    fence_values    [BACK_BUFFER_COUNT];
-    std::vector<Ptr<b::IFence>>     cmd_fences      (BACK_BUFFER_COUNT);
-    std::vector<Ptr<b::IFence>>     swapchain_fences(SWAPCHAIN_FENCE_NUM);
+    cmd_fences.resize(BACK_BUFFER_COUNT);
     {
         b::FENCE_DESC fd{};
         fd.flags         = b::FENCE_FLAG_NONE;
@@ -455,16 +429,12 @@ void HelloTriangle::LoadAssets()
         }
 
         fd.type = b::FENCE_TYPE_BINARY_GPU_TO_GPU;
-        cnt = 0;
-        for (auto& i : swapchain_fences)
-        {
-            bmr = device->CreateFence(fd, &i);
-            assert(bmr == b::BMRESULT_SUCCEED);
-        }
-        swapchain_fences[0]->SetName("present_complete_fence");
-        swapchain_fences[1]->SetName("render_complete_fence");
+        bmr = device->CreateFence(fd, &render_complete_fence);
+        assert(bmr == b::BMRESULT_SUCCEED);
+        render_complete_fence->SetName("render_complete_fence");
     }
-    
+
+    auto aspect_ratio = platform->GetWindow()->GetAspectRatio();
     struct VERTEX
     {
         b::FLOAT4 position;
@@ -479,17 +449,15 @@ void HelloTriangle::LoadAssets()
     std::vector<uint16_t> index = { 0,1,2 };
 
     // 頂点バッファリソースの器を作成
-    Ptr<b::IBuffer> vertex_buffer{};
     {
-        bmr = device->CreatePlacedResource(binit::BufferResourceDesc(sizeof(VERTEX) * triangle.size(), binit::BUF_COPYABLE_FLAGS | b::BUFFER_USAGE_FLAG_VERTEX_BUFFER), &vertex_buffer);
+        bmr = device->CreatePlacedResource(init::BufferResourceDesc(sizeof(VERTEX) * triangle.size(), init::BUF_COPYABLE_FLAGS | b::BUFFER_USAGE_FLAG_VERTEX_BUFFER), &vertex_buffer);
         assert(bmr == b::BMRESULT_SUCCEED);
         vertex_buffer->SetName("Vertex buffer");
     }
 
     // インデックスバッファリソースの器を作成
-    Ptr<b::IBuffer> index_buffer{};
     {
-        bmr = device->CreatePlacedResource(binit::BufferResourceDesc(sizeof(decltype(index)::value_type) * index.size(), binit::BUF_COPYABLE_FLAGS | b::BUFFER_USAGE_FLAG_INDEX_BUFFER), &index_buffer);
+        bmr = device->CreatePlacedResource(init::BufferResourceDesc(sizeof(decltype(index)::value_type) * index.size(), init::BUF_COPYABLE_FLAGS | b::BUFFER_USAGE_FLAG_INDEX_BUFFER), &index_buffer);
         assert(bmr == b::BMRESULT_SUCCEED);
         index_buffer->SetName("Index buffer");  
     }
@@ -504,7 +472,6 @@ void HelloTriangle::LoadAssets()
     }
 
     // ヒーププロパティを取得
-    std::vector<b::RESOURCE_HEAP_PROPERTIES> heap_props;
     {
         heap_props.resize(device->GetResourceHeapProperties(nullptr));
         device->GetResourceHeapProperties(heap_props.data());
@@ -528,7 +495,6 @@ void HelloTriangle::LoadAssets()
     };
 
     // 頂点、インデックスバッファ用リソースヒープを作成
-    Ptr<b::IResourceHeap> resource_heap{};
     {
         auto heap_prop = FindDeviceLocalHeap();
         assert(heap_prop);
@@ -569,22 +535,15 @@ void HelloTriangle::LoadAssets()
 
     // コピー用ヒープと、コピー用頂点、インデックスバッファを作成
     Ptr<b::IBuffer> vertex_buffer_src{};
-    Ptr<b::IBuffer> index_buffer_src {};
+    Ptr<b::IBuffer> index_buffer_src{};
     {
         auto heap_prop = FindMappableHeap();
         assert(heap_prop);
 
-        b::COMMITTED_RESOURCE_DESC comitted_desc{};
-        comitted_desc.heap_index                    = heap_prop->heap_index;
-        comitted_desc.heap_flags                    = b::RESOURCE_HEAP_FLAG_NONE;
-        comitted_desc.creation_node_mask            = b::B3D_DEFAULT_NODE_MASK;
-        comitted_desc.visible_node_mask             = b::B3D_DEFAULT_NODE_MASK;   
-        comitted_desc.resource_desc                 = {};
+        b::COMMITTED_RESOURCE_DESC comitted_desc = init::CommittedResourceDesc(heap_prop->heap_index, b::RESOURCE_HEAP_FLAG_NONE, {});
         comitted_desc.resource_desc.dimension       = b::RESOURCE_DIMENSION_BUFFER;
         comitted_desc.resource_desc.flags           = b::RESOURCE_FLAG_NONE;
         comitted_desc.resource_desc.buffer.flags    = b::BUFFER_CREATE_FLAG_NONE;
-        comitted_desc.num_bind_node_masks           = 0;
-        comitted_desc.bind_node_masks               = nullptr;
 
         // コピー用頂点バッファリソースを作成
         {
@@ -599,8 +558,8 @@ void HelloTriangle::LoadAssets()
 
             // データを書き込む
             {
-                Mapper map(vertex_buffer_src->GetHeap());
-                memcpy_s(map.Get<VERTEX>(), vertex_buffer_desc.buffer.size_in_bytes, triangle.data(), vertex_buffer_desc.buffer.size_in_bytes);
+                util::Mapper map(vertex_buffer_src->GetHeap());
+                memcpy_s(map.As<VERTEX>().GetData(), vertex_buffer_desc.buffer.size_in_bytes, triangle.data(), vertex_buffer_desc.buffer.size_in_bytes);
             }
         }
 
@@ -617,8 +576,8 @@ void HelloTriangle::LoadAssets()
 
             // データを書き込む
             {
-                Mapper map(index_buffer_src->GetHeap());
-                memcpy_s(map.Get<uint16_t>(), index_buffer_desc.buffer.size_in_bytes, index.data(), sizeof(uint16_t) * index.size());
+                util::Mapper map(index_buffer_src->GetHeap());
+                memcpy_s(map.As<uint16_t>().GetData(), index_buffer_desc.buffer.size_in_bytes, index.data(), sizeof(uint16_t) * index.size());
             }
         }
 
@@ -743,7 +702,6 @@ void HelloTriangle::LoadAssets()
     }
 
     // 頂点バッファビューを作成
-    Ptr<b::IVertexBufferView> vertex_buffer_view{};
     {
         b::VERTEX_BUFFER_VIEW_DESC vbvdesc{};
 
@@ -760,7 +718,6 @@ void HelloTriangle::LoadAssets()
     }
 
     // インデックスバッファビューを作成
-    Ptr<b::IIndexBufferView> index_buffer_view{};
     {
         b::INDEX_BUFFER_VIEW_DESC ibvdesc{};
         ibvdesc.buffer_offset   = 0;
@@ -772,177 +729,135 @@ void HelloTriangle::LoadAssets()
     }
 
     // 描画コマンドを記録
-    auto PrepareFrame = [&](uint32_t buffer_index)
-    {
-        uint32_t frame_count = buffer_index;
-        //cmd_allocator->Reset(b::COMMAND_ALLOCATOR_RESET_FLAG_RELEASE_RESOURCES);
-        cmd_allocator[buffer_index]->Reset(b::COMMAND_ALLOCATOR_RESET_FLAG_RELEASE_RESOURCES);
-        //for (auto& l : cmd_lists)
-        {
-            auto&& l = cmd_lists[frame_count];
-            b::COMMAND_LIST_BEGIN_DESC begin{};
-            begin.flags            = b::COMMAND_LIST_BEGIN_FLAG_NONE;
-            begin.inheritance_desc = nullptr;
-            bmr = l->BeginRecord(begin);
-            assert(bmr == b::BMRESULT_SUCCEED);
-
-            b::CMD_PIPELINE_BARRIER barrier{};
-            b::TEXTURE_BARRIER_DESC tb{};
-            tb.type           = b::TEXTURE_BARRIER_TYPE_VIEW;
-            tb.view           = back_buffer_rtvs[frame_count].Get();
-            tb.src_state      = b::RESOURCE_STATE_UNDEFINED;
-            tb.dst_state      = b::RESOURCE_STATE_COLOR_ATTACHMENT_WRITE;
-            tb.src_queue_type = b::COMMAND_TYPE_DIRECT;
-            tb.dst_queue_type = b::COMMAND_TYPE_DIRECT;
-            tb.barrier_flags  = b::RESOURCE_BARRIER_FLAG_NONE;
-            barrier.num_buffer_barriers  = 0;
-            barrier.buffer_barriers      = nullptr;
-            barrier.num_texture_barriers = 1;
-            barrier.texture_barriers     = &tb;
-            barrier.src_stages           = b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE;
-            barrier.dst_stages           = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
-            l->PipelineBarrier(barrier);
-
-            l->SetPipelineState(pipeline.Get());
-            l->SetRootSignature(b::PIPELINE_BIND_POINT_GRAPHICS, signature.Get());
-
-            b::CLEAR_VALUE            clear_val{ b::CLEAR_RENDER_TARGET_VALUE{0.8f,0.32f,0.13f,1.f} };
-            b::RENDER_PASS_BEGIN_DESC rpbd{ render_pass.Get(), framebuffers[frame_count].Get(), 1, &clear_val };
-            b::SUBPASS_BEGIN_DESC     spbd{ b::SUBPASS_CONTENTS_INLINE };
-            l->BeginRenderPass(rpbd, spbd);
-            {
-                b::VIEWPORT vp{ 0, 0, resolution.width, resolution.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
-                l->SetViewports(1, &vp);
-
-                b::SCISSOR_RECT rect{ {0,0}, resolution };
-                l->SetScissorRects(1, &rect);
-
-                l->BindVertexBufferViews({ 0, 1, vertex_buffer_view.GetAddressOf() });
-                l->BindIndexBufferView(index_buffer_view.Get());
-
-                //             { index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location }
-                l->DrawIndexed({ (uint32_t)index.size()  , 1             , 0                   , 0                   , 0                       });
-            }
-            l->EndRenderPass({});
-
-            bmr = l->EndRecord();
-            assert(bmr == b::BMRESULT_SUCCEED);
-
-            frame_count++;
-        }
-    };
     for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
     {
         PrepareFrame(i);
     }
+}
 
-    // プレゼント
-    // キューへ送信
+void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
+{
+    cmd_allocator[_buffer_index]->Reset(b::COMMAND_ALLOCATOR_RESET_FLAG_RELEASE_RESOURCES);
+
+    auto&& l = cmd_lists[_buffer_index];
+    b::COMMAND_LIST_BEGIN_DESC begin{};
+    begin.flags            = b::COMMAND_LIST_BEGIN_FLAG_NONE;
+    begin.inheritance_desc = nullptr;
+
+    auto bmr = l->BeginRecord(begin);
+    assert(bmr == b::BMRESULT_SUCCEED);
     {
-        uint32_t back_buffer_index = 0;
+        b::CMD_PIPELINE_BARRIER barrier{};
+        b::TEXTURE_BARRIER_DESC tb{};
+        tb.type           = b::TEXTURE_BARRIER_TYPE_VIEW;
+        tb.view           = (*back_buffers)[_buffer_index].rtv.Get();
+        tb.src_state      = b::RESOURCE_STATE_UNDEFINED;
+        tb.dst_state      = b::RESOURCE_STATE_COLOR_ATTACHMENT_WRITE;
+        tb.src_queue_type = b::COMMAND_TYPE_DIRECT;
+        tb.dst_queue_type = b::COMMAND_TYPE_DIRECT;
+        tb.barrier_flags  = b::RESOURCE_BARRIER_FLAG_NONE;
+        barrier.num_buffer_barriers  = 0;
+        barrier.buffer_barriers      = nullptr;
+        barrier.num_texture_barriers = 1;
+        barrier.texture_barriers     = &tb;
+        barrier.src_stages           = b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE;
+        barrier.dst_stages           = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
+        l->PipelineBarrier(barrier);
 
-        b::SWAP_CHAIN_ACQUIRE_NEXT_BUFFER_INFO acquire_info{};
+        l->SetPipelineState(pipeline.Get());
+        l->SetRootSignature(b::PIPELINE_BIND_POINT_GRAPHICS, signature.Get());
+
+        b::CLEAR_VALUE            clear_val{ b::CLEAR_RENDER_TARGET_VALUE{0.8f,0.32f,0.13f,1.f} };
+        b::RENDER_PASS_BEGIN_DESC rpbd{ render_pass.Get(), framebuffers[_buffer_index].Get(), 1, &clear_val };
+        b::SUBPASS_BEGIN_DESC     spbd{ b::SUBPASS_CONTENTS_INLINE };
+        l->BeginRenderPass(rpbd, spbd);
         {
-            // バックバッファのプレゼント完了時にシグナルされます。
-            acquire_info.signal_fence        = swapchain_fences[SCF::PRESENT_COMPLETE].Get();
-            acquire_info.signal_fence_to_cpu = util_fence.Get();
-            acquire_info.timeout_millisec    = UINT32_MAX;
+            l->SetViewports(1, &vpiewport);
+            l->SetScissorRects(1, &scissor_rect);
+
+            l->BindVertexBufferViews({ 0, 1, vertex_buffer_view.GetAddressOf() });
+            l->BindIndexBufferView(index_buffer_view.Get());
+
+            //             { index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location }
+            l->DrawIndexed({ 3                       , 1             , 0                   , 0                   , 0                       });
         }
-
-        b::SUBMIT_INFO submit_info{};
-        b::IFence*     submit_waits[]       = { cmd_fences[back_buffer_index].Get(), swapchain_fences[SCF::PRESENT_COMPLETE].Get() };
-        uint64_t       submit_wait_vals[]   = { 0, 0 };
-        b::IFence*     submit_signals[]     = { cmd_fences[back_buffer_index].Get(), swapchain_fences[SCF::RENDER_COMPLETE].Get() };
-        uint64_t       submit_signal_vals[] = { 0, 0 };
-        {
-            // コマンドリストの実行はバックバッファの取得に依存します。
-            submit_info.wait_fence.num_fences        = 2;
-            submit_info.wait_fence.fences            = submit_waits;
-            submit_info.wait_fence.fence_values      = submit_wait_vals;
-
-            submit_info.num_command_lists_to_execute = 1;
-            submit_info.command_lists_to_execute     = cmd_lists[back_buffer_index].GetAddressOf();
-
-            // プレゼント実行用フェンス、コマンド用フェンスをシグナル
-            submit_info.signal_fence.num_fences      = 2;
-            submit_info.signal_fence.fences          = submit_signals;
-            submit_info.signal_fence.fence_values    = submit_signal_vals;
-        }
-
-        b::SUBMIT_DESC submit{};
-        {
-            submit.num_submit_infos    = 1;
-            submit.signal_fence_to_cpu = nullptr;
-            submit.submit_infos        = &submit_info;
-        }
-
-        b::SWAP_CHAIN_PRESENT_INFO   present_info{};
-        b::SCISSOR_RECT              present_region = { { 0, 0 }, resolution };
-        {
-            // プレゼントの実行はプレゼント実行用フェンスのシグナルに依存します。
-            present_info.wait_fence          = swapchain_fences[SCF::RENDER_COMPLETE].Get();
-            present_info.num_present_regions = 0;
-            present_info.present_regions     = &present_region;
-        }
-
-        StepTimer timer{};
-        // メイン メッセージ ループ:
-        auto swapchain_fences_data = swapchain_fences.data();
-        auto cmd_lists_data        = cmd_lists       .data();
-        auto cmd_fences_data       = cmd_fences      .data();
-        while (msg.message != WM_QUIT)
-        {
-            if (timer.Is1SecElapsed())
-                SetWindowTextA(hWnd, std::string("FPS: " + std::to_string(timer.GetFramesPerSecond())).c_str());
-            timer.Tick();
-
-            if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-            {
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-
-            // 次のバックバッファを取得
-            {
-                uint32_t next_buffer_index = 0;
-                bmr = swapchain->AcquireNextBuffer(acquire_info, &next_buffer_index);
-                if (bmr >= b::BMRESULT_FAILED)
-                    break;
-                assert(bmr == b::BMRESULT_SUCCEED || bmr == b::BMRESULT_SUCCEED_NOT_READY);
-
-                back_buffer_index = next_buffer_index;
-            }
-
-            // コマンドリストとフェンスを送信
-            {
-                cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
-                //PrepareFrame(back_buffer_index);
-
-                submit_wait_vals[0]                  = fence_values    [back_buffer_index].wait;
-                submit_waits[0]                      = cmd_fences_data [back_buffer_index].Get();
-                submit_info.command_lists_to_execute = cmd_lists_data  [back_buffer_index].GetAddressOf();
-                submit_signal_vals[0]                = fence_values    [back_buffer_index].signal;
-                submit_signals[0]                    = cmd_fences_data [back_buffer_index].Get();
-                bmr = command_queue->Submit(submit);
-                //assert(bmr == b::BMRESULT_SUCCEED);
-            }
-
-            // バックバッファをプレゼント
-            {
-                util_fence->Wait(0, UINT32_MAX);
-                util_fence->Reset();
-                bmr = swapchain->Present(present_info);
-                //assert(bmr == b::BMRESULT_SUCCEED);
-            }
-
-            fence_values[back_buffer_index]++;
-        }
-
-        // GPUを待機
-        bmr = device->WaitIdle();
-        assert(bmr == b::BMRESULT_SUCCEED);
-
+        l->EndRenderPass({});
     }
+    bmr = l->EndRecord();
+    assert(bmr == b::BMRESULT_SUCCEED);
+}
+
+void HelloTriangle::Tick()
+{
+    Update();
+    Render();
+}
+
+void HelloTriangle::Update()
+{
+    timer.Tick();
+
+    // 次のバックバッファを取得
+    {
+        uint32_t next_buffer_index = 0;
+        auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index);
+        assert(bmr == b::BMRESULT_SUCCEED || bmr == b::BMRESULT_SUCCEED_NOT_READY);
+
+        back_buffer_index = next_buffer_index;
+    }
+
+}
+
+void HelloTriangle::Render()
+{
+    auto cmd_lists_data  = cmd_lists.data();
+    auto cmd_fences_data = cmd_fences.data();
+    b::BMRESULT bmr{};
+
+    //if (timer.IsOneSecElapsed())
+    //    SetWindowTextA(hwnd, std::string("FPS: " + std::to_string(timer.GetFramesPerSecond())).c_str());
+
+    // コマンドリストとフェンスを送信
+    {
+        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
+        //PrepareFrame(back_buffer_index);
+
+        // 待機フェンス
+        wait_fence_desc.Reset();
+        wait_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait);
+        wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
+        submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
+
+        // コマンドリスト
+        submit_info.command_lists_to_execute = cmd_lists_data[back_buffer_index].GetAddressOf();
+
+        // シグナルフェンス
+        signal_fence_desc.Reset();
+        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal);
+        signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
+        submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
+        submit.signal_fence_to_cpu = render_complete_fence.Get();
+
+        bmr = command_queue->Submit(submit);
+        assert(bmr == b::BMRESULT_SUCCEED);
+    }
+
+    // バックバッファをプレゼント
+    {
+        swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
+        swapchain_fences->signal_fence_to_cpu->Reset();
+
+        present_info.wait_fence = render_complete_fence.Get();
+        bmr = swapchain->Present(present_info);
+        assert(bmr == b::BMRESULT_SUCCEED);
+    }
+
+    fence_values[back_buffer_index]++;
+}
+
+void HelloTriangle::Term()
+{
+    dr->WaitForGpu();
 
     // オブジェクトの解放
     cmd_lists = {};
@@ -957,32 +872,11 @@ void HelloTriangle::LoadAssets()
     framebuffers = {};
     render_pass.Reset();
     signature.Reset();
-    back_buffer_rtvs = {};
-    back_buffers = {};
-    swapchain.Reset();
+    back_buffers = nullptr;
+    swapchain.reset();
     command_queue.Reset();
     swapchain_fences = {};
     cmd_fences = {};
-}
-
-void HelloTriangle::Tick()
-{
-
-}
-
-void HelloTriangle::Update()
-{
-
-}
-
-void HelloTriangle::Render()
-{
-
-}
-
-void HelloTriangle::Term()
-{
-
 }
 
 

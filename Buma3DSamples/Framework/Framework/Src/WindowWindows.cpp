@@ -32,20 +32,6 @@ WindowWindows::~WindowWindows()
     hwnd = NULL;
 }
 
-bool WindowWindows::Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags)
-{
-    windowed_size = _size;
-    aspect_ratio = float(_size.width) / float(_size.height);
-
-    if (!swapchain)
-        return false;
-
-    platform.GetDeviceResources()->WaitForGpu();
-    auto bmr = swapchain->Resize(_size, _swapchain_flags);
-
-    return bmr == buma3d::BMRESULT_SUCCEED;
-}
-
 bool WindowWindows::OffsetWindow(const buma3d::OFFSET2D& _offset)
 {
     windowed_offset = _offset;

@@ -75,6 +75,11 @@ public:
         MappedData(T* _data) :data{ _data } {}
         ~MappedData() { data = nullptr; }
 
+        T* GetData()
+        {
+            return data;
+        }
+
         void Write(uint32_t _index, const T& _src)
         {
             if (data)
@@ -119,7 +124,7 @@ public:
     }
 
     template<typename T>
-    MappedData<T> Get()
+    MappedData<T> As()
     {
         return MappedData<T>(reinterpret_cast<T*>(data));
     }

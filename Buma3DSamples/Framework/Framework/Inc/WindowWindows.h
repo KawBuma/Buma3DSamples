@@ -50,7 +50,10 @@ public:
     bool ProcessMessage() override;
     bool Exit()           override;
 
-    WINDOW_STATE_FLAGS GetWindowStateFlags() const { return window_state_flags; }
+    WINDOW_STATE_FLAGS      GetWindowStateFlags() const { return window_state_flags; }
+    float                   GetAspectRatio()      const override { return aspect_ratio; }
+    const buma3d::EXTENT2D& GetWindowedSize()     const override { return windowed_size; }
+    const buma3d::OFFSET2D& GetWindowedOffset()   const override { return windowed_offset; }
 
     bool CreateSwapChain(const buma3d::SWAP_CHAIN_DESC& _desc, std::shared_ptr<buma::SwapChain>* _dst) override;
     const std::vector<buma3d::SURFACE_FORMAT>& GetSupportedFormats() const override;

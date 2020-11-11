@@ -37,14 +37,14 @@ struct OPTIONS
 
 enum SHADER_STAGE : uint32_t
 {
-    VertexShader,
-    PixelShader,
-    GeometryShader,
-    HullShader,
-    DomainShader,
-    ComputeShader,
+    SHADER_STAGE_VERTEX,
+    SHADER_STAGE_PIXEL,
+    SHADER_STAGE_GEOMETRY,
+    SHADER_STAGE_HULL,
+    SHADER_STAGE_DOMAIN,
+    SHADER_STAGE_COMPUTE,
 
-    NumShaderStages,
+    SHADER_STAGE_NUM_STAGES,
 };
 
 struct SHADER_DEFINES

@@ -98,7 +98,7 @@ bool PlatformWindows::PrepareDeviceResources()
     device_resources = std::make_shared<DeviceResources>();
 
     INTERNAL_API_TYPE type = INTERNAL_API_TYPE_D3D12;
-    auto&& api_type = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::shared_ptr<std::string>& _str) { return  (*_str) == "--internal-api-type"; });
+    auto&& api_type = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return  (*_str) == "--internal-api-type"; });
     if (api_type != cmd_lines.end())
     {
         auto&& next = (**(api_type + 1));
@@ -109,7 +109,7 @@ bool PlatformWindows::PrepareDeviceResources()
             type = INTERNAL_API_TYPE_D3D12;
     }
 
-    auto&& dll_dir = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::shared_ptr<std::string>& _str) { return  (*_str) == "--library-dir"; });
+    auto&& dll_dir = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return  (*_str) == "--library-dir"; });
     const char* dir = nullptr;
     if (dll_dir != cmd_lines.end())
         dir = (**(dll_dir + 1)).c_str();

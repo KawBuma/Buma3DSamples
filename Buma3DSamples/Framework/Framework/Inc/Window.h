@@ -19,6 +19,10 @@ public:
     virtual bool CreateSwapChain(const buma3d::SWAP_CHAIN_DESC& _desc, std::shared_ptr<buma::SwapChain>* _dst) = 0;
     virtual const std::vector<buma3d::SURFACE_FORMAT>& GetSupportedFormats() const = 0;
 
+    virtual float                   GetAspectRatio()    const = 0;
+    virtual const buma3d::EXTENT2D& GetWindowedSize()   const = 0;
+    virtual const buma3d::OFFSET2D& GetWindowedOffset() const = 0;
+
 protected:
     virtual bool Init(PlatformBase&             _platform,
                       const buma3d::EXTENT2D&   _size,
