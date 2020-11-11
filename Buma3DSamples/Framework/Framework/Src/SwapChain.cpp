@@ -114,7 +114,7 @@ bool SwapChain::CreateViews()
             if (bmr >= buma3d::BMRESULT_FAILED)
                 return false;
         }
-        if (tdesc.texture.usage & buma3d::TEXTURE_USAGE_FLAG_COLOR_ATTACHMENT)
+        if (tdesc.texture.usage & buma3d::TEXTURE_USAGE_FLAG_SHADER_RESOURCE)
         {
             buma3d::SHADER_RESOURCE_VIEW_DESC srvdesc = buma3d::hlp::init::ShaderResourceViewDescDescTex2D(tdesc.texture.format_desc.format);
             auto bmr = device->CreateShaderResourceView(i.tex.Get(), srvdesc, &i.srv);
@@ -130,11 +130,11 @@ bool SwapChain::CreatePresentCompleteFences()
     auto&& device = device_resources->GetDevice();
 
     auto bmr = device->CreateFence(buma3d::hlp::init::BinaryFenceDesc(), &present_complete_fences.signal_fence);
-    if (bmr >= buma3d::BMRESULT_SUCCEED)
+    if (bmr >= buma3d::BMRESULT_FAILED)
         return false;
 
     bmr = device->CreateFence(buma3d::hlp::init::BinaryCpuFenceDesc(), &present_complete_fences.signal_fence_to_cpu);
-    if (bmr >= buma3d::BMRESULT_SUCCEED)
+    if (bmr >= buma3d::BMRESULT_FAILED)
         return false;
 
     acquire_info.timeout_millisec = 0;

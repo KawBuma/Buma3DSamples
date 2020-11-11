@@ -46,43 +46,6 @@ void ConvertSlashToBackShash(std::string* _str)
 
 }
 
-class ConsoleSession
-{
-public:
-    ConsoleSession()
-        : ofs("./log.txt", std::ios::out | std::ios::trunc, std::ios::_Default_open_prot)
-    {
-    }
-
-    ~ConsoleSession()
-    {
-        End();
-    }
-
-    void Begin()
-    {
-        auto res = AllocConsole();
-        assert(res);
-
-        // coutにする
-        auto console_out = "CONOUT$";
-        freopen_s(&stream, console_out, "w+", stdout);
-    }
-
-    void End()
-    {
-        auto res = FreeConsole();
-        assert(res != 0);
-        fclose(stream);
-        ofs.close();
-    }
-
-    std::ofstream ofs;
-private:
-    FILE*         stream;
-
-};
-
 struct DeviceResources::B3D_PFN
 {
     HMODULE                                     b3d_module;
@@ -92,71 +55,9 @@ struct DeviceResources::B3D_PFN
     buma3d::PFN_Buma3DUninitialize              Buma3DUninitialize;
 };
 
-void B3D_APIENTRY DeviceResources::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVERITY _sev, buma3d::DEBUG_MESSAGE_CATEGORY_FLAG _category, const buma3d::Char8T* const _msg, void* _user_data)
-{
-    static const char* SEVERITIES[]
-    {
-       "[ INFO"
-     , "[ WARNING"
-     , "[ ERROR"
-     , "[ CORRUPTION"
-     , "[ OTHER"
-    };
-
-    static const char* CATEGORIES[]
-    {
-       ", UNKNOWN ] "
-     , ", MISCELLANEOUS ] "
-     , ", INITIALIZATION ] "
-     , ", CLEANUP ] "
-     , ", COMPILATION ] "
-     , ", STATE_CREATION ] "
-     , ", STATE_SETTING ] "
-     , ", STATE_GETTING ] "
-     , ", RESOURCE_MANIPULATION ] "
-     , ", EXECUTION ] "
-     , ", SHADER ] "
-     , ", B3D ] "
-     , ", B3D_DETAILS ] "
-    };
-
-    ConsoleSession* session = (ConsoleSession*)(_user_data);
-
-    auto&& o = session->ofs;
-    auto E = [&]()
-    {
-        o << std::endl;
-        std::cout << std::endl;
-    };
-    auto P = [&](const auto& s)
-    {
-        o << s;
-        std::cout << s;
-    };
-
-
-    if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
-        P("\n\n");
-    else if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_WARNING)
-        P("\n");
-
-    P(SEVERITIES[_sev]);
-
-    DWORD i = 0;
-    if (_BitScanForward(&i, _category))
-        P(CATEGORIES[i]);
-
-    if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
-        P("\n\n");
-    else if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_WARNING)
-        P("\n");
-
-    P(_msg);
-    E();
-}
-
 DeviceResources::DeviceResources()    
-    : pfn                   {}
+    : desc                  {}
+    , pfn                   {}
     , type                  {}
     , factory               {}
     , adapter               {}
@@ -164,7 +65,6 @@ DeviceResources::DeviceResources()
     , cmd_queues            {}
     //, gpu_timer_pools     {}
     //, my_imugi            {}
-    , console_session       {}
     , queue_props           {}
     , shader_laoder         {}
 {
@@ -177,13 +77,15 @@ DeviceResources::~DeviceResources()
     UninitB3D();
 }
 
-bool DeviceResources::Init(INTERNAL_API_TYPE _type, const char* _library_dir)
+bool DeviceResources::Init(const DEVICE_RESOURCE_DESC& _desc)
 {
-    if (!InitB3D(_type, _library_dir))  return false;
-    if (!PickAdapter())                 return false;
-    if (!CreateDevice())                return false;
-    if (!GetCommandQueues())            return false;
-    if (!CreateMyImGui())               return false;
+    desc = _desc;
+    if (!InitB3D(desc.type, desc.library_dir.c_str()))  return false;
+    if (!PickAdapter())                                 return false;
+    if (!CreateDevice())                                return false;
+    if (!GetCommandQueues())                            return false;
+    if (!CreateMyImGui())                               return false;
+
     shader_laoder = std::make_unique<shader::ShaderLoader>(type);
 
     return true;
@@ -208,7 +110,7 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
     const char* BUILD = "_Release.dll";
 #endif // _DEBUG
 
-    if (_library_dir)
+    if (strlen(_library_dir) != 0)
         path += _library_dir;
     else
         path += "/External/Buma3D/Project/";
@@ -255,14 +157,12 @@ bool DeviceResources::PickAdapter()
     buma3d::DEVICE_FACTORY_DESC fac_desc{};
 
     fac_desc.flags           = buma3d::DEVICE_FACTORY_FLAG_NONE;
-    fac_desc.debug.is_enable = true; // デバッグレポート
+    fac_desc.debug.is_enable = desc.is_enable_debug;
 
     if (fac_desc.debug.is_enable)
     {
-        console_session = std::make_shared<ConsoleSession>();
-        console_session->Begin();
-        fac_desc.debug.debug_message_callback.user_data = console_session.get();
-        fac_desc.debug.debug_message_callback.Callback  = B3DMessageCallback;
+        fac_desc.debug.debug_message_callback.user_data = desc.message_logger.get();
+        fac_desc.debug.debug_message_callback.Callback  = desc.DebugMessageCallback;
     }
     buma3d::DEBUG_MESSAGE_DESC descs[buma3d::DEBUG_MESSAGE_SEVERITY_END]{};
     for (size_t i = 0; i < buma3d::DEBUG_MESSAGE_SEVERITY_END; i++)
@@ -369,8 +269,6 @@ void DeviceResources::UninitB3D()
     device.Reset();
     adapter.Reset();
     factory.Reset();
-
-    console_session.reset();
 
     pfn->Buma3DUninitialize();
 

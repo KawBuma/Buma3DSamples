@@ -9,6 +9,11 @@
 namespace buma
 {
 
+namespace debug
+{
+struct ILogger;
+}
+
 namespace shader
 {
 class ShaderLoader;
@@ -20,7 +25,14 @@ enum INTERNAL_API_TYPE
     INTERNAL_API_TYPE_VULKAN = 2
 };
 
-class ConsoleSession;
+struct DEVICE_RESOURCE_DESC
+{
+    INTERNAL_API_TYPE                       type;
+    std::string                             library_dir;
+    bool                                    is_enable_debug;
+    std::shared_ptr<buma::debug::ILogger>   message_logger;
+    buma3d::PFN_Buma3DDebugMessageCallback  DebugMessageCallback;
+};
 
 class DeviceResources
 {
@@ -28,7 +40,7 @@ public:
     DeviceResources();
     ~DeviceResources();
 
-    bool Init(INTERNAL_API_TYPE _type, const char* _library_dir = nullptr);
+    bool Init(const DEVICE_RESOURCE_DESC& _desc);
 
 public:
     const buma3d::util::Ptr<buma3d::IDeviceFactory>&                GetFactory()                                    const { return factory; }
@@ -44,9 +56,6 @@ public:
     bool WaitForGpu();
 
 protected:
-    static void B3D_APIENTRY B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVERITY _sev, buma3d::DEBUG_MESSAGE_CATEGORY_FLAG _category, const buma3d::Char8T* const _msg, void* _user_data);
-
-protected:
     bool InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir);
     bool PickAdapter();
     bool CreateDevice();
@@ -55,6 +64,7 @@ protected:
     void UninitB3D();
 
 private:
+    DEVICE_RESOURCE_DESC                                    desc;
     struct B3D_PFN;
     std::unique_ptr<B3D_PFN>                                pfn;
     INTERNAL_API_TYPE                                       type;
@@ -64,10 +74,9 @@ private:
     std::vector<buma3d::util::Ptr<buma3d::ICommandQueue>>   cmd_queues[buma3d::COMMAND_TYPE_NUM_TYPES];         // [COMMAND_TYPE]
     //std::vector<std::shared_ptr<buma::GpuTimerPool>>      gpu_timer_pools[buma3d::COMMAND_TYPE_NUM_TYPES];    // [COMMAND_TYPE]
     //std::shared_ptr<buma::MyImGui>                        my_imugi;
-    std::shared_ptr<ConsoleSession>                         console_session;
     std::unique_ptr<shader::ShaderLoader>                   shader_laoder;
 
-    std::vector<buma3d::COMMAND_QUEUE_PROPERTIES> queue_props;
+    std::vector<buma3d::COMMAND_QUEUE_PROPERTIES>           queue_props;
 
 };
 

@@ -53,6 +53,9 @@
     <ClCompile Include="Src\SwapChain.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="Src\LoggerWindows.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h">
@@ -95,6 +98,12 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="Inc\B3DInit.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\Logger.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\LoggerWindows.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

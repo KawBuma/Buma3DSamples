@@ -51,6 +51,8 @@ public:
     virtual bool Init(const PLATFORM_DESC& _desc) = 0;
     virtual bool Term() = 0;
 
+    virtual debug::ILogger* GetLogger() = 0;
+
 protected:
     virtual bool ParseCommandLines(const PLATFORM_DESC& _desc) = 0;
     virtual bool PrepareDeviceResources() = 0;
@@ -60,7 +62,7 @@ protected:
     std::vector<std::unique_ptr<std::string>>   cmd_lines;
     std::shared_ptr<ApplicationBase>            app;
     std::shared_ptr<DeviceResources>            device_resources;
-    std::shared_ptr<WindowBase>                 window;
+    std::shared_ptr<WindowBase>                 window;    
 
 };
 

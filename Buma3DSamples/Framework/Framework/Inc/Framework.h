@@ -5,6 +5,7 @@
 #include "B3DInit.h"
 #include "StepTimer.h"
 #include "Utils.h"
+#include "Logger.h"
 #include "DeviceResources.h"
 #include "SwapChain.h"
 #include "Platform.h"

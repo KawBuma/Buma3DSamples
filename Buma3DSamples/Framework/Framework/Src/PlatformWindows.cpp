@@ -8,6 +8,115 @@
 namespace buma
 {
 
+class ConsoleSession
+{
+public:
+    ConsoleSession()
+        : ofs("./log.txt", std::ios::out | std::ios::trunc, std::ios::_Default_open_prot)
+    {
+    }
+
+    ~ConsoleSession()
+    {
+        End();
+    }
+
+    void Begin()
+    {
+        auto res = AllocConsole();
+        assert(res);
+
+        // coutにする
+        auto console_out = "CONOUT$";
+        freopen_s(&stream, console_out, "w+", stdout);
+    }
+
+    void End()
+    {
+        auto res = FreeConsole();
+        assert(res != 0);
+        fclose(stream);
+        ofs.close();
+    }
+
+    std::ofstream ofs;
+private:
+    FILE*         stream;
+
+};
+
+void B3D_APIENTRY PlatformWindows::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVERITY _sev, buma3d::DEBUG_MESSAGE_CATEGORY_FLAG _category, const buma3d::Char8T* const _msg, void* _user_data)
+{
+    static const char* SEVERITIES[]
+    {
+       "[ INFO"
+     , "[ WARNING"
+     , "[ ERROR"
+     , "[ CORRUPTION"
+     , "[ OTHER"
+    };
+
+    static const char* CATEGORIES[]
+    {
+       ", UNKNOWN ] "
+     , ", MISCELLANEOUS ] "
+     , ", INITIALIZATION ] "
+     , ", CLEANUP ] "
+     , ", COMPILATION ] "
+     , ", STATE_CREATION ] "
+     , ", STATE_SETTING ] "
+     , ", STATE_GETTING ] "
+     , ", RESOURCE_MANIPULATION ] "
+     , ", EXECUTION ] "
+     , ", SHADER ] "
+     , ", B3D ] "
+     , ", B3D_DETAILS ] "
+    };
+
+    debug::ILogger* logger = (debug::ILogger*)(_user_data);
+
+    auto E = [&]()
+    {
+        std::cout << std::endl;
+    };
+    auto P = [&](const auto& s)
+    {
+        logger->LogInfo(s);;
+        std::cout << s;
+
+        switch (_sev)
+        {
+        case buma3d::DEBUG_MESSAGE_SEVERITY_INFO       : logger->LogInfo(_msg);     break;
+        case buma3d::DEBUG_MESSAGE_SEVERITY_WARNING    : logger->LogWarn(_msg);     break;
+        case buma3d::DEBUG_MESSAGE_SEVERITY_ERROR      : logger->LogError(_msg);    break;
+        case buma3d::DEBUG_MESSAGE_SEVERITY_CORRUPTION : logger->LogCritical(_msg); break;
+
+        default:
+            logger->LogInfo(_msg);
+            break;
+        }
+    };
+
+    if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
+        P("\n\n");
+    else if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_WARNING)
+        P("\n");
+
+    P(SEVERITIES[_sev]);
+
+    DWORD i = 0;
+    if (_BitScanForward(&i, _category))
+        P(CATEGORIES[i]);
+
+    if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
+        P("\n\n");
+    else if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_WARNING)
+        P("\n");
+
+    P(_msg);
+    E();
+}
+
 PlatformWindows::PlatformWindows()
     : PlatformBase      ()
     , wnd_class         {}
@@ -17,11 +126,19 @@ PlatformWindows::PlatformWindows()
     , num_cmdshow       {}
     , window_windows    {}
     , execution_path    {}
+    , console_session   {}
+    , logger            {}
 {
+    console_session = std::make_shared<ConsoleSession>();
+    console_session->Begin();
+
+    logger = std::make_shared<debug::LoggerWindows>();
 }
 
 PlatformWindows::~PlatformWindows()
 {
+    console_session.reset();
+    logger.reset();
 }
 
 int PlatformWindows::MainLoop()
@@ -113,7 +230,14 @@ bool PlatformWindows::PrepareDeviceResources()
     const char* dir = nullptr;
     if (dll_dir != cmd_lines.end())
         dir = (**(dll_dir + 1)).c_str();
-    if (!device_resources->Init(type, dir)) return false;
+
+    DEVICE_RESOURCE_DESC drd{};
+    drd.type                   = type;
+    drd.library_dir            = dir ? dir : "";
+    drd.is_enable_debug        = true;
+    drd.message_logger         = logger;
+    drd.DebugMessageCallback   = B3DMessageCallback;
+    if (!device_resources->Init(drd)) return false;
 
     return true;
 }

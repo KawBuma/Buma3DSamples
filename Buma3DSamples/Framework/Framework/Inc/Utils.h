@@ -211,6 +211,9 @@ private:
     {
         if (_num_fences > fences.size())
         {
+            fences.resize(_num_fences);
+            fence_values.resize(_num_fences);
+
             wait_desc.wait_fence.fences             = fences.data();
             wait_desc.wait_fence.fence_values       = fence_values.data();
 

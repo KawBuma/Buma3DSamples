@@ -43,10 +43,7 @@ bool WindowWindows::ResizeWindow(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHA
     SetWindowPos(hwnd, NULL, windowed_offset.x, windowed_offset.y, _size.width, _size.height, SWP_NOZORDER);
     if (!OnResize(_size, _swapchain_flags)) return false;
 
-    platform.GetDeviceResources()->WaitForGpu();
-    auto bmr = swapchain->Resize(_size, _swapchain_flags);
-
-    return bmr == buma3d::BMRESULT_SUCCEED;
+    return true;
 }
 
 bool WindowWindows::ProcessMessage()
@@ -78,12 +75,13 @@ bool WindowWindows::CreateSwapChain(const buma3d::SWAP_CHAIN_DESC& _desc, std::s
 
     buma3d::SWAP_CHAIN_DESC desc = _desc;
     desc.surface = surface.Get();
-    auto bmr = dr->GetDevice()->CreateSwapChain(_desc, &ptr);
+    auto bmr = dr->GetDevice()->CreateSwapChain(desc, &ptr);
     if (bmr >= buma3d::BMRESULT_FAILED)
         return false;
 
-    swapchain = std::make_shared<SwapChain>(dr, surface, ptr, _desc);
+    swapchain = std::make_shared<SwapChain>(dr, surface, ptr, desc);
     swapchain->GetSwapChain()->SetName("SwapChain");
+    *_dst = swapchain;
 
     return true;
 }

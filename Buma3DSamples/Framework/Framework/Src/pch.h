@@ -36,6 +36,7 @@
 #include "DeviceResources.h"
 #include "SwapChain.h"
 
+#include "Logger.h"
 #include "Application.h"
 #include "Platform.h"
 #include "Window.h"
@@ -56,6 +57,7 @@
 #include "SimpleMath.h"
 
 
+#include "LoggerWindows.h"
 #include "WindowWindows.h"
 #include "PlatformWindows.h"
 

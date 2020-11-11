@@ -101,6 +101,7 @@
     <ClCompile Include="Src\Application.cpp" />
     <ClCompile Include="Src\DeviceResources.cpp" />
     <ClCompile Include="Src\Framework.cpp" />
+    <ClCompile Include="Src\LoggerWindows.cpp" />
     <ClCompile Include="Src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -120,6 +121,8 @@
     <ClInclude Include="Inc\DeviceResources.h" />
     <ClInclude Include="Inc\Framework.h" />
     <ClInclude Include="Inc\ImmediateContext.h" />
+    <ClInclude Include="Inc\Logger.h" />
+    <ClInclude Include="Inc\LoggerWindows.h" />
     <ClInclude Include="Inc\Platform.h" />
     <ClInclude Include="Inc\PlatformWindows.h" />
     <ClInclude Include="Inc\ShaderLoader.h" />

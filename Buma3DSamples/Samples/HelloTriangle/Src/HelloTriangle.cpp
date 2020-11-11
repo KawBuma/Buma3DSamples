@@ -32,11 +32,14 @@ HelloTriangle* HelloTriangle::Create()
 bool HelloTriangle::Prepare(PlatformBase& _platform)
 {
     platform = &_platform;
+    dr       = platform->GetDeviceResources();
     device   = dr->GetDevice();
 
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
                                                  init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
+
+    platform->GetWindow()->ResizeWindow({ 1280,720 }, b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT);
     if (!(platform->GetWindow()->CreateSwapChain(scd, &swapchain)))
         return false;
 
@@ -47,6 +50,9 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     present_info.present_regions     = &present_region;
     present_region = { { 0, 0 }, scissor_rect.extent };
 
+    if (!Init())
+        return false;
+
     return true;
 }
 
@@ -56,6 +62,9 @@ bool HelloTriangle::Init()
     vpiewport       = {   0, 0  ,  (float)resolution.width, (float)resolution.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
     scissor_rect    = { { 0, 0 },        {resolution.width,        resolution.height} };
     command_queue   = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
+
+    LoadAssets();
+
     return command_queue;
 }
 
@@ -86,7 +95,7 @@ void HelloTriangle::LoadAssets()
 
         b::ATTACHMENT_DESC attachment{};
         attachment.flags               = b::ATTACHMENT_FLAG_NONE;
-        attachment.format              = sfs_format.format;
+        attachment.format              = (*back_buffers)[0].rtv->GetDesc().view.format;
         attachment.sample_count        = 1;
         attachment.load_op             = b::ATTACHMENT_LOAD_OP_CLEAR;
         attachment.store_op            = b::ATTACHMENT_STORE_OP_STORE;
@@ -836,7 +845,7 @@ void HelloTriangle::Render()
         signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal);
         signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
-        submit.signal_fence_to_cpu = render_complete_fence.Get();
+        submit.signal_fence_to_cpu = nullptr;
 
         bmr = command_queue->Submit(submit);
         assert(bmr == b::BMRESULT_SUCCEED);
@@ -852,6 +861,7 @@ void HelloTriangle::Render()
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
+    platform->GetLogger()->LogInfo("framed");
     fence_values[back_buffer_index]++;
 }
 
