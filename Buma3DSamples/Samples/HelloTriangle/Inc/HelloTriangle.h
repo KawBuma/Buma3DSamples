@@ -11,9 +11,9 @@ public:
 
     static HelloTriangle* Create();
 
-    void Prepare(PlatformBase& _platform);
+    bool Prepare(PlatformBase& _platform) override;
 
-    void Init() override;
+    bool Init() override;
     virtual void LoadAssets();
 
     void Tick() override;
@@ -28,7 +28,7 @@ private:
 
     buma3d::SURFACE_FORMAT                                  sfs_format;
     buma3d::util::Ptr<buma3d::ISwapChain>                   swapchain;
-    const std::vector<buma::WindowBase::SWAP_CHAIN_BUFFER>* back_buffers;
+    const std::vector<buma::SwapChain::SWAP_CHAIN_BUFFER>*  back_buffers;
 
     Ptr<b::IRootSignature> signature;
 

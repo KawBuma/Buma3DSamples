@@ -177,19 +177,19 @@ DeviceResources::~DeviceResources()
     UninitB3D();
 }
 
-bool DeviceResources::Init(INTERNAL_API_TYPE _type)
+bool DeviceResources::Init(INTERNAL_API_TYPE _type, const char* _library_dir)
 {
-    if (!InitB3D(_type))        return false;
-    if (!PickAdapter())         return false;
-    if (!CreateDevice())        return false;
-    if (!GetCommandQueues())    return false;
-    if (!CreateMyImGui())       return false;
+    if (!InitB3D(_type, _library_dir))  return false;
+    if (!PickAdapter())                 return false;
+    if (!CreateDevice())                return false;
+    if (!GetCommandQueues())            return false;
+    if (!CreateMyImGui())               return false;
     shader_laoder = std::make_unique<shader::ShaderLoader>(type);
 
     return true;
 }
 
-bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type)
+bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
 {
     pfn = std::make_unique<B3D_PFN>();
 
@@ -207,7 +207,11 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type)
     const char* CONFIG = "Release";
     const char* BUILD = "_Release.dll";
 #endif // _DEBUG
-    path += "/External/Buma3D/Project/";
+
+    if (_library_dir)
+        path += _library_dir;
+    else
+        path += "/External/Buma3D/Project/";
 
     switch (_type)
     {

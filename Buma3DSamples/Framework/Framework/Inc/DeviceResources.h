@@ -28,7 +28,7 @@ public:
     DeviceResources();
     ~DeviceResources();
 
-    bool Init(INTERNAL_API_TYPE _type);
+    bool Init(INTERNAL_API_TYPE _type, const char* _library_dir = nullptr);
 
 public:
     const buma3d::util::Ptr<buma3d::IDeviceFactory>&                GetFactory()                                    const { return factory; }
@@ -47,7 +47,7 @@ protected:
     static void B3D_APIENTRY B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVERITY _sev, buma3d::DEBUG_MESSAGE_CATEGORY_FLAG _category, const buma3d::Char8T* const _msg, void* _user_data);
 
 protected:
-    bool InitB3D(INTERNAL_API_TYPE _type);
+    bool InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir);
     bool PickAdapter();
     bool CreateDevice();
     bool GetCommandQueues();

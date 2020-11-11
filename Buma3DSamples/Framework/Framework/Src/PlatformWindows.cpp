@@ -77,12 +77,17 @@ bool PlatformWindows::ParseCommandLines(const PLATFORM_DESC& _desc)
 
 	int  argc{};
 	auto argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    execution_path = std::move(util::ConvertWideToAnsi(argv[0]));
-    for (size_t i = 1; i < argc; i++)
+    if (argc != 0)
     {
-        cmd_lines.emplace_back(
-            std::make_unique<std::string>(
-                std::move(util::ConvertWideToAnsi(argv[i]))));
+        execution_path = std::move(util::ConvertWideToAnsi(argv[0]));
+
+        cmd_lines.reserve(argc - 1);
+        for (size_t i = 1; i < argc; i++)
+        {
+            cmd_lines.emplace_back(
+                std::make_unique<std::string>(
+                    std::move(util::ConvertWideToAnsi(argv[i]))));
+        }
     }
 
     return true;
@@ -92,9 +97,23 @@ bool PlatformWindows::PrepareDeviceResources()
 {
     device_resources = std::make_shared<DeviceResources>();
 
-    // FIXME: INTERNAL_API_TYPE type = INTERNAL_API_TYPE_D3D12;
     INTERNAL_API_TYPE type = INTERNAL_API_TYPE_D3D12;
-    if (!device_resources->Init(type)) return false;
+    auto&& api_type = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::shared_ptr<std::string>& _str) { return  (*_str) == "--internal-api-type"; });
+    if (api_type != cmd_lines.end())
+    {
+        auto&& next = (**(api_type + 1));
+        if (next == "vulkan")
+            type = INTERNAL_API_TYPE_VULKAN;
+
+        else if (next == "d3d12" || next == "dx12")
+            type = INTERNAL_API_TYPE_D3D12;
+    }
+
+    auto&& dll_dir = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::shared_ptr<std::string>& _str) { return  (*_str) == "--library-dir"; });
+    const char* dir = nullptr;
+    if (dll_dir != cmd_lines.end())
+        dir = (**(dll_dir + 1)).c_str();
+    if (!device_resources->Init(type, dir)) return false;
 
     return true;
 }

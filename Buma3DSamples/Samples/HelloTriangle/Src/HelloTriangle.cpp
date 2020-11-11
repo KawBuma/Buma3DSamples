@@ -27,16 +27,19 @@ HelloTriangle* HelloTriangle::Create()
     return new HelloTriangle();
 }
 
-void HelloTriangle::Prepare(PlatformBase& _platform)
+bool HelloTriangle::Prepare(PlatformBase& _platform)
 {
     platform     = &_platform;
     device       = dr->GetDevice();
+
+
     back_buffers = &platform->GetWindow()->GetBuffers();
     platform->GetWindow()->Resize();
 
+    return true;
 }
 
-void HelloTriangle::Init()
+bool HelloTriangle::Init()
 {
 
 }
