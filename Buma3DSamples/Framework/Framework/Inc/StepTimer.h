@@ -6,7 +6,7 @@
 
 #include <cmath>
 #include <exception>
-#include <stdint.h>
+#include <cstdint>
 
 namespace buma
 {

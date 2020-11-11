@@ -11,8 +11,8 @@ WindowWindows::WindowWindows(PlatformWindows&           _platform,
     , platform              { _platform }
     , wnd_class             { _wnd_class }
     , hwnd                  {}
-    , wnd_name              { _desc.name }
-    , window_process_flags    {}
+    , wnd_name              { _desc.name ? _desc.name : "" }
+    , window_process_flags  {}
     , windowed_size         { _desc.width,_desc.height }
     , windowed_offset       {}
     , aspect_ratio          { float(_desc.width) / float(_desc.height) }
@@ -76,7 +76,7 @@ bool WindowWindows::CreateSwapChain(const buma3d::SWAP_CHAIN_DESC& _desc, std::s
 
     buma3d::util::Ptr<buma3d::ISwapChain> ptr;
 
-    auto desc = _desc;
+    buma3d::SWAP_CHAIN_DESC desc = _desc;
     desc.surface = surface.Get();
     auto bmr = dr->GetDevice()->CreateSwapChain(_desc, &ptr);
     if (bmr >= buma3d::BMRESULT_FAILED)

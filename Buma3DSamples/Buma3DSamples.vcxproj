@@ -57,7 +57,7 @@
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)External\Buma3D\Inc;$(ProjectDir)Framework\Inputs\inc;$(ProjectDir)Framework\Framework\Inc;$(ProjectDir)Samples\SampleBase\Inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)External\Buma3D\Inc;$(ProjectDir)Framework\Inputs\inc;$(ProjectDir)Framework\Framework\Inc;$(ProjectDir)Samples\SampleBase\Inc;$(ProjectDir)Samples\</AdditionalIncludeDirectories>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
@@ -75,7 +75,7 @@
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)External\Buma3D\Inc;$(ProjectDir)Framework\Inputs\inc;$(ProjectDir)Framework\Framework\Inc;$(ProjectDir)Samples\SampleBase\Inc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)External\Buma3D\Inc;$(ProjectDir)Framework\Inputs\inc;$(ProjectDir)Framework\Framework\Inc;$(ProjectDir)Samples\SampleBase\Inc;$(ProjectDir)Samples\</AdditionalIncludeDirectories>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -101,9 +101,15 @@
     <ProjectReference Include="Framework\Inputs\Inputs.vcxproj">
       <Project>{e4c6b317-111c-4f33-bc19-32a2cadc0c07}</Project>
     </ProjectReference>
+    <ProjectReference Include="Samples\HelloTriangle\HelloTriangle.vcxproj">
+      <Project>{c17b89b9-0bb8-49af-903b-5e11ec9d38dd}</Project>
+    </ProjectReference>
     <ProjectReference Include="Samples\SampleBase\SampleBase.vcxproj">
       <Project>{7b15d9b5-597e-45c7-aca0-98da246b5755}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Src\Buma3DSamples.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

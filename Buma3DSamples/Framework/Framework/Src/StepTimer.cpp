@@ -27,7 +27,7 @@ StepTimer::StepTimer() noexcept(false)
     qpc_max_delta = static_cast<uint64_t>(qpc_frequency_quad_part / 10);
 }
 
-inline void StepTimer::ResetElapsedTime()
+void StepTimer::ResetElapsedTime()
 {
     if (!QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&qpc_frequency_quad_part)))
     {
@@ -42,7 +42,7 @@ inline void StepTimer::ResetElapsedTime()
 
 // Update timer state, calling the specified Update function the appropriate number of times.
 
-inline void StepTimer::Tick()
+void StepTimer::Tick()
 {
     // Query the current time.
     LARGE_INTEGER current_time{};

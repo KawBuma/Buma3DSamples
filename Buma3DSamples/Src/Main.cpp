@@ -1,9 +1,7 @@
-#include <memory>
-
+#define WIN32_LEAN_AND_MEAN 
 #include <Windows.h>
 
-#include "Framework.h"
-#include "SampleBase.h"
+#include "Buma3DSamples.h"
 
 int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
                       _In_opt_ HINSTANCE hPrevInstance,
@@ -15,7 +13,7 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
     {
         auto platform = buma::CreatePlatform();
         {
-            auto app = std::shared_ptr<buma::SampleAppBase>(buma::SampleAppBase::Create());
+            auto app = std::shared_ptr<buma::HelloTriangle>(buma::HelloTriangle::Create());
             platform->AttachApplication(app);
         }
 
@@ -26,7 +24,7 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
         {
             code = platform->MainLoop();
             platform->Term();
-        }
+        }        
         buma::DestroyPlatform(platform);
         platform = nullptr;
     }

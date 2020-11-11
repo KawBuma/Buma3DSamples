@@ -74,21 +74,13 @@ private:
     buma3d::util::Ptr<buma3d::IVertexBufferView>                vertex_buffer_view{};
     buma3d::util::Ptr<buma3d::IIndexBufferView>                 index_buffer_view{};
 
-
-    //buma3d::SWAP_CHAIN_ACQUIRE_NEXT_BUFFER_INFO                 acquire_info;
-
     buma::util::FenceSubmitDesc                                 signal_fence_desc;
     buma::util::FenceSubmitDesc                                 wait_fence_desc;
-    //b::IFence*                                                submit_waits[]       = { cmd_fences[back_buffer_index].Get(), swapchain_fences[SCF::PRESENT_COMPLETE].Get() };
-    //uint64_t                                                  submit_wait_vals[]   = { 0, 0 };
-    //b::IFence*                                                submit_signals[]     = { cmd_fences[back_buffer_index].Get(), swapchain_fences[SCF::RENDER_COMPLETE].Get() };
-    //uint64_t                                                  submit_signal_vals[] = { 0, 0 };
 
     buma3d::SUBMIT_INFO                                         submit_info;
     buma3d::SUBMIT_DESC                                         submit;
     buma3d::SWAP_CHAIN_PRESENT_INFO                             present_info;
     buma3d::SCISSOR_RECT                                        present_region;
-
 
 };
 
