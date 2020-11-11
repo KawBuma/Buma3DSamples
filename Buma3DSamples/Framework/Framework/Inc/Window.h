@@ -10,7 +10,8 @@ public:
     WindowBase(const WindowBase&) = delete;
     virtual ~WindowBase();
 
-    virtual bool Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags) = 0;
+    virtual bool OffsetWindow(const buma3d::OFFSET2D& _offset) = 0;
+    virtual bool ResizeWindow(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags) = 0;
 
     virtual bool ProcessMessage() = 0;
     virtual bool Exit() = 0;

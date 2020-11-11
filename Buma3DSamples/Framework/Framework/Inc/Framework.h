@@ -2,6 +2,7 @@
 #include <vector>
 #include "Buma3D.h"
 #include "Util/Buma3DPtr.h"
+#include "B3DInit.h"
 #include "StepTimer.h"
 #include "Utils.h"
 #include "DeviceResources.h"

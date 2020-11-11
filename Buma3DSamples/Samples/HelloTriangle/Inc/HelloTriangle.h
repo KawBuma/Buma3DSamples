@@ -27,7 +27,7 @@ private:
     buma3d::util::Ptr<buma3d::IDevice>                      device;
 
     buma3d::SURFACE_FORMAT                                  sfs_format;
-    buma3d::util::Ptr<buma3d::ISwapChain>                   swapchain;
+    std::shared_ptr<buma::SwapChain>                        swapchain;
     const std::vector<buma::SwapChain::SWAP_CHAIN_BUFFER>*  back_buffers;
 
     Ptr<b::IRootSignature> signature;

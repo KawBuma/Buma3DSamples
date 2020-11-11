@@ -32,8 +32,13 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     platform     = &_platform;
     device       = dr->GetDevice();
 
+    namespace init = b::hlp::init;
+    b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
+                                                 init::SwapChainBufferDesc(1280, 720, 3, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
+                                                 dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
+    if (platform->GetWindow()->CreateSwapChain(scd, &swapchain));
 
-    back_buffers = &platform->GetWindow()->GetBuffers();
+    back_buffers = &swapchain->GetBuffers();
     platform->GetWindow()->Resize();
 
     return true;

@@ -43,18 +43,28 @@ bool SwapChain::Present(const buma3d::SWAP_CHAIN_PRESENT_INFO& _info)
 
 bool SwapChain::Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags)
 {
-    swapchain_desc.buffer.width  = _size.width;
-    swapchain_desc.buffer.height = _size.height;
-    swapchain_desc.flags         = _swapchain_flags;
-    auto bmr = swapchain->Recreate(swapchain_desc);
+    auto tmp = swapchain_desc;
+    tmp.buffer.width  = _size.width;
+    tmp.buffer.height = _size.height;
+    tmp.flags         = _swapchain_flags;
+    auto bmr = swapchain->Recreate(tmp);
 
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
 bool SwapChain::Recreate(const buma3d::SWAP_CHAIN_DESC& _desc)
 {
-    auto bmr = swapchain->Recreate(_desc);
-    return bmr == buma3d::BMRESULT_SUCCEED;
+    swapchain_desc = _desc;
+    back_buffers.clear();
+    back_buffer_index = 0;
+
+    if (swapchain->Recreate(swapchain_desc) >= buma3d::BMRESULT_FAILED)
+        return false;
+
+    if (!GetBackBuffers())  return false;
+    if (!CreateViews())     return false;
+
+    return true;
 }
 
 bool SwapChain::Init(std::shared_ptr<DeviceResources> _device_resources, buma3d::util::Ptr<buma3d::ISurface> _surface, buma3d::util::Ptr<buma3d::ISwapChain> _swapchain, const buma3d::SWAP_CHAIN_DESC& _desc)
