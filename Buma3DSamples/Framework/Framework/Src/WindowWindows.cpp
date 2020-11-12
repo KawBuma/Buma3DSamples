@@ -61,6 +61,10 @@ bool WindowWindows::ProcessMessage()
         DispatchMessage(&msg);
     }
 
+    input::KeyboardInput::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
+    input::MouseInput::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
+    //input::GamePadInputs::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
+
     if (msg.message == WM_QUIT)
         return false;
 
@@ -209,6 +213,7 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         {
         case SIZE_RESTORED:
             std::cout << "restored" << std::endl;
+            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MINIMIZED;
             break;
 
         case SIZE_MINIMIZED:
@@ -231,6 +236,9 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         default:
             break;
         }
+
+        if (fw->window_state_flags & WINDOW_STATE_FLAG_MINIMIZED)
+            break;
 
         RECT rc{};
         GetClientRect(_hwnd, &rc);
@@ -264,7 +272,7 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     }
     case WM_ACTIVATEAPP:
     {
-        _wparam != 0
+        _wparam == TRUE
             ? fw->window_process_flags |= WINDOW_PROCESS_FLAG_ACTIVATED
             : fw->window_process_flags |= WINDOW_PROCESS_FLAG_DEACTIVATED;
         break;

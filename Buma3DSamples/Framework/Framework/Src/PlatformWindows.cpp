@@ -23,8 +23,7 @@ public:
 
     void Begin()
     {
-        if (true)
-            return;
+        //if (true) return;
 
         auto res = AllocConsole();
         assert(res);
@@ -36,8 +35,7 @@ public:
 
     void End()
     {
-        if (true)
-            return;
+        //if (true) return;
 
         auto res = FreeConsole();
         assert(res != 0);
@@ -146,6 +144,7 @@ int PlatformWindows::MainLoop()
     int result = 0;
     while (window_windows->ProcessMessage())
     {
+        timer.Tick();
         app->Tick();
     }
 

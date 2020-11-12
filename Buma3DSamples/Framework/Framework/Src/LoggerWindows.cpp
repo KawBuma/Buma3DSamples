@@ -12,7 +12,7 @@ namespace debug
 
 LoggerWindows::LoggerWindows()
 {
-    if (false)
+    //if (false)
         async_file = spdlog::basic_logger_mt<spdlog::default_factory>("buma::debug::LoggerWindows::async_file", "./Log/Log.txt");
 }
 

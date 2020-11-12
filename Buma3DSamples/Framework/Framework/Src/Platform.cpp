@@ -5,8 +5,11 @@ namespace buma
 {
 
 PlatformBase::PlatformBase()
-    : app       {}
-    , window    {}
+    : cmd_lines         {}
+    , app               {}
+    , device_resources  {}
+    , window            {}
+    , timer             {}
 {
     
 

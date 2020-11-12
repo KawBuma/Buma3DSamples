@@ -28,8 +28,11 @@ SwapChain::~SwapChain()
 
 buma3d::BMRESULT SwapChain::AcquireNextBuffer(uint32_t _timeout_millisec, uint32_t* _dst_back_buffer_index)
 {
+    acquire_info.signal_fence        = present_complete_fences.signal_fence.Get();
+    acquire_info.signal_fence_to_cpu = present_complete_fences.signal_fence_to_cpu.Get();
+    acquire_info.timeout_millisec    = _timeout_millisec;
+
     uint32_t next_buffer_index = 0;
-    acquire_info.timeout_millisec = _timeout_millisec;
     auto bmr = swapchain->AcquireNextBuffer(acquire_info, &next_buffer_index);
     if (bmr >= buma3d::BMRESULT_FAILED)
         return bmr;

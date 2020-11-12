@@ -47,6 +47,7 @@ public:
     std::shared_ptr<DeviceResources>                    GetDeviceResources() const { return device_resources; }
     std::shared_ptr<WindowBase>                         GetWindow()          const { return window; }
     const std::vector<std::unique_ptr<std::string>>&    GetCommandLines()    const { return cmd_lines; }
+    virtual const StepTimer*                            GetStepTimer()       const { return &timer; }
 
     virtual bool Init(const PLATFORM_DESC& _desc) = 0;
     virtual bool Term() = 0;
@@ -62,7 +63,8 @@ protected:
     std::vector<std::unique_ptr<std::string>>   cmd_lines;
     std::shared_ptr<ApplicationBase>            app;
     std::shared_ptr<DeviceResources>            device_resources;
-    std::shared_ptr<WindowBase>                 window;    
+    std::shared_ptr<WindowBase>                 window;
+    StepTimer                                   timer;
 
 };
 

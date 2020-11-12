@@ -39,7 +39,7 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
                                                  init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
 
-    platform->GetWindow()->ResizeWindow({ 1280,720 }, b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT);
+    platform->GetWindow()->ResizeWindow({ 1280,720 }, b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT | b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC);
     if (!(platform->GetWindow()->CreateSwapChain(scd, &swapchain)))
         return false;
 
@@ -875,7 +875,7 @@ void HelloTriangle::Render()
 
     // バックバッファをプレゼント
     {
-        //swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
+        swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
         swapchain_fences->signal_fence_to_cpu->Reset();
 
         present_info.wait_fence = render_complete_fence.Get();
