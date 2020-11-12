@@ -38,8 +38,8 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
                                                  init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
-
-    platform->GetWindow()->ResizeWindow({ 1280,720 }, b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT | b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC);
+    scd.flags = b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT /*| b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC*/;
+    platform->GetWindow()->ResizeWindow({ 1280,720 }, scd.flags);
     if (!(platform->GetWindow()->CreateSwapChain(scd, &swapchain)))
         return false;
 

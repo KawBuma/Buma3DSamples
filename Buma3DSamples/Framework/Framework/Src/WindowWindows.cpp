@@ -55,18 +55,19 @@ bool WindowWindows::ResizeWindow(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHA
 bool WindowWindows::ProcessMessage()
 {
     window_process_flags = WINDOW_PROCESS_FLAG_NONE;
-    if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+    // キューの残りメッセージがゼロになるまで取得
+    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
+
+        if (msg.message == WM_QUIT)
+            return false;
     }
 
     input::KeyboardInput::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
     input::MouseInput::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
     //input::GamePadInputs::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
-
-    if (msg.message == WM_QUIT)
-        return false;
 
     return true;
 }
@@ -198,11 +199,276 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
 
     //myimgui->WndProcHandler(_hwnd, _message, _wparam, _lparam);
 
-    input::KeyboardInput::ProcessMessage(_message, _wparam, _lparam);
-    input::MouseInput::ProcessMessage(_message, _wparam, _lparam);
+#ifdef _DEBUG
+#define KEY_NAME(x) { x, #x }
+    static std::unordered_map<UINT/*message*/, const char*> MESSAGE_NAMES_MAP = {
+          KEY_NAME(WM_NULL)
+        , KEY_NAME(WM_CREATE)
+        , KEY_NAME(WM_DESTROY)
+        , KEY_NAME(WM_MOVE)
+        , KEY_NAME(WM_SIZE)
+        , KEY_NAME(WM_ACTIVATE)
+        , KEY_NAME(WM_SETFOCUS)
+        , KEY_NAME(WM_KILLFOCUS)
+        , KEY_NAME(WM_ENABLE)
+        , KEY_NAME(WM_SETREDRAW)
+        , KEY_NAME(WM_SETTEXT)
+        , KEY_NAME(WM_GETTEXT)
+        , KEY_NAME(WM_GETTEXTLENGTH)
+        , KEY_NAME(WM_PAINT)
+        , KEY_NAME(WM_CLOSE)
+        , KEY_NAME(WM_QUERYENDSESSION)
+        , KEY_NAME(WM_QUERYOPEN)
+        , KEY_NAME(WM_ENDSESSION)
+        , KEY_NAME(WM_QUIT)
+        , KEY_NAME(WM_ERASEBKGND)
+        , KEY_NAME(WM_SYSCOLORCHANGE)
+        , KEY_NAME(WM_SHOWWINDOW)
+        , KEY_NAME(WM_WININICHANGE)
+        , KEY_NAME(WM_SETTINGCHANGE)
+        , KEY_NAME(WM_DEVMODECHANGE)
+        , KEY_NAME(WM_ACTIVATEAPP)
+        , KEY_NAME(WM_FONTCHANGE)
+        , KEY_NAME(WM_TIMECHANGE)
+        , KEY_NAME(WM_CANCELMODE)
+        , KEY_NAME(WM_SETCURSOR)
+        , KEY_NAME(WM_MOUSEACTIVATE)
+        , KEY_NAME(WM_CHILDACTIVATE)
+        , KEY_NAME(WM_QUEUESYNC)
+        , KEY_NAME(WM_GETMINMAXINFO)
+        , KEY_NAME(WM_PAINTICON)
+        , KEY_NAME(WM_ICONERASEBKGND)
+        , KEY_NAME(WM_NEXTDLGCTL)
+        , KEY_NAME(WM_SPOOLERSTATUS)
+        , KEY_NAME(WM_DRAWITEM)
+        , KEY_NAME(WM_MEASUREITEM)
+        , KEY_NAME(WM_DELETEITEM)
+        , KEY_NAME(WM_VKEYTOITEM)
+        , KEY_NAME(WM_CHARTOITEM)
+        , KEY_NAME(WM_SETFONT)
+        , KEY_NAME(WM_GETFONT)
+        , KEY_NAME(WM_SETHOTKEY)
+        , KEY_NAME(WM_GETHOTKEY)
+        , KEY_NAME(WM_QUERYDRAGICON)
+        , KEY_NAME(WM_COMPAREITEM)
+        , KEY_NAME(WM_GETOBJECT)
+        , KEY_NAME(WM_COMPACTING)
+        , KEY_NAME(WM_COMMNOTIFY)
+        , KEY_NAME(WM_WINDOWPOSCHANGING)
+        , KEY_NAME(WM_WINDOWPOSCHANGED)
+        , KEY_NAME(WM_POWER)
+        , KEY_NAME(WM_COPYDATA)
+        , KEY_NAME(WM_CANCELJOURNAL)
+        , KEY_NAME(WM_NOTIFY)
+        , KEY_NAME(WM_INPUTLANGCHANGEREQUEST)
+        , KEY_NAME(WM_INPUTLANGCHANGE)
+        , KEY_NAME(WM_TCARD)
+        , KEY_NAME(WM_HELP)
+        , KEY_NAME(WM_USERCHANGED)
+        , KEY_NAME(WM_NOTIFYFORMAT)
+        , KEY_NAME(WM_CONTEXTMENU)
+        , KEY_NAME(WM_STYLECHANGING)
+        , KEY_NAME(WM_STYLECHANGED)
+        , KEY_NAME(WM_DISPLAYCHANGE)
+        , KEY_NAME(WM_GETICON)
+        , KEY_NAME(WM_SETICON)
+        , KEY_NAME(WM_NCCREATE)
+        , KEY_NAME(WM_NCDESTROY)
+        , KEY_NAME(WM_NCCALCSIZE)
+        , KEY_NAME(WM_NCHITTEST)
+        , KEY_NAME(WM_NCPAINT)
+        , KEY_NAME(WM_NCACTIVATE)
+        , KEY_NAME(WM_GETDLGCODE)
+        , KEY_NAME(WM_SYNCPAINT)
+        , KEY_NAME(WM_NCMOUSEMOVE)
+        , KEY_NAME(WM_NCLBUTTONDOWN)
+        , KEY_NAME(WM_NCLBUTTONUP)
+        , KEY_NAME(WM_NCLBUTTONDBLCLK)
+        , KEY_NAME(WM_NCRBUTTONDOWN)
+        , KEY_NAME(WM_NCRBUTTONUP)
+        , KEY_NAME(WM_NCRBUTTONDBLCLK)
+        , KEY_NAME(WM_NCMBUTTONDOWN)
+        , KEY_NAME(WM_NCMBUTTONUP)
+        , KEY_NAME(WM_NCMBUTTONDBLCLK)
+        , KEY_NAME(WM_NCXBUTTONDOWN)
+        , KEY_NAME(WM_NCXBUTTONUP)
+        , KEY_NAME(WM_NCXBUTTONDBLCLK)
+        , KEY_NAME(WM_INPUT_DEVICE_CHANGE)
+        , KEY_NAME(WM_INPUT)
+        , KEY_NAME(WM_KEYFIRST)
+        , KEY_NAME(WM_KEYDOWN)
+        , KEY_NAME(WM_KEYUP)
+        , KEY_NAME(WM_CHAR)
+        , KEY_NAME(WM_DEADCHAR)
+        , KEY_NAME(WM_SYSKEYDOWN)
+        , KEY_NAME(WM_SYSKEYUP)
+        , KEY_NAME(WM_SYSCHAR)
+        , KEY_NAME(WM_SYSDEADCHAR)
+        , KEY_NAME(WM_UNICHAR)
+        , KEY_NAME(WM_KEYLAST)
+        , KEY_NAME(WM_KEYLAST)
+        , KEY_NAME(WM_IME_STARTCOMPOSITION)
+        , KEY_NAME(WM_IME_ENDCOMPOSITION)
+        , KEY_NAME(WM_IME_COMPOSITION)
+        , KEY_NAME(WM_IME_KEYLAST)
+        , KEY_NAME(WM_INITDIALOG)
+        , KEY_NAME(WM_COMMAND)
+        , KEY_NAME(WM_SYSCOMMAND)
+        , KEY_NAME(WM_TIMER)
+        , KEY_NAME(WM_HSCROLL)
+        , KEY_NAME(WM_VSCROLL)
+        , KEY_NAME(WM_INITMENU)
+        , KEY_NAME(WM_INITMENUPOPUP)
+        , KEY_NAME(WM_GESTURE)
+        , KEY_NAME(WM_GESTURENOTIFY)
+        , KEY_NAME(WM_MENUSELECT)
+        , KEY_NAME(WM_MENUCHAR)
+        , KEY_NAME(WM_ENTERIDLE)
+        , KEY_NAME(WM_MENURBUTTONUP)
+        , KEY_NAME(WM_MENUDRAG)
+        , KEY_NAME(WM_MENUGETOBJECT)
+        , KEY_NAME(WM_UNINITMENUPOPUP)
+        , KEY_NAME(WM_MENUCOMMAND)
+        , KEY_NAME(WM_CHANGEUISTATE)
+        , KEY_NAME(WM_UPDATEUISTATE)
+        , KEY_NAME(WM_QUERYUISTATE)
+        , KEY_NAME(WM_CTLCOLORMSGBOX)
+        , KEY_NAME(WM_CTLCOLOREDIT)
+        , KEY_NAME(WM_CTLCOLORLISTBOX)
+        , KEY_NAME(WM_CTLCOLORBTN)
+        , KEY_NAME(WM_CTLCOLORDLG)
+        , KEY_NAME(WM_CTLCOLORSCROLLBAR)
+        , KEY_NAME(WM_CTLCOLORSTATIC)
+        , KEY_NAME(WM_MOUSEFIRST)
+        , KEY_NAME(WM_MOUSEMOVE)
+        , KEY_NAME(WM_LBUTTONDOWN)
+        , KEY_NAME(WM_LBUTTONUP)
+        , KEY_NAME(WM_LBUTTONDBLCLK)
+        , KEY_NAME(WM_RBUTTONDOWN)
+        , KEY_NAME(WM_RBUTTONUP)
+        , KEY_NAME(WM_RBUTTONDBLCLK)
+        , KEY_NAME(WM_MBUTTONDOWN)
+        , KEY_NAME(WM_MBUTTONUP)
+        , KEY_NAME(WM_MBUTTONDBLCLK)
+        , KEY_NAME(WM_MOUSEWHEEL)
+        , KEY_NAME(WM_XBUTTONDOWN)
+        , KEY_NAME(WM_XBUTTONUP)
+        , KEY_NAME(WM_XBUTTONDBLCLK)
+        , KEY_NAME(WM_MOUSEHWHEEL)
+        , KEY_NAME(WM_MOUSELAST)
+        , KEY_NAME(WM_MOUSELAST)
+        , KEY_NAME(WM_MOUSELAST)
+        , KEY_NAME(WM_MOUSELAST)
+        , KEY_NAME(WM_PARENTNOTIFY)
+        , KEY_NAME(WM_ENTERMENULOOP)
+        , KEY_NAME(WM_EXITMENULOOP)
+        , KEY_NAME(WM_NEXTMENU)
+        , KEY_NAME(WM_SIZING)
+        , KEY_NAME(WM_CAPTURECHANGED)
+        , KEY_NAME(WM_MOVING)
+        , KEY_NAME(WM_POWERBROADCAST)
+        , KEY_NAME(WM_DEVICECHANGE)
+        , KEY_NAME(WM_MDICREATE)
+        , KEY_NAME(WM_MDIDESTROY)
+        , KEY_NAME(WM_MDIACTIVATE)
+        , KEY_NAME(WM_MDIRESTORE)
+        , KEY_NAME(WM_MDINEXT)
+        , KEY_NAME(WM_MDIMAXIMIZE)
+        , KEY_NAME(WM_MDITILE)
+        , KEY_NAME(WM_MDICASCADE)
+        , KEY_NAME(WM_MDIICONARRANGE)
+        , KEY_NAME(WM_MDIGETACTIVE)
+        , KEY_NAME(WM_MDISETMENU)
+        , KEY_NAME(WM_ENTERSIZEMOVE)
+        , KEY_NAME(WM_EXITSIZEMOVE)
+        , KEY_NAME(WM_DROPFILES)
+        , KEY_NAME(WM_MDIREFRESHMENU)
+        , KEY_NAME(WM_POINTERDEVICECHANGE)
+        , KEY_NAME(WM_POINTERDEVICEINRANGE)
+        , KEY_NAME(WM_POINTERDEVICEOUTOFRANGE)
+        , KEY_NAME(WM_TOUCH)
+        , KEY_NAME(WM_NCPOINTERUPDATE)
+        , KEY_NAME(WM_NCPOINTERDOWN)
+        , KEY_NAME(WM_NCPOINTERUP)
+        , KEY_NAME(WM_POINTERUPDATE)
+        , KEY_NAME(WM_POINTERDOWN)
+        , KEY_NAME(WM_POINTERUP)
+        , KEY_NAME(WM_POINTERENTER)
+        , KEY_NAME(WM_POINTERLEAVE)
+        , KEY_NAME(WM_POINTERACTIVATE)
+        , KEY_NAME(WM_POINTERCAPTURECHANGED)
+        , KEY_NAME(WM_TOUCHHITTESTING)
+        , KEY_NAME(WM_POINTERWHEEL)
+        , KEY_NAME(WM_POINTERHWHEEL)
+        , KEY_NAME(WM_POINTERROUTEDTO)
+        , KEY_NAME(WM_POINTERROUTEDAWAY)
+        , KEY_NAME(WM_POINTERROUTEDRELEASED)
+        , KEY_NAME(WM_IME_SETCONTEXT)
+        , KEY_NAME(WM_IME_NOTIFY)
+        , KEY_NAME(WM_IME_CONTROL)
+        , KEY_NAME(WM_IME_COMPOSITIONFULL)
+        , KEY_NAME(WM_IME_SELECT)
+        , KEY_NAME(WM_IME_CHAR)
+        , KEY_NAME(WM_IME_REQUEST)
+        , KEY_NAME(WM_IME_KEYDOWN)
+        , KEY_NAME(WM_IME_KEYUP)
+        , KEY_NAME(WM_MOUSEHOVER)
+        , KEY_NAME(WM_MOUSELEAVE)
+        , KEY_NAME(WM_NCMOUSEHOVER)
+        , KEY_NAME(WM_NCMOUSELEAVE)
+        , KEY_NAME(WM_WTSSESSION_CHANGE)
+        , KEY_NAME(WM_TABLET_FIRST)
+        , KEY_NAME(WM_TABLET_LAST)
+        , KEY_NAME(WM_DPICHANGED)
+        , KEY_NAME(WM_DPICHANGED_BEFOREPARENT)
+        , KEY_NAME(WM_DPICHANGED_AFTERPARENT)
+        , KEY_NAME(WM_GETDPISCALEDSIZE)
+        , KEY_NAME(WM_CUT)
+        , KEY_NAME(WM_COPY)
+        , KEY_NAME(WM_PASTE)
+        , KEY_NAME(WM_CLEAR)
+        , KEY_NAME(WM_UNDO)
+        , KEY_NAME(WM_RENDERFORMAT)
+        , KEY_NAME(WM_RENDERALLFORMATS)
+        , KEY_NAME(WM_DESTROYCLIPBOARD)
+        , KEY_NAME(WM_DRAWCLIPBOARD)
+        , KEY_NAME(WM_PAINTCLIPBOARD)
+        , KEY_NAME(WM_VSCROLLCLIPBOARD)
+        , KEY_NAME(WM_SIZECLIPBOARD)
+        , KEY_NAME(WM_ASKCBFORMATNAME)
+        , KEY_NAME(WM_CHANGECBCHAIN)
+        , KEY_NAME(WM_HSCROLLCLIPBOARD)
+        , KEY_NAME(WM_QUERYNEWPALETTE)
+        , KEY_NAME(WM_PALETTEISCHANGING)
+        , KEY_NAME(WM_PALETTECHANGED)
+        , KEY_NAME(WM_HOTKEY)
+        , KEY_NAME(WM_PRINT)
+        , KEY_NAME(WM_PRINTCLIENT)
+        , KEY_NAME(WM_APPCOMMAND)
+        , KEY_NAME(WM_THEMECHANGED)
+        , KEY_NAME(WM_CLIPBOARDUPDATE)
+        , KEY_NAME(WM_DWMCOMPOSITIONCHANGED)
+        , KEY_NAME(WM_DWMNCRENDERINGCHANGED)
+        , KEY_NAME(WM_DWMCOLORIZATIONCOLORCHANGED)
+        , KEY_NAME(WM_DWMWINDOWMAXIMIZEDCHANGE)
+        , KEY_NAME(WM_DWMSENDICONICTHUMBNAIL)
+        , KEY_NAME(WM_DWMSENDICONICLIVEPREVIEWBITMAP)
+        , KEY_NAME(WM_GETTITLEBARINFOEX)
+        , KEY_NAME(WM_HANDHELDFIRST)
+        , KEY_NAME(WM_HANDHELDLAST)
+        , KEY_NAME(WM_AFXFIRST)
+        , KEY_NAME(WM_AFXLAST)
+        , KEY_NAME(WM_PENWINFIRST)
+        , KEY_NAME(WM_PENWINLAST)
+        , KEY_NAME(WM_APP)
+        , KEY_NAME(WM_USER)
 
-    if (_message != 255)
-        std::cout << "some message" << _message << std::endl;
+    };
+#undef KEY_NAME 
+
+    if (fw && MESSAGE_NAMES_MAP.find(_message) != MESSAGE_NAMES_MAP.end())
+        fw->platform.GetLogger()->LogInfo(MESSAGE_NAMES_MAP.at(_message));
+#endif // _DEBUG
 
     switch (_message)
     {
@@ -212,24 +478,28 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         switch (_wparam)
         {
         case SIZE_RESTORED:
-            std::cout << "restored" << std::endl;
+            fw->platform.GetLogger()->LogInfo("window restored");
             fw->window_state_flags &= ~WINDOW_STATE_FLAG_MINIMIZED;
             break;
 
         case SIZE_MINIMIZED:
+            fw->platform.GetLogger()->LogInfo("window minimized");
             fw->window_state_flags |= WINDOW_STATE_FLAG_MINIMIZED;
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE_MINIMIZED;
             break;
 
         case SIZE_MAXIMIZED:
+            fw->platform.GetLogger()->LogInfo("window maximized");
             fw->window_state_flags &= ~WINDOW_STATE_FLAG_MINIMIZED;
             break;
 
         case SIZE_MAXSHOW:
+            fw->platform.GetLogger()->LogInfo("window maxshow");
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE_MAXSHOW;
             break;
 
         case SIZE_MAXHIDE:
+            fw->platform.GetLogger()->LogInfo("window maxhide");
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE_MAXHIDE;
             break;
 
@@ -279,6 +549,8 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     }
     case WM_ACTIVATE:
     {
+        input::MouseInput::GetIns().ProcessMessage(_message, _wparam, _lparam);
+        input::KeyboardInput::GetIns().ProcessMessage(_message, _wparam, _lparam);
         switch (_wparam)
         {
         case WA_ACTIVE:
@@ -341,18 +613,13 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         }
         break;
     }
-    case WM_MENUCHAR:
-    {
-        // A menu is active and the user presses a key that does not correspond
-        // to any mnemonic or accelerator key. Ignore so we don't produce an error beep.
-        return MAKELRESULT(0, MNC_CLOSE);
-
-    }
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
     case WM_KEYUP:
     case WM_SYSKEYUP:
     {
+        input::KeyboardInput::ProcessMessage(_message, _wparam, _lparam);
+
         if (_wparam == VK_RETURN && (_lparam & 0x60000000) == 0x20000000)
         {
             // Implements the classic ALT+ENTER fullscreen toggle
@@ -407,12 +674,30 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         }
         break;
     }
-
-    default:
+    case WM_INPUT:
+    case WM_MOUSEMOVE:
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+    case WM_MOUSEWHEEL:
+    case WM_XBUTTONDOWN:
+    case WM_XBUTTONUP:
+    case WM_MOUSEHOVER:
+    {
+        input::MouseInput::ProcessMessage(_message, _wparam, _lparam);
         break;
     }
 
-    return DefWindowProc(_hwnd, _message, _wparam, _lparam);
+    default:
+        // この(WndProc関数内で処理しないメッセージ)の場合、DefWindowProcを返すことでシステムがデフォルトの処理を行います。
+        return DefWindowProc(_hwnd, _message, _wparam, _lparam);
+    }
+
+    // WndProc関数内で処理を行った(処理を実装している)メッセージは、0を返します。
+    return 0;
 }
 
 
