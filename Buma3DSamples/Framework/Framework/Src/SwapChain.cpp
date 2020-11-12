@@ -50,9 +50,9 @@ bool SwapChain::Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _
     tmp.buffer.width  = _size.width;
     tmp.buffer.height = _size.height;
     tmp.flags         = _swapchain_flags;
-    auto bmr = swapchain->Recreate(tmp);
+    if (!Recreate(tmp)) return false;
 
-    return bmr == buma3d::BMRESULT_SUCCEED;
+    return true;
 }
 
 bool SwapChain::Recreate(const buma3d::SWAP_CHAIN_DESC& _desc)

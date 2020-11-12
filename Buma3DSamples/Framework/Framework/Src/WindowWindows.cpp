@@ -1,26 +1,32 @@
 #include "pch.h"
+#include "Platform.h"
+#include "PlatformWindows.h"
 #include "WindowWindows.h"
 
 namespace buma
 {
 
-WindowWindows::WindowWindows(PlatformWindows&           _platform,
-                             WNDCLASSEXW&               _wnd_class,
-                             const WINDOW_DESC&         _desc)
-    : WindowBase            ()
-    , platform              { _platform }
-    , wnd_class             { _wnd_class }
-    , hwnd                  {}
-    , wnd_name              { _desc.name ? _desc.name : "" }
-    , window_process_flags  {}
-    , windowed_size         { _desc.width,_desc.height }
-    , windowed_offset       {}
-    , aspect_ratio          { float(_desc.width) / float(_desc.height) }
-    , msg                   {}
-    , surface               {}
-    , supported_formats     {}
-    , swapchain             {}
-    , swapchain_flags       {}
+WindowWindows::WindowWindows(PlatformWindows&   _platform,
+                             WNDCLASSEXW&       _wnd_class,
+                             const WINDOW_DESC& _desc)
+    : WindowBase                    ()
+    , platform                      { _platform }
+    , wnd_class                     { _wnd_class }
+    , hwnd                          {}
+    , wnd_name                      { _desc.name ? _desc.name : "" }
+    , window_state_flags            {}
+    , window_process_flags          {}
+    , windowed_size                 { _desc.width, _desc.height }
+    , windowed_offset               {}
+    , aspect_ratio                  { float(_desc.width) / float(_desc.height) }
+    , msg                           {}
+    , surface                       {}
+    , supported_formats             {}
+    , swapchain                     {}
+    , swapchain_flags               {}
+    , delegate_on_resize            {}
+    , delegate_on_buffer_resized    {}
+
 {
     Init(_platform, windowed_size, wnd_name.c_str());
 }
@@ -91,8 +97,21 @@ const std::vector<buma3d::SURFACE_FORMAT>& WindowWindows::GetSupportedFormats() 
     return supported_formats;
 }
 
+void WindowWindows::AddResizeEvent(std::weak_ptr<IEvent> _event) const
+{
+    (*delegate_on_resize) += _event;
+}
+
+void WindowWindows::AddBufferResizedEvent(std::weak_ptr<IEvent> _event) const
+{
+    (*delegate_on_buffer_resized) += _event;
+}
+
 bool WindowWindows::Init(PlatformBase& _platform, const buma3d::EXTENT2D& _size, const char* _window_name)
 {
+    delegate_on_resize         = IDelegate::CreateDefaultDelegate();
+    delegate_on_buffer_resized = IDelegate::CreateDefaultDelegate();
+
     if (!CreateWnd(_size.width, _size.height))  return false;
     if (!CreateSurface())                       return false;
 
@@ -115,6 +134,13 @@ bool WindowWindows::CreateWnd(uint32_t _width, uint32_t _height)
 
     if (!hwnd)
         return false;
+
+    ShowWindow(hwnd, SW_SHOWNORMAL);
+
+    RECT rc{};
+    GetWindowRect(hwnd, &rc);
+    windowed_offset.x = rc.left;
+    windowed_offset.y = rc.top;
 
     input::MouseInput::GetIns().SetWindow(hwnd);
 
@@ -143,17 +169,23 @@ bool WindowWindows::OnResize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_F
     aspect_ratio    = float(_size.width) / float(_size.height);
     swapchain_flags = _swapchain_flags;
 
+    bool result = true;
     if (swapchain)
-        return ResizeBuffers(_size, _swapchain_flags);
+    {
+        auto args = ResizeEventArgs{ windowed_size, swapchain_flags };
+        (*delegate_on_resize)(&args);
+        result = ResizeBuffers(_size, _swapchain_flags);
+        if (result)
+            (*delegate_on_buffer_resized)(&args);
+    }
 
-    return true;
+    return result;
 }
 
 bool WindowWindows::ResizeBuffers(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags)
 {
     platform.GetDeviceResources()->WaitForGpu();
-    auto bmr = swapchain->Resize(_size, _swapchain_flags);
-    return bmr == buma3d::BMRESULT_SUCCEED;
+    return swapchain->Resize(_size, _swapchain_flags);
 }
 
 LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam)
@@ -165,18 +197,18 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     input::KeyboardInput::ProcessMessage(_message, _wparam, _lparam);
     input::MouseInput::ProcessMessage(_message, _wparam, _lparam);
 
+    if (_message != 255)
+        std::cout << "some message" << _message << std::endl;
+
     switch (_message)
     {
-    case WM_MOVE:
-    {
-        break;
-    }
     case WM_SIZE:
     {
         fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE;
         switch (_wparam)
         {
         case SIZE_RESTORED:
+            std::cout << "restored" << std::endl;
             break;
 
         case SIZE_MINIMIZED:
@@ -214,10 +246,6 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     case WM_EXITSIZEMOVE:
     {
         fw->window_state_flags &= ~WINDOW_STATE_FLAG_IN_SIZEMOVE;
-        RECT rc{};
-        GetClientRect(_hwnd, &rc);
-
-        fw->OnResize({ uint32_t(rc.right - rc.left), uint32_t(rc.bottom - rc.top) }, fw->swapchain_flags);
         break;
     }
     case WM_GETMINMAXINFO:
@@ -243,20 +271,36 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     }
     case WM_ACTIVATE:
     {
+        switch (_wparam)
+        {
+        case WA_ACTIVE:
+            fw->platform.GetLogger()->LogInfo("window activated");
+            fw->window_process_flags |= WINDOW_PROCESS_FLAG_ACTIVATED;
+            break;
+        case WA_CLICKACTIVE:
+            fw->platform.GetLogger()->LogInfo("window click activated");
+            fw->window_process_flags |= WINDOW_PROCESS_FLAG_ACTIVATED;
+            break;
+        case WA_INACTIVE:
+            fw->platform.GetLogger()->LogInfo("window deactivated");
+            fw->window_process_flags |= WINDOW_PROCESS_FLAG_DEACTIVATED;
+            break;
+        default:
+            break;
+        }
         break;
     }
     case WM_CREATE:
     {
         LPCREATESTRUCT create_struct = reinterpret_cast<LPCREATESTRUCT>(_lparam);
         SetWindowLongPtr(_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create_struct->lpCreateParams));
-        SetWindowLongPtr(_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
-        SetWindowLongPtr(_hwnd, GWL_EXSTYLE, 0);
+        SetWindowLong(_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+        SetWindowLong(_hwnd, GWL_EXSTYLE, 0);
 
         auto lpfw = reinterpret_cast<WindowWindows*>(create_struct->lpCreateParams);
         int width = lpfw->windowed_size.width;
         int height = lpfw->windowed_size.height;
 
-        //fw->OnWindowSizeChanged(width, height);
         ShowWindow(_hwnd, SW_SHOWNORMAL);
 
         int dispx = GetSystemMetrics(SM_CXSCREEN);
@@ -269,7 +313,9 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         int new_width = (rw.right - rw.left) - (rc.right - rc.left) + width;
         int new_height = (rw.bottom - rw.top) - (rc.bottom - rc.top) + height;
 
-        SetWindowPos(_hwnd, NULL, (dispx - width) / 2 - (new_width - width), (dispy - height) / 2 - ((new_height - height) / 2), new_width, new_height, SWP_NOSIZE | SWP_NOZORDER);
+        lpfw->windowed_offset.x = (dispx - width ) / 2 -  (new_width  - width);
+        lpfw->windowed_offset.y = (dispy - height) / 2 - ((new_height - height) / 2);
+        SetWindowPos(_hwnd, NULL, lpfw->windowed_offset.x, lpfw->windowed_offset.y, new_width, new_height, SWP_NOSIZE | SWP_NOZORDER);
         SetWindowPos(_hwnd, NULL, 0, 0, new_width, new_height, SWP_NOMOVE | SWP_NOZORDER);
         break;
     }
@@ -304,8 +350,8 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
             // Implements the classic ALT+ENTER fullscreen toggle
             if (fw->window_state_flags & WINDOW_STATE_FLAG_FULLSCREEN)
             {
-                SetWindowLongPtr(_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
-                SetWindowLongPtr(_hwnd, GWL_EXSTYLE, 0);
+                SetWindowLong(_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+                SetWindowLong(_hwnd, GWL_EXSTYLE, 0);
 
                 auto width  = fw->windowed_size.width;
                 auto height = fw->windowed_size.height;
@@ -341,8 +387,8 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
             }
             else
             {
-                SetWindowLongPtr(_hwnd, GWL_STYLE, 0);
-                SetWindowLongPtr(_hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
+                SetWindowLong(_hwnd, GWL_STYLE, 0);
+                SetWindowLong(_hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
 
                 SetWindowPos(_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 

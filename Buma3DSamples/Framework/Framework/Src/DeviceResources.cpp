@@ -118,23 +118,27 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
     switch (_type)
     {
     case buma::INTERNAL_API_TYPE_D3D12:
-        path += "D3D12/v16/DLLBuild/";
-        path += CONFIG;
-        path += "/x64/Out/";
+        if (strlen(_library_dir) == 0)
+        {
+            path += "D3D12/v16/DLLBuild/";
+            path += CONFIG;
+            path += "/x64/Out/";
+        }
         path = path + "Buma3D_D3D12_DLL" + BUILD;
         ConvertSlashToBackShash(&path);
         pfn->b3d_module = LoadLibraryA(path.c_str());
-        //pfn->b3d_module = LoadLibraryA((std::string("Buma3D_D3D12_DLL") + BUILD).c_str());
         break;
 
     case buma::INTERNAL_API_TYPE_VULKAN:
-        path += "Vulkan/v16/DLLBuild/";
-        path += CONFIG;
-        path += "/x64/Out/";
+        if (strlen(_library_dir) == 0)
+        {
+            path += "Vulkan/v16/DLLBuild/";
+            path += CONFIG;
+            path += "/x64/Out/";
+        }
         path = path + "Buma3D_Vulkan_DLL" + BUILD;
         ConvertSlashToBackShash(&path);
         pfn->b3d_module = LoadLibraryA(path.c_str());
-        //pfn->b3d_module = LoadLibraryA((std::string("Buma3D_Vulkan_DLL") + BUILD).c_str());
         break;
 
     default:

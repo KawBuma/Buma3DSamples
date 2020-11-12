@@ -3,14 +3,6 @@
 namespace buma
 {
 
-enum WINDOW_STATE_FLAGS
-{
-    WINDOW_STATE_FLAG_NONE          = 0x0,
-    WINDOW_STATE_FLAG_MINIMIZED     = 0x1,
-    WINDOW_STATE_FLAG_MAXIMIZED     = 0x2,
-    WINDOW_STATE_FLAG_FULLSCREEN    = 0x4,
-    WINDOW_STATE_FLAG_IN_SIZEMOVE   = 0x8,
-};
 DEFINE_ENUM_FLAG_OPERATORS(WINDOW_STATE_FLAGS);
 
 enum WINDOW_PROCESS_FLAGS
@@ -50,13 +42,16 @@ public:
     bool ProcessMessage() override;
     bool Exit()           override;
 
-    WINDOW_STATE_FLAGS      GetWindowStateFlags() const { return window_state_flags; }
+    WINDOW_STATE_FLAGS      GetWindowStateFlags() const override { return window_state_flags; }
     float                   GetAspectRatio()      const override { return aspect_ratio; }
     const buma3d::EXTENT2D& GetWindowedSize()     const override { return windowed_size; }
     const buma3d::OFFSET2D& GetWindowedOffset()   const override { return windowed_offset; }
 
     bool CreateSwapChain(const buma3d::SWAP_CHAIN_DESC& _desc, std::shared_ptr<buma::SwapChain>* _dst) override;
     const std::vector<buma3d::SURFACE_FORMAT>& GetSupportedFormats() const override;
+
+    void AddResizeEvent(std::weak_ptr<IEvent> _event) const override;
+    void AddBufferResizedEvent(std::weak_ptr<IEvent> _event) const override;
 
 protected:
     bool Init(PlatformBase&             _platform,
@@ -85,6 +80,9 @@ private:
     std::vector<buma3d::SURFACE_FORMAT>     supported_formats;
     std::shared_ptr<SwapChain>              swapchain;
     buma3d::SWAP_CHAIN_FLAGS                swapchain_flags;
+
+    std::shared_ptr<IDelegate>              delegate_on_resize;
+    std::shared_ptr<IDelegate>              delegate_on_buffer_resized;
 
 };
 

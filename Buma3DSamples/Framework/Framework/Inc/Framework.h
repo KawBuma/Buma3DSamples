@@ -3,6 +3,7 @@
 #include "Buma3D.h"
 #include "Util/Buma3DPtr.h"
 #include "B3DInit.h"
+#include "LazyDelegate.h"
 #include "StepTimer.h"
 #include "Utils.h"
 #include "Logger.h"

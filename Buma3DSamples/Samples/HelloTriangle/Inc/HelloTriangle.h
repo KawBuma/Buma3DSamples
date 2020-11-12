@@ -23,6 +23,9 @@ public:
     virtual void Update();
     virtual void Render();
 
+    void OnResize(ResizeEventArgs* _args);
+    void OnResized(BufferResizedEventArgs* _args);
+
     void Term() override;
 
 private:
@@ -43,7 +46,6 @@ private:
     buma3d::util::Ptr<buma3d::ICommandQueue>                    command_queue;
     StepTimer                                                   timer;
 
-    buma3d::SURFACE_FORMAT                                      sfs_format;
     std::shared_ptr<buma::SwapChain>                            swapchain;
     const std::vector<buma::SwapChain::SWAP_CHAIN_BUFFER>*      back_buffers;
     uint32_t                                                    back_buffer_index;
@@ -81,6 +83,30 @@ private:
     buma3d::SUBMIT_DESC                                         submit;
     buma3d::SWAP_CHAIN_PRESENT_INFO                             present_info;
     buma3d::SCISSOR_RECT                                        present_region;
+
+    class ResizeEvent : public IEvent
+    {
+    public:
+        ResizeEvent(HelloTriangle& _owner) : owner{ _owner } {}
+        virtual ~ResizeEvent() {}
+        void Execute(IEventArgs* _args) override { owner.OnResize(static_cast<ResizeEventArgs*>(_args)); }
+        static std::shared_ptr<ResizeEvent> Create(HelloTriangle& _owner) { return std::make_shared<ResizeEvent>(_owner); }
+    private:
+        HelloTriangle& owner;
+    };
+    std::shared_ptr<ResizeEvent> on_resize;
+
+    class BufferResizedEvent : public IEvent
+    {
+    public:
+        BufferResizedEvent(HelloTriangle& _owner) : owner{ _owner } {}
+        virtual ~BufferResizedEvent() {}
+        void Execute(IEventArgs* _args) override { owner.OnResized(static_cast<BufferResizedEventArgs*>(_args)); }
+        static std::shared_ptr<BufferResizedEvent> Create(HelloTriangle& _owner) { return std::make_shared<BufferResizedEvent>(_owner); }
+    private:
+        HelloTriangle& owner;
+    };
+    std::shared_ptr<BufferResizedEvent> on_resized;
 
 };
 

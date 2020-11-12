@@ -21,7 +21,7 @@ HelloTriangle::HelloTriangle()
 
 HelloTriangle::~HelloTriangle()
 {
-
+    Term();
 }
 
 HelloTriangle* HelloTriangle::Create()
@@ -49,6 +49,19 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     present_info.num_present_regions = 0;
     present_info.present_regions     = &present_region;
     present_region = { { 0, 0 }, scissor_rect.extent };
+
+    // キューへの送信情報
+    submit_info.num_command_lists_to_execute = 1;
+    submit.signal_fence_to_cpu = nullptr;
+    submit.num_submit_infos    = 1;
+    submit.submit_infos        = &submit_info;
+
+    // イベントを登録
+    on_resize  = ResizeEvent::Create(*this);
+    on_resized = BufferResizedEvent::Create(*this);
+    auto&& wnd = platform->GetWindow();
+    wnd->AddResizeEvent(on_resize);
+    wnd->AddBufferResizedEvent(on_resized);
 
     if (!Init())
         return false;
@@ -776,7 +789,11 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
         l->SetPipelineState(pipeline.Get());
         l->SetRootSignature(b::PIPELINE_BIND_POINT_GRAPHICS, signature.Get());
 
-        b::CLEAR_VALUE            clear_val{ b::CLEAR_RENDER_TARGET_VALUE{0.8f,0.32f,0.13f,1.f} };
+        static float sc = 0.f;
+        static float sx = 0.f;
+        sc = sc + 0.003f;
+        sx = sinf(sc);
+        b::CLEAR_VALUE            clear_val{ b::CLEAR_RENDER_TARGET_VALUE{0.8f * sx ,0.32f,0.13f,1.f} };
         b::RENDER_PASS_BEGIN_DESC rpbd{ render_pass.Get(), framebuffers[_buffer_index].Get(), 1, &clear_val };
         b::SUBPASS_BEGIN_DESC     spbd{ b::SUBPASS_CONTENTS_INLINE };
         l->BeginRenderPass(rpbd, spbd);
@@ -798,13 +815,19 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
 
 void HelloTriangle::Tick()
 {
+    timer.Tick();
+
+    if (platform->GetWindow()->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
+        return;
+
     Update();
     Render();
 }
 
 void HelloTriangle::Update()
 {
-    timer.Tick();
+    if (timer.IsOneSecElapsed())
+        platform->GetLogger()->LogInfo(("fps: " + std::to_string(timer.GetFramesPerSecond())).c_str());
 
     // 次のバックバッファを取得
     {
@@ -829,7 +852,7 @@ void HelloTriangle::Render()
     // コマンドリストとフェンスを送信
     {
         cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
-        //PrepareFrame(back_buffer_index);
+        PrepareFrame(back_buffer_index);
 
         // 待機フェンス
         wait_fence_desc.Reset();
@@ -845,7 +868,6 @@ void HelloTriangle::Render()
         signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal);
         signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
-        submit.signal_fence_to_cpu = nullptr;
 
         bmr = command_queue->Submit(submit);
         assert(bmr == b::BMRESULT_SUCCEED);
@@ -853,7 +875,7 @@ void HelloTriangle::Render()
 
     // バックバッファをプレゼント
     {
-        swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
+        //swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
         swapchain_fences->signal_fence_to_cpu->Reset();
 
         present_info.wait_fence = render_complete_fence.Get();
@@ -861,8 +883,40 @@ void HelloTriangle::Render()
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
-    platform->GetLogger()->LogInfo("framed");
+    //platform->GetLogger()->LogInfo("framed");
     fence_values[back_buffer_index]++;
+}
+
+void HelloTriangle::OnResize(ResizeEventArgs* _args)
+{
+    framebuffers = {};
+    back_buffers = {};
+}
+
+void HelloTriangle::OnResized(BufferResizedEventArgs* _args)
+{
+    back_buffers     = &swapchain->GetBuffers();
+    swapchain_fences = &swapchain->GetPresentCompleteFences();
+
+    framebuffers.resize(BACK_BUFFER_COUNT);
+    {
+        b::FRAMEBUFFER_DESC fb_desc{};
+        for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
+        {
+            b::IView* attachment = (*back_buffers)[i].rtv.Get();
+            fb_desc.flags           = b::FRAMEBUFFER_FLAG_NONE;
+            fb_desc.render_pass     = render_pass.Get();
+            fb_desc.num_attachments = 1;
+            fb_desc.attachments     = &attachment;
+
+            auto bmr = device->CreateFramebuffer(fb_desc, &framebuffers[i]);
+            assert(bmr == b::BMRESULT_SUCCEED);
+        }
+    }
+
+    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
+        PrepareFrame(i);
+
 }
 
 void HelloTriangle::Term()

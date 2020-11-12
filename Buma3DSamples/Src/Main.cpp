@@ -18,8 +18,7 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
         }
 
         auto data = buma::PLATFORM_DATA_WINDOWS{ hInstance, hPrevInstance, lpCmdLine, nCmdShow };
-        buma::PLATFORM_DESC pd{buma::PLATFORM_TYPE_WINDOWS, &data };
-
+        buma::PLATFORM_DESC pd{buma::PLATFORM_TYPE_WINDOWS, &data, buma::WINDOW_DESC{ 1280, 720, "Buma3DSamples" } };
         if (platform->Init(pd))
         {
             code = platform->MainLoop();

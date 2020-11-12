@@ -36,6 +36,7 @@
 #include "DeviceResources.h"
 #include "SwapChain.h"
 
+#include "LazyDelegate.h"
 #include "Logger.h"
 #include "Application.h"
 #include "Platform.h"

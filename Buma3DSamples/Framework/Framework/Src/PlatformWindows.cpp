@@ -23,6 +23,9 @@ public:
 
     void Begin()
     {
+        if (true)
+            return;
+
         auto res = AllocConsole();
         assert(res);
 
@@ -33,6 +36,9 @@ public:
 
     void End()
     {
+        if (true)
+            return;
+
         auto res = FreeConsole();
         assert(res != 0);
         fclose(stream);
@@ -75,21 +81,16 @@ void B3D_APIENTRY PlatformWindows::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVE
 
     debug::ILogger* logger = (debug::ILogger*)(_user_data);
 
-    auto E = [&]()
-    {
-        std::cout << std::endl;
-    };
     auto P = [&](const auto& s)
     {
-        logger->LogInfo(s);;
-        std::cout << s;
+        logger->LogInfo(s);
 
         switch (_sev)
         {
-        case buma3d::DEBUG_MESSAGE_SEVERITY_INFO       : logger->LogInfo(_msg);     break;
-        case buma3d::DEBUG_MESSAGE_SEVERITY_WARNING    : logger->LogWarn(_msg);     break;
-        case buma3d::DEBUG_MESSAGE_SEVERITY_ERROR      : logger->LogError(_msg);    break;
-        case buma3d::DEBUG_MESSAGE_SEVERITY_CORRUPTION : logger->LogCritical(_msg); break;
+        case buma3d::DEBUG_MESSAGE_SEVERITY_INFO       : logger->LogInfo(s);     break;
+        case buma3d::DEBUG_MESSAGE_SEVERITY_WARNING    : logger->LogWarn(s);     break;
+        case buma3d::DEBUG_MESSAGE_SEVERITY_ERROR      : logger->LogError(s);    break;
+        case buma3d::DEBUG_MESSAGE_SEVERITY_CORRUPTION : logger->LogCritical(s); break;
 
         default:
             logger->LogInfo(_msg);
@@ -114,7 +115,6 @@ void B3D_APIENTRY PlatformWindows::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVE
         P("\n");
 
     P(_msg);
-    E();
 }
 
 PlatformWindows::PlatformWindows()
@@ -175,6 +175,7 @@ bool PlatformWindows::Init(const PLATFORM_DESC& _desc)
 
 bool PlatformWindows::Term()
 {
+    app->Term();
     app.reset();
     window_windows.reset();
     window.reset();
@@ -215,7 +216,7 @@ bool PlatformWindows::PrepareDeviceResources()
     device_resources = std::make_shared<DeviceResources>();
 
     INTERNAL_API_TYPE type = INTERNAL_API_TYPE_D3D12;
-    auto&& api_type = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return  (*_str) == "--internal-api-type"; });
+    auto&& api_type = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return  strcmp(_str->c_str(), "--internal-api-type"); });
     if (api_type != cmd_lines.end())
     {
         auto&& next = (**(api_type + 1));
@@ -226,7 +227,7 @@ bool PlatformWindows::PrepareDeviceResources()
             type = INTERNAL_API_TYPE_D3D12;
     }
 
-    auto&& dll_dir = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return  (*_str) == "--library-dir"; });
+    auto&& dll_dir = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return strcmp(_str->c_str(), "--library-dir") == 0; });
     const char* dir = nullptr;
     if (dll_dir != cmd_lines.end())
         dir = (**(dll_dir + 1)).c_str();

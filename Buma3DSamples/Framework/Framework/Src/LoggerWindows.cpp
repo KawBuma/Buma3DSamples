@@ -12,7 +12,8 @@ namespace debug
 
 LoggerWindows::LoggerWindows()
 {
-    async_file = spdlog::basic_logger_mt<spdlog::async_factory>("buma::debug::LoggerWindows::async_file", "./Log/Log.txt");
+    if (false)
+        async_file = spdlog::basic_logger_mt<spdlog::default_factory>("buma::debug::LoggerWindows::async_file", "./Log/Log.txt");
 }
 
 LoggerWindows::~LoggerWindows()
@@ -22,6 +23,9 @@ LoggerWindows::~LoggerWindows()
 
 void LoggerWindows::Log(LOG_TYPE _type, const char* _msg)
 {
+    if (!async_file)
+        return;
+
     switch (_type)
     {
     case buma::debug::LOG_TYPE_INFO     : async_file->info    (_msg); break;
