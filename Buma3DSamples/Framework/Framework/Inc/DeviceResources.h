@@ -67,7 +67,6 @@ private:
     DEVICE_RESOURCE_DESC                                    desc;
     struct B3D_PFN;
     std::unique_ptr<B3D_PFN>                                pfn;
-    INTERNAL_API_TYPE                                       type;
     buma3d::util::Ptr<buma3d::IDeviceFactory>               factory;
     buma3d::util::Ptr<buma3d::IDeviceAdapter>               adapter;
     buma3d::util::Ptr<buma3d::IDevice>                      device;
@@ -76,6 +75,7 @@ private:
     //std::shared_ptr<buma::MyImGui>                        my_imugi;
     std::unique_ptr<shader::ShaderLoader>                   shader_laoder;
 
+    std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>           resource_heap_props;
     std::vector<buma3d::COMMAND_QUEUE_PROPERTIES>           queue_props;
 
 };

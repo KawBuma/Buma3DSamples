@@ -78,41 +78,33 @@ void B3D_APIENTRY PlatformWindows::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVE
     };
 
     debug::ILogger* logger = (debug::ILogger*)(_user_data);
+    std::stringstream ss;
 
-    auto P = [&](const auto& s)
-    {
-        logger->LogInfo(s);
+    //if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
+    //    ss << "\n\n";
+    //else if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_WARNING)
+    //    ss << ("\n");
 
-        switch (_sev)
-        {
-        case buma3d::DEBUG_MESSAGE_SEVERITY_INFO       : logger->LogInfo(s);     break;
-        case buma3d::DEBUG_MESSAGE_SEVERITY_WARNING    : logger->LogWarn(s);     break;
-        case buma3d::DEBUG_MESSAGE_SEVERITY_ERROR      : logger->LogError(s);    break;
-        case buma3d::DEBUG_MESSAGE_SEVERITY_CORRUPTION : logger->LogCritical(s); break;
-
-        default:
-            logger->LogInfo(_msg);
-            break;
-        }
-    };
-
-    if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
-        P("\n\n");
-    else if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_WARNING)
-        P("\n");
-
-    P(SEVERITIES[_sev]);
-
+    ss << SEVERITIES[_sev];
     DWORD i = 0;
     if (_BitScanForward(&i, _category))
-        P(CATEGORIES[i]);
+        ss << CATEGORIES[i];
+    ss << _msg;
 
-    if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
-        P("\n\n");
-    else if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_WARNING)
-        P("\n");
+    //if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
+    //    ss << "\n";
 
-    P(_msg);
+    switch (_sev)
+    {
+    case buma3d::DEBUG_MESSAGE_SEVERITY_INFO       : logger->LogInfo    (ss.str().c_str()); break;
+    case buma3d::DEBUG_MESSAGE_SEVERITY_WARNING    : logger->LogWarn    (ss.str().c_str()); break;
+    case buma3d::DEBUG_MESSAGE_SEVERITY_ERROR      : logger->LogError   (ss.str().c_str()); break;
+    case buma3d::DEBUG_MESSAGE_SEVERITY_CORRUPTION : logger->LogCritical(ss.str().c_str()); break;
+
+    default:
+        logger->LogInfo(ss.str().c_str());
+        break;
+    }
 }
 
 PlatformWindows::PlatformWindows()
@@ -215,7 +207,7 @@ bool PlatformWindows::PrepareDeviceResources()
     device_resources = std::make_shared<DeviceResources>();
 
     INTERNAL_API_TYPE type = INTERNAL_API_TYPE_D3D12;
-    auto&& api_type = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return  strcmp(_str->c_str(), "--internal-api-type"); });
+    auto&& api_type = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return (*_str) == "--internal-api-type"; });
     if (api_type != cmd_lines.end())
     {
         auto&& next = (**(api_type + 1));
@@ -226,7 +218,7 @@ bool PlatformWindows::PrepareDeviceResources()
             type = INTERNAL_API_TYPE_D3D12;
     }
 
-    auto&& dll_dir = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return strcmp(_str->c_str(), "--library-dir") == 0; });
+    auto&& dll_dir = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return (*_str) == "--library-dir"; });
     const char* dir = nullptr;
     if (dll_dir != cmd_lines.end())
         dir = (**(dll_dir + 1)).c_str();

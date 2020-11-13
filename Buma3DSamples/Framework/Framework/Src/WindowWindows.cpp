@@ -44,9 +44,20 @@ bool WindowWindows::OffsetWindow(const buma3d::OFFSET2D& _offset)
     return SetWindowPos(hwnd, NULL, _offset.x, _offset.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 }
 
+buma3d::EXTENT2D ConvertToWindowSize(HWND _hwnd, const buma3d::EXTENT2D& _client_size)
+{
+    RECT wr{}, cr{};
+    GetWindowRect(_hwnd, &wr);
+    GetClientRect(_hwnd, &cr);
+    uint32_t diff_w = uint32_t((wr.right - wr.left) - cr.right);
+    uint32_t diff_h = uint32_t((wr.bottom - wr.top) - cr.bottom);
+    return { _client_size.width + diff_w, _client_size.height + diff_h };
+}
+
 bool WindowWindows::ResizeWindow(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags = buma3d::SWAP_CHAIN_FLAG_NONE)
 {
-    SetWindowPos(hwnd, NULL, windowed_offset.x, windowed_offset.y, _size.width, _size.height, SWP_NOZORDER);
+    auto window_size = ConvertToWindowSize(hwnd, _size);
+    SetWindowPos(hwnd, NULL, (int)windowed_offset.x, (int)windowed_offset.y, int(window_size.width), int(window_size.height), SWP_NOZORDER);
     if (!OnResize(_size, _swapchain_flags)) return false;
 
     return true;
@@ -467,7 +478,7 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
 #undef KEY_NAME 
 
     if (fw && MESSAGE_NAMES_MAP.find(_message) != MESSAGE_NAMES_MAP.end())
-        fw->platform.GetLogger()->LogInfo(MESSAGE_NAMES_MAP.at(_message));
+        fw->platform.GetLogger()->LogDebug(MESSAGE_NAMES_MAP.at(_message));
 #endif // _DEBUG
 
     switch (_message)

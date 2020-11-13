@@ -15,13 +15,32 @@ public:
     static HelloTriangle* Create();
 
     bool Prepare(PlatformBase& _platform) override;
+    bool PrepareSwapChain();
+    void PrepareSubmitInfo();
+    void CreateEvents();
 
     bool Init() override;
-    virtual void LoadAssets();
+    bool LoadAssets();
+    bool CreateRootSignature();
+    bool CreateRenderPass();
+    bool CreateFramebuffer();
+    bool CreateShaderModules();
+    bool CreateGraphicsPipelines();
+    bool CreateCommandAllocator();
+    bool CreateCommandLists();
+    bool CreateFences();
+    bool CreateBuffers();
+    bool CreateHeaps(buma3d::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_info, std::vector<buma3d::RESOURCE_ALLOCATION_INFO>* _alloc_infos);
+    bool BindResourceHeaps(buma3d::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_info, std::vector<buma3d::RESOURCE_ALLOCATION_INFO>* _alloc_infos);
+    bool CreateBuffersForCopy();
+    bool CopyBuffers();
+    bool CreateBufferViews();
 
     void Tick() override;
-    virtual void Update();
-    virtual void Render();
+    void Update();
+    void Render();
+
+    void MoveToNextFrame();
 
     void OnResize(ResizeEventArgs* _args);
     void OnResized(BufferResizedEventArgs* _args);
@@ -39,6 +58,17 @@ private:
         uint64_t signal = 1;
     };
     enum SCF { PRESENT_COMPLETE, RENDER_COMPLETE, SWAPCHAIN_FENCE_NUM };
+
+private:
+    struct VERTEX {
+        buma3d::FLOAT4 position;
+        buma3d::FLOAT4 color;
+    };
+    std::vector<VERTEX> triangle;
+    std::vector<uint16_t> index;
+
+    class ResizeEvent;
+    class BufferResizedEvent;
 
 private:
     PlatformBase*                                               platform;
@@ -72,9 +102,11 @@ private:
     buma3d::util::Ptr<buma3d::IResourceHeap>                    resource_heap;
     buma3d::util::Ptr<buma3d::IBuffer>                          vertex_buffer;
     buma3d::util::Ptr<buma3d::IBuffer>                          index_buffer;
+    buma3d::util::Ptr<buma3d::IBuffer>                          vertex_buffer_src;
+    buma3d::util::Ptr<buma3d::IBuffer>                          index_buffer_src;
 
-    buma3d::util::Ptr<buma3d::IVertexBufferView>                vertex_buffer_view{};
-    buma3d::util::Ptr<buma3d::IIndexBufferView>                 index_buffer_view{};
+    buma3d::util::Ptr<buma3d::IVertexBufferView>                vertex_buffer_view;
+    buma3d::util::Ptr<buma3d::IIndexBufferView>                 index_buffer_view;
 
     buma::util::FenceSubmitDesc                                 signal_fence_desc;
     buma::util::FenceSubmitDesc                                 wait_fence_desc;
@@ -84,29 +116,8 @@ private:
     buma3d::SWAP_CHAIN_PRESENT_INFO                             present_info;
     buma3d::SCISSOR_RECT                                        present_region;
 
-    class ResizeEvent : public IEvent
-    {
-    public:
-        ResizeEvent(HelloTriangle& _owner) : owner{ _owner } {}
-        virtual ~ResizeEvent() {}
-        void Execute(IEventArgs* _args) override { owner.OnResize(static_cast<ResizeEventArgs*>(_args)); }
-        static std::shared_ptr<ResizeEvent> Create(HelloTriangle& _owner) { return std::make_shared<ResizeEvent>(_owner); }
-    private:
-        HelloTriangle& owner;
-    };
-    std::shared_ptr<ResizeEvent> on_resize;
-
-    class BufferResizedEvent : public IEvent
-    {
-    public:
-        BufferResizedEvent(HelloTriangle& _owner) : owner{ _owner } {}
-        virtual ~BufferResizedEvent() {}
-        void Execute(IEventArgs* _args) override { owner.OnResized(static_cast<BufferResizedEventArgs*>(_args)); }
-        static std::shared_ptr<BufferResizedEvent> Create(HelloTriangle& _owner) { return std::make_shared<BufferResizedEvent>(_owner); }
-    private:
-        HelloTriangle& owner;
-    };
-    std::shared_ptr<BufferResizedEvent> on_resized;
+    std::shared_ptr<ResizeEvent>                                on_resize;
+    std::shared_ptr<BufferResizedEvent>                         on_resized;
 
 };
 

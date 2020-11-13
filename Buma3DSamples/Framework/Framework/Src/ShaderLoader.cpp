@@ -68,16 +68,32 @@ void ShaderLoader::LoadShaderFromHLSL(const LOAD_SHADER_DESC& _desc, std::vector
         opt.shiftAllUABuffersBindings   = (int)_desc.options.shiftAllUABuffersBindings;
     }
 
+
     switch (type)
     {
     case buma::INTERNAL_API_TYPE_D3D12:
+    {
         tgt.language = SC::ShadingLanguage::Dxil;
         break;
+    }
 
     case buma::INTERNAL_API_TYPE_VULKAN:
+    {
+        tgt.language = SC::ShadingLanguage::SpirV;
+        switch (_desc.stage)
+        {
+        case buma::shader::SHADER_STAGE_VERTEX:
+        case buma::shader::SHADER_STAGE_GEOMETRY:
+        case buma::shader::SHADER_STAGE_DOMAIN:
         opt.invertYCoordinate = true;
-        tgt.language          = SC::ShadingLanguage::SpirV;
+            break;
+
+        default:
+            break;
+        }
+
         break;
+    }
 
     default:
         break;

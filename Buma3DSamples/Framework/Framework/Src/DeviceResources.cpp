@@ -7,24 +7,21 @@ namespace buma
 namespace /*anonymous*/
 {
 
-std::string GetCurrentDir()
+std::string* GetCurrentDir(std::string* _result)
 {
-    char c_dir[MAX_PATH];
-    memset(c_dir, 0, sizeof(c_dir));
-
-    GetCurrentDirectoryA(MAX_PATH, c_dir);
-    return std::string(c_dir);
+    _result->resize(size_t(GetCurrentDirectoryA(0, nullptr) - 1), '\0');
+    GetCurrentDirectoryA((DWORD)_result->size() + 1, _result->data());
+    return _result;
 }
 
 void ConvertBackShashToSlash(std::string* _str)
 {
-    auto&& str = *_str;
-    auto pos = str.find('\\');
-    if (pos != std::string::npos)
-    {
-        while (pos != std::string::npos)
-        {
-            str[pos] = '/';
+    auto&&  str         = *_str;
+    auto    srd_data    = str.data();
+    auto    pos         = str.find('\\');
+    if (pos != std::string::npos) {
+        while (pos != std::string::npos) {
+            srd_data[pos] = '/';
             pos = str.find('\\');
         }
     }
@@ -32,13 +29,12 @@ void ConvertBackShashToSlash(std::string* _str)
 
 void ConvertSlashToBackShash(std::string* _str)
 {
-    auto&& str = *_str;
-    auto pos = str.find('/');
-    if (pos != std::string::npos)
-    {
-        while (pos != std::string::npos)
-        {
-            str[pos] = '\\';
+    auto&&  str         = *_str;
+    auto    srd_data    = str.data();
+    auto    pos         = str.find('/');
+    if (pos != std::string::npos) {
+        while (pos != std::string::npos) {
+            srd_data[pos] = '\\';
             pos = str.find('/');
         }
     }
@@ -55,18 +51,18 @@ struct DeviceResources::B3D_PFN
     buma3d::PFN_Buma3DUninitialize              Buma3DUninitialize;
 };
 
-DeviceResources::DeviceResources()    
+DeviceResources::DeviceResources()
     : desc                  {}
     , pfn                   {}
-    , type                  {}
     , factory               {}
     , adapter               {}
     , device                {}
-    , cmd_queues            {}
-    //, gpu_timer_pools     {}
-    //, my_imugi            {}
-    , queue_props           {}
+    , cmd_queues            {}      
+    //, gpu_timer_pools       {} 
+    //, my_imugi              {}
     , shader_laoder         {}
+    , resource_heap_props   {}
+    , queue_props           {}
 {
 
 }
@@ -86,7 +82,7 @@ bool DeviceResources::Init(const DEVICE_RESOURCE_DESC& _desc)
     if (!GetCommandQueues())                            return false;
     if (!CreateMyImGui())                               return false;
 
-    shader_laoder = std::make_unique<shader::ShaderLoader>(type);
+    shader_laoder = std::make_unique<shader::ShaderLoader>(desc.type);
 
     return true;
 }
@@ -99,8 +95,8 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
     desc.is_enable_allocator_debug = false;
     desc.custom_allocator          = nullptr;
 
-    auto path = GetCurrentDir();
-    ConvertBackShashToSlash(&path);
+    std::string path;
+    ConvertBackShashToSlash(GetCurrentDir(&path));
 
 #ifdef _DEBUG
     const char* CONFIG = "Debug";
@@ -115,6 +111,7 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
     else
         path += "/External/Buma3D/Project/";
 
+    // dllを読み込む
     switch (_type)
     {
     case buma::INTERNAL_API_TYPE_D3D12:
@@ -246,7 +243,7 @@ bool DeviceResources::GetCommandQueues()
         buma3d::util::Ptr<buma3d::ICommandQueue> ptr;
         uint32_t                                 cnt = 0;
         auto&&                                   queues = cmd_queues[i];
-        while (device->GetCommandQueue(buma3d::COMMAND_TYPE(i), cnt++, &ptr) != buma3d::BMRESULT_FAILED_OUT_OF_RANGE)
+        while (device->GetCommandQueue(buma3d::COMMAND_TYPE(i), cnt++, &ptr) == buma3d::BMRESULT_SUCCEED)
             queues.emplace_back(ptr);
     }
     return true;

@@ -3,20 +3,104 @@
 
 #include <cassert>
 
+#define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
+#define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
+
 namespace init = buma3d::hlp::init;
 
 namespace buma
 {
+
+const buma3d::RESOURCE_HEAP_PROPERTIES* FindMappableHeap(const std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>& _heap_props)
+{
+    for (auto& i : _heap_props) {
+        if (i.flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE &&
+            i.flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_COHERENT &&
+            !(i.flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_ACCESS_GENERIC_MEMORY_READ_FIXED))
+            return &i;
+    }
+    return nullptr;
+}
+
+const buma3d::RESOURCE_HEAP_PROPERTIES* FindDeviceLocalHeap(const std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>& _heap_props)
+{
+    for (auto& i : _heap_props) {
+        if (i.flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_DEVICE_LOCAL)
+            return &i;
+    }
+    return nullptr;
+}
 
 namespace b = buma3d;
 
 template<typename T>
 using Ptr = buma3d::util::Ptr<T>;
 
-HelloTriangle::HelloTriangle()
-    : ApplicationBase()
-{
 
+class HelloTriangle::ResizeEvent : public IEvent
+{
+public:
+    ResizeEvent(HelloTriangle& _owner) : owner{ _owner } {}
+    virtual ~ResizeEvent() {}
+    void Execute(IEventArgs* _args) override { owner.OnResize(static_cast<ResizeEventArgs*>(_args)); }
+    static std::shared_ptr<ResizeEvent> Create(HelloTriangle& _owner) { return std::make_shared<ResizeEvent>(_owner); }
+private:
+    HelloTriangle& owner;
+};
+
+class HelloTriangle::BufferResizedEvent : public IEvent
+{
+public:
+    BufferResizedEvent(HelloTriangle& _owner) : owner{ _owner } {}
+    virtual ~BufferResizedEvent() {}
+    void Execute(IEventArgs* _args) override { owner.OnResized(static_cast<BufferResizedEventArgs*>(_args)); }
+    static std::shared_ptr<BufferResizedEvent> Create(HelloTriangle& _owner) { return std::make_shared<BufferResizedEvent>(_owner); }
+private:
+    HelloTriangle& owner;
+};
+
+
+HelloTriangle::HelloTriangle()
+    : ApplicationBase       ()
+    , platform              {}
+    , device                {}
+    , command_queue         {}
+    , timer                 {}
+    , swapchain             {}
+    , back_buffers          {}
+    , back_buffer_index     {}
+    , swapchain_fences      {}
+    , vpiewport             {}
+    , scissor_rect          {}
+    , framebuffers          {}
+    , shader_modules        {}
+    , pipeline              {}
+    , cmd_allocator         {}
+    , cmd_lists             {}
+    , util_fence            {}
+    , fence_values          {}
+    , cmd_fences            {}
+    , render_complete_fence {}
+    , heap_props            {}
+    , signature             {}
+    , render_pass           {}
+    , resource_heap         {}
+    , vertex_buffer         {}
+    , index_buffer          {}
+    , vertex_buffer_src     {}
+    , index_buffer_src      {}
+    , vertex_buffer_view    {}
+    , index_buffer_view     {}
+    , signal_fence_desc     {}
+    , wait_fence_desc       {}
+    , submit_info           {}
+    , submit                {}
+    , present_info          {}
+    , present_region        {}
+    , on_resize             {}
+    , on_resized            {}
+{    
+     
 }
 
 HelloTriangle::~HelloTriangle()
@@ -35,6 +119,35 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     dr       = platform->GetDeviceResources();
     device   = dr->GetDevice();
 
+    if (!PrepareSwapChain()) return false;
+    PrepareSubmitInfo();
+    CreateEvents();
+    if (!Init()) return false;
+
+    return true;
+}
+
+void HelloTriangle::PrepareSubmitInfo()
+{
+    // キューへの送信情報
+    submit_info.num_command_lists_to_execute = 1;
+    submit.signal_fence_to_cpu               = nullptr;
+    submit.num_submit_infos                  = 1;
+    submit.submit_infos                      = &submit_info;
+}
+
+void HelloTriangle::CreateEvents()
+{
+    // イベントを登録
+    on_resize = ResizeEvent::Create(*this);
+    on_resized = BufferResizedEvent::Create(*this);
+    auto&& wnd = platform->GetWindow();
+    wnd->AddResizeEvent(on_resize);
+    wnd->AddBufferResizedEvent(on_resized);
+}
+
+bool HelloTriangle::PrepareSwapChain()
+{
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
                                                  init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
@@ -50,22 +163,6 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     present_info.present_regions     = &present_region;
     present_region = { { 0, 0 }, scissor_rect.extent };
 
-    // キューへの送信情報
-    submit_info.num_command_lists_to_execute = 1;
-    submit.signal_fence_to_cpu = nullptr;
-    submit.num_submit_infos    = 1;
-    submit.submit_infos        = &submit_info;
-
-    // イベントを登録
-    on_resize  = ResizeEvent::Create(*this);
-    on_resized = BufferResizedEvent::Create(*this);
-    auto&& wnd = platform->GetWindow();
-    wnd->AddResizeEvent(on_resize);
-    wnd->AddBufferResizedEvent(on_resized);
-
-    if (!Init())
-        return false;
-
     return true;
 }
 
@@ -76,165 +173,201 @@ bool HelloTriangle::Init()
     scissor_rect    = { { 0, 0 },        {resolution.width,        resolution.height} };
     command_queue   = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
 
-    LoadAssets();
+    if (!LoadAssets()) return false;
 
     return command_queue;
 }
 
-void HelloTriangle::LoadAssets()
+bool HelloTriangle::LoadAssets()
+{
+    auto aspect_ratio = platform->GetWindow()->GetAspectRatio();
+    triangle = {
+          { {  0.0f ,  0.25f * aspect_ratio, 0.0f, 1.f }, { 1.f, 0.f, 0.f, 1.f} }
+        , { {  0.25f, -0.25f * aspect_ratio, 0.0f, 1.f }, { 0.f, 1.f, 0.f, 1.f} }
+        , { { -0.25f, -0.25f * aspect_ratio, 0.0f, 1.f }, { 0.f, 0.f, 1.f, 1.f} }
+    };
+    index = { 0,1,2 };
+
+    if (!CreateRootSignature())     return false;
+    if (!CreateRenderPass())        return false;
+    if (!CreateFramebuffer())       return false;
+    if (!CreateShaderModules())     return false;
+    if (!CreateGraphicsPipelines()) return false;
+    if (!CreateCommandAllocator())  return false;
+    if (!CreateCommandLists())      return false;
+    if (!CreateFences())            return false;
+
+    b::RESOURCE_HEAP_ALLOCATION_INFO         heap_alloc_info{};
+    std::vector<b::RESOURCE_ALLOCATION_INFO> alloc_infos;
+    if (!CreateBuffers())           return false;
+    if (!CreateHeaps(&heap_alloc_info, &alloc_infos))       return false;
+    if (!BindResourceHeaps(&heap_alloc_info, &alloc_infos)) return false;
+    if (!CreateBuffersForCopy())                            return false;
+    if (!CopyBuffers())                                     return false;
+    if (!CreateBufferViews())                               return false;
+
+    // 描画コマンドを記録
+    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
+        PrepareFrame(i);
+}
+
+bool HelloTriangle::CreateRootSignature()
+{
+    // ルートシグネチャの作成
+    b::ROOT_SIGNATURE_DESC rsdesc{};
+    //b::ROOT_PARAMETER parameters[1]{};
+
+    rsdesc.flags                          = b::ROOT_SIGNATURE_FLAG_NONE;
+    rsdesc.raytracing_shader_visibilities = b::RAY_TRACING_SHADER_VISIBILITY_FLAG_NONE;
+    rsdesc.num_parameters                 = 0;
+    rsdesc.parameters                     = nullptr;
+    rsdesc.num_static_samplers            = 0;
+    rsdesc.static_samplers                = nullptr;
+    rsdesc.num_register_shifts            = 0;
+    rsdesc.register_shifts                = nullptr;
+
+    auto bmr = device->CreateRootSignature(rsdesc, &signature);
+    assert(bmr == b::BMRESULT_SUCCEED);
+    return bmr == b::BMRESULT_SUCCEED;
+}
+bool HelloTriangle::CreateRenderPass()
+{
+    b::RENDER_PASS_DESC render_pass_desc{};
+
+    b::ATTACHMENT_DESC attachment{};
+    attachment.flags        = b::ATTACHMENT_FLAG_NONE;
+    attachment.format       = (*back_buffers)[0].rtv->GetDesc().view.format;
+    attachment.sample_count = 1;
+    attachment.load_op      = b::ATTACHMENT_LOAD_OP_CLEAR;
+    attachment.store_op     = b::ATTACHMENT_STORE_OP_STORE;
+    attachment.begin_state  = b::RESOURCE_STATE_COLOR_ATTACHMENT_WRITE;
+    attachment.end_state    = b::RESOURCE_STATE_PRESENT;
+
+    b::ATTACHMENT_REFERENCE color_attachment_ref{};
+    color_attachment_ref.attachment_index             = 0;
+    color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE;
+    color_attachment_ref.stencil_state_at_pass        = {};
+    color_attachment_ref.input_attachment_aspect_mask = b::TEXTURE_ASPECT_FLAG_COLOR;
+
+    b::SUBPASS_DESC subpass_desc{};
+    subpass_desc.flags                          = b::SUBPASS_FLAG_NONE;
+    subpass_desc.pipeline_bind_point            = b::PIPELINE_BIND_POINT_GRAPHICS;
+    subpass_desc.view_mask                      = 0x0;
+    subpass_desc.num_color_attachments          = 1;
+    subpass_desc.color_attachments              = &color_attachment_ref;
+    subpass_desc.resolve_attachments            = nullptr;
+    subpass_desc.depth_stencil_attachment       = nullptr;
+
+    b::SUBPASS_DEPENDENCY dependencies[] = { {},{} };
+    dependencies[0].src_subpass                 = b::B3D_SUBPASS_EXTERNAL;
+    dependencies[0].dst_subpass                 = 0;
+    dependencies[0].src_stage_mask              = b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE;
+    dependencies[0].dst_stage_mask              = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
+    dependencies[0].src_access                  = b::RESOURCE_ACCESS_FLAG_NONE;
+    dependencies[0].dst_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_READ | b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
+    dependencies[0].dependency_flags            = b::DEPENDENCY_FLAG_NONE;
+    dependencies[0].view_offset                 = 0;
+
+    dependencies[1].src_subpass                 = 0;
+    dependencies[1].dst_subpass                 = b::B3D_SUBPASS_EXTERNAL;
+    dependencies[1].src_stage_mask              = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
+    dependencies[1].dst_stage_mask              = b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE;
+    dependencies[1].src_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_READ | b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
+    dependencies[1].dst_access                  = b::RESOURCE_ACCESS_FLAG_NONE;
+    dependencies[1].dependency_flags            = b::DEPENDENCY_FLAG_NONE;
+    dependencies[1].view_offset                 = 0;
+
+    render_pass_desc.flags                      = b::RENDER_PASS_FLAG_NONE;
+    render_pass_desc.num_attachments            = 1;
+    render_pass_desc.attachments                = &attachment;
+    render_pass_desc.num_subpasses              = 1;
+    render_pass_desc.subpasses                  = &subpass_desc;
+    render_pass_desc.num_dependencies           = _countof(dependencies);
+    render_pass_desc.dependencies               = dependencies;
+    render_pass_desc.num_correlated_view_masks  = 0;
+    render_pass_desc.correlated_view_masks      = nullptr;
+
+    auto bmr = device->CreateRenderPass(render_pass_desc, &render_pass);
+    assert(bmr == b::BMRESULT_SUCCEED);
+    return bmr == b::BMRESULT_SUCCEED;
+}
+bool HelloTriangle::CreateFramebuffer()
+{
+    framebuffers.resize(BACK_BUFFER_COUNT);
+    b::FRAMEBUFFER_DESC fb_desc{};
+    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
+    {
+        b::IView* attachment    = (*back_buffers)[i].rtv.Get();
+        fb_desc.flags           = b::FRAMEBUFFER_FLAG_NONE;
+        fb_desc.render_pass     = render_pass.Get();
+        fb_desc.num_attachments = 1;
+        fb_desc.attachments     = &attachment;
+
+        auto bmr = device->CreateFramebuffer(fb_desc, &framebuffers[i]);
+        BMR_RET_IF_FAILED(bmr);
+    }
+    return true;
+}
+bool HelloTriangle::CreateShaderModules()
 {
     b::BMRESULT bmr{};
-    // ルートシグネチャの作成
-    {
-        b::ROOT_SIGNATURE_DESC rsdesc{};
-        //b::ROOT_PARAMETER parameters[1]{};
-
-        rsdesc.flags                          = b::ROOT_SIGNATURE_FLAG_NONE;
-        rsdesc.raytracing_shader_visibilities = b::RAY_TRACING_SHADER_VISIBILITY_FLAG_NONE;
-        rsdesc.num_parameters                 = 0;
-        rsdesc.parameters                     = nullptr;
-        rsdesc.num_static_samplers            = 0;
-        rsdesc.static_samplers                = nullptr;
-        rsdesc.num_register_shifts            = 0;
-        rsdesc.register_shifts                = nullptr;
-
-        bmr = device->CreateRootSignature(rsdesc, &signature);
-        assert(bmr == b::BMRESULT_SUCCEED);
-    }
-
-    // レンダーパスの作成
-    {
-        b::RENDER_PASS_DESC render_pass_desc{};
-
-        b::ATTACHMENT_DESC attachment{};
-        attachment.flags               = b::ATTACHMENT_FLAG_NONE;
-        attachment.format              = (*back_buffers)[0].rtv->GetDesc().view.format;
-        attachment.sample_count        = 1;
-        attachment.load_op             = b::ATTACHMENT_LOAD_OP_CLEAR;
-        attachment.store_op            = b::ATTACHMENT_STORE_OP_STORE;
-        attachment.begin_state         = b::RESOURCE_STATE_COLOR_ATTACHMENT_WRITE;
-        attachment.end_state           = b::RESOURCE_STATE_PRESENT;
-
-        b::ATTACHMENT_REFERENCE color_attachment_ref{};
-        color_attachment_ref.attachment_index             = 0;
-        color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE;
-        color_attachment_ref.stencil_state_at_pass        = {};
-        color_attachment_ref.input_attachment_aspect_mask = b::TEXTURE_ASPECT_FLAG_COLOR;
-
-        b::SUBPASS_DESC subpass_desc{};
-        subpass_desc.flags                    = b::SUBPASS_FLAG_NONE;
-        subpass_desc.pipeline_bind_point      = b::PIPELINE_BIND_POINT_GRAPHICS;
-        subpass_desc.view_mask                = 0x0;
-        subpass_desc.num_color_attachments    = 1;
-        subpass_desc.color_attachments        = &color_attachment_ref;
-        subpass_desc.resolve_attachments      = nullptr;
-        subpass_desc.depth_stencil_attachment = nullptr;
-
-        b::SUBPASS_DEPENDENCY dependencies[] = { {},{} };
-        dependencies[0].src_subpass      = b::B3D_SUBPASS_EXTERNAL;
-        dependencies[0].dst_subpass      = 0;
-        dependencies[0].src_stage_mask   = b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE;
-        dependencies[0].dst_stage_mask   = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
-        dependencies[0].src_access       = b::RESOURCE_ACCESS_FLAG_NONE;
-        dependencies[0].dst_access       = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_READ | b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
-        dependencies[0].dependency_flags = b::DEPENDENCY_FLAG_NONE;
-        dependencies[0].view_offset      = 0;
-
-        dependencies[1].src_subpass      = 0;
-        dependencies[1].dst_subpass      = b::B3D_SUBPASS_EXTERNAL;
-        dependencies[1].src_stage_mask   = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
-        dependencies[1].dst_stage_mask   = b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE;
-        dependencies[1].src_access       = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_READ | b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
-        dependencies[1].dst_access       = b::RESOURCE_ACCESS_FLAG_NONE;
-        dependencies[1].dependency_flags = b::DEPENDENCY_FLAG_NONE;
-        dependencies[1].view_offset      = 0;
-
-        render_pass_desc.flags                     = b::RENDER_PASS_FLAG_NONE;
-        render_pass_desc.num_attachments           = 1;
-        render_pass_desc.attachments               = &attachment;
-        render_pass_desc.num_subpasses             = 1;
-        render_pass_desc.subpasses                 = &subpass_desc;
-        render_pass_desc.num_dependencies          = _countof(dependencies);
-        render_pass_desc.dependencies              = dependencies;
-        render_pass_desc.num_correlated_view_masks = 0;
-        render_pass_desc.correlated_view_masks     = nullptr;
-
-        auto bmr = device->CreateRenderPass(render_pass_desc, &render_pass);
-        assert(bmr == b::BMRESULT_SUCCEED);
-    }
-
-    // フレームバッファの作成
-    framebuffers.resize(BACK_BUFFER_COUNT);
-    {
-        b::FRAMEBUFFER_DESC fb_desc{};
-        for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
-        {
-            b::IView* attachment = (*back_buffers)[i].rtv.Get();
-            fb_desc.flags           = b::FRAMEBUFFER_FLAG_NONE;
-            fb_desc.render_pass     = render_pass.Get();
-            fb_desc.num_attachments = 1;
-            fb_desc.attachments     = &attachment;
-
-            bmr = device->CreateFramebuffer(fb_desc, &framebuffers[i]);
-            assert(bmr == b::BMRESULT_SUCCEED);
-        }
-    }
-
-    // シェーダモジュールを作成
     shader_modules.resize(2);
+    shader::LOAD_SHADER_DESC desc{};
+    desc.options.packMatricesInRowMajor     = true;        // Experimental: Decide how a matrix get packed
+    desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
+    desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
+    desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+
+    desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
+    desc.options.shaderModel                = { 6, 2 };
+
+    desc.options.shiftAllTexturesBindings   = 0;
+    desc.options.shiftAllSamplersBindings   = 0;
+    desc.options.shiftAllCBuffersBindings   = 0;
+    desc.options.shiftAllUABuffersBindings  = 0;
+
+    auto&& loader = dr->GetShaderLoader();
+    // vs
     {
-        shader::LOAD_SHADER_DESC desc{};
-        desc.options.packMatricesInRowMajor     = true;        // Experimental: Decide how a matrix get packed
-        desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
-        desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
-        desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+        desc.entry_point    = "main";
+        desc.filename       = "./VertexShader.hlsl";
+        desc.defines        = {};
+        desc.stage          = { shader::SHADER_STAGE_VERTEX };
+        std::vector<uint8_t> bytecode;
+        loader->LoadShaderFromHLSL(desc, &bytecode);
+        assert(!bytecode.empty());
 
-        desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
-        desc.options.shaderModel                = { 6, 2 };
-
-        desc.options.shiftAllTexturesBindings   = 0;
-        desc.options.shiftAllSamplersBindings   = 0;
-        desc.options.shiftAllCBuffersBindings   = 0;
-        desc.options.shiftAllUABuffersBindings  = 0;
-
-        auto&& loader = dr->GetShaderLoader();
-        // vs
-        {
-            desc.entry_point    = "main";
-            desc.filename       = "./VertexShader.hlsl";
-            desc.defines        = {};
-            desc.stage          = { shader::SHADER_STAGE_VERTEX };
-            std::vector<uint8_t> bytecode;
-            loader->LoadShaderFromHLSL(desc, &bytecode);
-            assert(!bytecode.empty());
-
-            b::SHADER_MODULE_DESC module_desc{};
-            module_desc.flags                    = b::SHADER_MODULE_FLAG_NONE;
-            module_desc.bytecode.bytecode_length = bytecode.size();
-            module_desc.bytecode.shader_bytecode = bytecode.data();
-            bmr = device->CreateShaderModule(module_desc, &shader_modules[0]);
-            assert(bmr == b::BMRESULT_SUCCEED);
-        }
-
-        // ps
-        {
-            desc.entry_point    = "main";
-            desc.filename       = "./PixelShader.hlsl";
-            desc.defines        = {};
-            desc.stage          = { shader::SHADER_STAGE_PIXEL };
-            std::vector<uint8_t> bytecode;
-            loader->LoadShaderFromHLSL(desc, &bytecode);
-            assert(!bytecode.empty());
-
-            b::SHADER_MODULE_DESC module_desc{};
-            module_desc.flags                    = b::SHADER_MODULE_FLAG_NONE;
-            module_desc.bytecode.bytecode_length = bytecode.size();
-            module_desc.bytecode.shader_bytecode = bytecode.data();
-            bmr = device->CreateShaderModule(module_desc, &shader_modules[1]);
-            assert(bmr == b::BMRESULT_SUCCEED);
-        }
+        b::SHADER_MODULE_DESC module_desc{};
+        module_desc.flags                    = b::SHADER_MODULE_FLAG_NONE;
+        module_desc.bytecode.bytecode_length = bytecode.size();
+        module_desc.bytecode.shader_bytecode = bytecode.data();
+        bmr = device->CreateShaderModule(module_desc, &shader_modules[0]);
+        BMR_RET_IF_FAILED(bmr);
     }
 
+    // ps
+    {
+        desc.entry_point    = "main";
+        desc.filename       = "./PixelShader.hlsl";
+        desc.defines        = {};
+        desc.stage          = { shader::SHADER_STAGE_PIXEL };
+        std::vector<uint8_t> bytecode;
+        loader->LoadShaderFromHLSL(desc, &bytecode);
+        assert(!bytecode.empty());
+
+        b::SHADER_MODULE_DESC module_desc{};
+        module_desc.flags                    = b::SHADER_MODULE_FLAG_NONE;
+        module_desc.bytecode.bytecode_length = bytecode.size();
+        module_desc.bytecode.shader_bytecode = bytecode.data();
+        bmr = device->CreateShaderModule(module_desc, &shader_modules[1]);
+        BMR_RET_IF_FAILED(bmr);
+    }
+
+    return true;
+}
+bool HelloTriangle::CreateGraphicsPipelines()
+{
+    b::BMRESULT bmr{};
     // グラフィックスパイプラインの作成
     {
         b::GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
@@ -394,103 +527,102 @@ void HelloTriangle::LoadAssets()
         }
 
         bmr = device->CreateGraphicsPipelineState(pso_desc, &pipeline);
-        assert(bmr == b::BMRESULT_SUCCEED);
+        BMR_RET_IF_FAILED(bmr);
     }
 
-    // コマンドアロケータを作成
+    return true;
+}
+bool HelloTriangle::CreateCommandAllocator()
+{
     cmd_allocator.resize(BACK_BUFFER_COUNT);
+    for (auto& i : cmd_allocator)
     {
-        for (auto& i : cmd_allocator)
-        {
-            b::COMMAND_ALLOCATOR_DESC cad{};
-            cad.type    = b::COMMAND_TYPE_DIRECT;
-            cad.level   = b::COMMAND_LIST_LEVEL_PRIMARY;
-            cad.flags   = b::COMMAND_ALLOCATOR_FLAG_NONE | b::COMMAND_ALLOCATOR_FLAG_TRANSIENT;
+        b::COMMAND_ALLOCATOR_DESC cad{};
+        cad.type    = b::COMMAND_TYPE_DIRECT;
+        cad.level   = b::COMMAND_LIST_LEVEL_PRIMARY;
+        cad.flags   = b::COMMAND_ALLOCATOR_FLAG_NONE | b::COMMAND_ALLOCATOR_FLAG_TRANSIENT;
 
-            bmr = device->CreateCommandAllocator(cad, &i);
-            assert(bmr == b::BMRESULT_SUCCEED);
-        }
+        auto bmr = device->CreateCommandAllocator(cad, &i);
+        BMR_RET_IF_FAILED(bmr);
     }
 
-    // コマンドリストを作成
+    return true;
+}
+bool HelloTriangle::CreateCommandLists()
+{
     cmd_lists.resize(BACK_BUFFER_COUNT);
+    b::COMMAND_LIST_DESC cld{};
+    cld.type      = b::COMMAND_TYPE_DIRECT;
+    cld.level     = b::COMMAND_LIST_LEVEL_PRIMARY;
+    cld.node_mask = b::B3D_DEFAULT_NODE_MASK;
+    uint32_t cnt = 0;
+    for (auto& i : cmd_lists)
     {
-        b::COMMAND_LIST_DESC cld{};
-        cld.type      = b::COMMAND_TYPE_DIRECT;
-        cld.level     = b::COMMAND_LIST_LEVEL_PRIMARY;
-        cld.node_mask = b::B3D_DEFAULT_NODE_MASK;
-        uint32_t cnt = 0;
-        for (auto& i : cmd_lists)
-        {
-            cld.allocator = cmd_allocator[cnt].Get();
-            bmr = device->AllocateCommandList(cld, &i);
-            assert(bmr == b::BMRESULT_SUCCEED);
-            i->SetName(std::string("CommandList " + std::to_string(cnt++)).c_str());
-        }
+        cld.allocator = cmd_allocator[cnt].Get();
+        auto bmr = device->AllocateCommandList(cld, &i);
+        BMR_RET_IF_FAILED(bmr);
+        i->SetName(std::string("CommandList " + std::to_string(cnt++)).c_str());
     }
 
-    // フェンスを作成
+    return true;
+}
+bool HelloTriangle::CreateFences()
+{
     cmd_fences.resize(BACK_BUFFER_COUNT);
+    b::FENCE_DESC fd{};
+    fd.flags         = b::FENCE_FLAG_NONE;
+    fd.initial_value = 0;
+
+    fd.type = b::FENCE_TYPE_BINARY_GPU_TO_CPU;
+    auto bmr = device->CreateFence(fd, &util_fence);
+    BMR_RET_IF_FAILED(bmr);
+    util_fence->SetName("util_fence");
+
+    fd.type = b::FENCE_TYPE_TIMELINE;
+    uint32_t cnt = 0;
+    for (auto& i : cmd_fences)
     {
-        b::FENCE_DESC fd{};
-        fd.flags         = b::FENCE_FLAG_NONE;
-        fd.initial_value = 0;
-
-        fd.type = b::FENCE_TYPE_BINARY_GPU_TO_CPU;
-        bmr = device->CreateFence(fd, &util_fence);
-        assert(bmr == b::BMRESULT_SUCCEED);
-        util_fence->SetName("util_fence");
-
-        fd.type = b::FENCE_TYPE_TIMELINE;
-        uint32_t cnt = 0;
-        for (auto& i : cmd_fences)
-        {
-            bmr = device->CreateFence(fd, &i);
-            assert(bmr == b::BMRESULT_SUCCEED);
-            i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
-        }
-
-        fd.type = b::FENCE_TYPE_BINARY_GPU_TO_GPU;
-        bmr = device->CreateFence(fd, &render_complete_fence);
-        assert(bmr == b::BMRESULT_SUCCEED);
-        render_complete_fence->SetName("render_complete_fence");
+        bmr = device->CreateFence(fd, &i);
+        BMR_RET_IF_FAILED(bmr);
+        i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
     }
 
-    auto aspect_ratio = platform->GetWindow()->GetAspectRatio();
-    struct VERTEX
-    {
-        b::FLOAT4 position;
-        b::FLOAT4 color;
-    };
-    std::vector<VERTEX> triangle =
-    {
-          { {  0.0f ,  0.25f * aspect_ratio, 0.0f, 1.f }, { 1.f, 0.f, 0.f, 1.f} }
-        , { {  0.25f, -0.25f * aspect_ratio, 0.0f, 1.f }, { 0.f, 1.f, 0.f, 1.f} }
-        , { { -0.25f, -0.25f * aspect_ratio, 0.0f, 1.f }, { 0.f, 0.f, 1.f, 1.f} }
-    };
-    std::vector<uint16_t> index = { 0,1,2 };
+    fd.type = b::FENCE_TYPE_BINARY_GPU_TO_GPU;
+    bmr = device->CreateFence(fd, &render_complete_fence);
+    BMR_RET_IF_FAILED(bmr);
+    render_complete_fence->SetName("render_complete_fence");
 
+    return true;
+}
+bool HelloTriangle::CreateBuffers()
+{
+    b::BMRESULT bmr{};
     // 頂点バッファリソースの器を作成
     {
-        bmr = device->CreatePlacedResource(init::BufferResourceDesc(sizeof(VERTEX) * triangle.size(), init::BUF_COPYABLE_FLAGS | b::BUFFER_USAGE_FLAG_VERTEX_BUFFER), &vertex_buffer);
-        assert(bmr == b::BMRESULT_SUCCEED);
+        auto vbdesc = init::BufferResourceDesc(sizeof(VERTEX) * triangle.size(), init::BUF_COPYABLE_FLAGS | b::BUFFER_USAGE_FLAG_VERTEX_BUFFER);
+        bmr = device->CreatePlacedResource(vbdesc, &vertex_buffer);
+        BMR_RET_IF_FAILED(bmr);
         vertex_buffer->SetName("Vertex buffer");
     }
 
     // インデックスバッファリソースの器を作成
     {
-        bmr = device->CreatePlacedResource(init::BufferResourceDesc(sizeof(decltype(index)::value_type) * index.size(), init::BUF_COPYABLE_FLAGS | b::BUFFER_USAGE_FLAG_INDEX_BUFFER), &index_buffer);
-        assert(bmr == b::BMRESULT_SUCCEED);
-        index_buffer->SetName("Index buffer");  
+        auto ibdesc = init::BufferResourceDesc(sizeof(decltype(index)::value_type) * index.size(), init::BUF_COPYABLE_FLAGS | b::BUFFER_USAGE_FLAG_INDEX_BUFFER);
+        bmr = device->CreatePlacedResource(ibdesc, &index_buffer);
+        BMR_RET_IF_FAILED(bmr);
+        index_buffer->SetName("Index buffer");
     }
 
+    return true;
+}
+bool HelloTriangle::CreateHeaps(b::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_info, std::vector<b::RESOURCE_ALLOCATION_INFO>* _alloc_infos)
+{
     // バッファのサイズ要件を取得。
-    b::RESOURCE_HEAP_ALLOCATION_INFO         heap_alloc_info{};
-    std::vector<b::RESOURCE_ALLOCATION_INFO> alloc_infos(2);
     {
+        _alloc_infos->resize(2);
         b::IResource* resources[] = { vertex_buffer.Get(), index_buffer.Get() };
-        bmr = device->GetResourceAllocationInfo(2, resources, alloc_infos.data(), &heap_alloc_info);
-        assert(bmr == b::BMRESULT_SUCCEED);
+        auto bmr = device->GetResourceAllocationInfo(2, resources, _alloc_infos->data(), _heap_alloc_info);
+        BMR_RET_IF_FAILED(bmr);
     }
 
     // ヒーププロパティを取得
@@ -499,230 +631,227 @@ void HelloTriangle::LoadAssets()
         device->GetResourceHeapProperties(heap_props.data());
     }
 
-    auto FindMappableHeap = [&]() {
-        for (auto& i : heap_props) {
-            if (i.flags & b::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE &&
-                i.flags & b::RESOURCE_HEAP_PROPERTY_FLAG_HOST_COHERENT &&
-                !(i.flags & b::RESOURCE_HEAP_PROPERTY_FLAG_ACCESS_GENERIC_MEMORY_READ_FIXED))
-                return &i;
-        }
-        return (b::RESOURCE_HEAP_PROPERTIES*)nullptr;
-    };
-    auto FindDeviceLocalHeap = [&]() {
-        for (auto& i : heap_props) {
-            if (i.flags & b::RESOURCE_HEAP_PROPERTY_FLAG_DEVICE_LOCAL)
-                return &i;
-        }
-        return (b::RESOURCE_HEAP_PROPERTIES*)nullptr;
-    };
-
     // 頂点、インデックスバッファ用リソースヒープを作成
     {
-        auto heap_prop = FindDeviceLocalHeap();
-        assert(heap_prop);
-        assert(heap_alloc_info.heap_type_bits & (1 << heap_prop->heap_index));
+        auto heap_prop = FindDeviceLocalHeap(heap_props);
+        RET_IF_FAILED(heap_prop);
+        RET_IF_FAILED(_heap_alloc_info->heap_type_bits & (1 << heap_prop->heap_index));
 
         b::RESOURCE_HEAP_DESC heap_desc{};
         heap_desc.heap_index         = heap_prop->heap_index;
-        heap_desc.size_in_bytes      = heap_alloc_info.total_size_in_bytes;
-        heap_desc.alignment          = heap_alloc_info.required_alignment;
+        heap_desc.size_in_bytes      = _heap_alloc_info->total_size_in_bytes;
+        heap_desc.alignment          = _heap_alloc_info->required_alignment;
         heap_desc.flags              = b::RESOURCE_HEAP_FLAG_NONE;
         heap_desc.creation_node_mask = b::B3D_DEFAULT_NODE_MASK;
         heap_desc.visible_node_mask  = b::B3D_DEFAULT_NODE_MASK;
 
-        bmr = device->CreateResourceHeap(heap_desc, &resource_heap);
-        assert(bmr == b::BMRESULT_SUCCEED);
+        auto bmr = device->CreateResourceHeap(heap_desc, &resource_heap);
+        BMR_RET_IF_FAILED(bmr);
         resource_heap->SetName("Device local heap");
     }
 
+    return true;
+}
+bool HelloTriangle::BindResourceHeaps(b::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_info, std::vector<b::RESOURCE_ALLOCATION_INFO>* _alloc_infos)
+{
+    b::BMRESULT bmr{};
     // 頂点、インデックスバッファをバインド
+    b::BIND_RESOURCE_HEAP_INFO info{};
+    info.src_heap            = resource_heap.Get();
+    info.num_bind_node_masks = 0;
+    info.bind_node_masks     = nullptr;
+
+    // 頂点バッファ
+    info.src_heap_offset = (*_alloc_infos)[0].heap_offset;
+    info.dst_resource    = vertex_buffer.Get();
+    bmr = device->BindResourceHeaps(1, &info);
+    BMR_RET_IF_FAILED(bmr);
+
+    // インデックスバッファ
+    info.src_heap_offset = (*_alloc_infos)[1].heap_offset;
+    info.dst_resource    = index_buffer.Get();
+    bmr = device->BindResourceHeaps(1, &info);
+    BMR_RET_IF_FAILED(bmr);
+
+    return true;
+}
+bool HelloTriangle::CreateBuffersForCopy()
+{
+    // コピー用頂点、インデックスバッファを作成
+    auto heap_prop = FindMappableHeap(heap_props);
+    RET_IF_FAILED(heap_prop);
+
+    b::COMMITTED_RESOURCE_DESC comitted_desc = init::CommittedResourceDesc(heap_prop->heap_index, b::RESOURCE_HEAP_FLAG_NONE, {});
+    comitted_desc.resource_desc.dimension       = b::RESOURCE_DIMENSION_BUFFER;
+    comitted_desc.resource_desc.flags           = b::RESOURCE_FLAG_NONE;
+    comitted_desc.resource_desc.buffer.flags    = b::BUFFER_CREATE_FLAG_NONE;
+
+    // コピー用頂点バッファリソースを作成
     {
-        b::BIND_RESOURCE_HEAP_INFO info{};
-        info.src_heap            = resource_heap.Get();
-        info.num_bind_node_masks = 0;
-        info.bind_node_masks     = nullptr;
+        auto&& vertex_buffer_desc = comitted_desc.resource_desc;
+        vertex_buffer_desc.buffer.usage         = b::BUFFER_USAGE_FLAG_COPY_SRC | b::BUFFER_USAGE_FLAG_COPY_DST;
+        vertex_buffer_desc.buffer.size_in_bytes = sizeof(VERTEX) * triangle.size();
 
-        // 頂点バッファ
-        info.src_heap_offset = alloc_infos[0].heap_offset;
-        info.dst_resource    = vertex_buffer.Get();
-        bmr = device->BindResourceHeaps(1, &info);
-        assert(bmr == b::BMRESULT_SUCCEED);
+        auto bmr = device->CreateCommittedResource(comitted_desc, &vertex_buffer_src);
+        BMR_RET_IF_FAILED(bmr);
+        vertex_buffer_src->SetName("Vertex buffer for copy");
+        vertex_buffer_src->GetHeap()->SetName("Vertex buffer heap for copy");
 
-        // インデックスバッファ
-        info.src_heap_offset = alloc_infos[1].heap_offset;
-        info.dst_resource    = index_buffer.Get();
-        bmr = device->BindResourceHeaps(1, &info);
-        assert(bmr == b::BMRESULT_SUCCEED);
+        // データを書き込む
+        {
+            util::Mapper map(vertex_buffer_src->GetHeap());
+            memcpy_s(map.As<VERTEX>().GetData(), vertex_buffer_desc.buffer.size_in_bytes, triangle.data(), vertex_buffer_desc.buffer.size_in_bytes);
+        }
     }
 
-    // コピー用ヒープと、コピー用頂点、インデックスバッファを作成
-    Ptr<b::IBuffer> vertex_buffer_src{};
-    Ptr<b::IBuffer> index_buffer_src{};
+    // コピー用インデックスバッファリソースを作成
     {
-        auto heap_prop = FindMappableHeap();
-        assert(heap_prop);
+        auto&& index_buffer_desc = comitted_desc.resource_desc;
+        index_buffer_desc.buffer.usage         = b::BUFFER_USAGE_FLAG_COPY_SRC | b::BUFFER_USAGE_FLAG_COPY_DST;
+        index_buffer_desc.buffer.size_in_bytes = sizeof(uint16_t) * index.size();
 
-        b::COMMITTED_RESOURCE_DESC comitted_desc = init::CommittedResourceDesc(heap_prop->heap_index, b::RESOURCE_HEAP_FLAG_NONE, {});
-        comitted_desc.resource_desc.dimension       = b::RESOURCE_DIMENSION_BUFFER;
-        comitted_desc.resource_desc.flags           = b::RESOURCE_FLAG_NONE;
-        comitted_desc.resource_desc.buffer.flags    = b::BUFFER_CREATE_FLAG_NONE;
+        auto bmr = device->CreateCommittedResource(comitted_desc, &index_buffer_src);
+        BMR_RET_IF_FAILED(bmr);
+        index_buffer_src->SetName("Index buffer for copy");
+        index_buffer_src->GetHeap()->SetName("Index buffer heap for copy");
 
-        // コピー用頂点バッファリソースを作成
+        // データを書き込む
         {
-            auto&& vertex_buffer_desc = comitted_desc.resource_desc;
-            vertex_buffer_desc.buffer.usage         = b::BUFFER_USAGE_FLAG_COPY_SRC | b::BUFFER_USAGE_FLAG_COPY_DST;
-            vertex_buffer_desc.buffer.size_in_bytes = sizeof(VERTEX) * triangle.size();
-
-            bmr = device->CreateCommittedResource(comitted_desc, &vertex_buffer_src);
-            assert(bmr == b::BMRESULT_SUCCEED);
-            vertex_buffer_src->SetName("Vertex buffer for copy");
-            vertex_buffer_src->GetHeap()->SetName("Vertex buffer heap for copy");
-
-            // データを書き込む
-            {
-                util::Mapper map(vertex_buffer_src->GetHeap());
-                memcpy_s(map.As<VERTEX>().GetData(), vertex_buffer_desc.buffer.size_in_bytes, triangle.data(), vertex_buffer_desc.buffer.size_in_bytes);
-            }
+            util::Mapper map(index_buffer_src->GetHeap());
+            memcpy_s(map.As<uint16_t>().GetData(), index_buffer_desc.buffer.size_in_bytes, index.data(), sizeof(uint16_t) * index.size());
         }
-
-        // コピー用インデックスバッファリソースを作成
-        {
-            auto&& index_buffer_desc = comitted_desc.resource_desc;
-            index_buffer_desc.buffer.usage         = b::BUFFER_USAGE_FLAG_COPY_SRC | b::BUFFER_USAGE_FLAG_COPY_DST;
-            index_buffer_desc.buffer.size_in_bytes = sizeof(uint16_t) * index.size();
-
-            bmr = device->CreateCommittedResource(comitted_desc, &index_buffer_src);
-            assert(bmr == b::BMRESULT_SUCCEED);
-            index_buffer_src->SetName("Index buffer for copy");
-            index_buffer_src->GetHeap()->SetName("Index buffer heap for copy");
-
-            // データを書き込む
-            {
-                util::Mapper map(index_buffer_src->GetHeap());
-                memcpy_s(map.As<uint16_t>().GetData(), index_buffer_desc.buffer.size_in_bytes, index.data(), sizeof(uint16_t) * index.size());
-            }
-        }
-
-        // 頂点、インデックスバッファデータをデバイスローカルバッファへコピー
-        {
-            auto&& l = cmd_lists[0];
-            b::COMMAND_LIST_BEGIN_DESC begin{};
-            begin.flags = b::COMMAND_LIST_BEGIN_FLAG_NONE;
-            begin.inheritance_desc = nullptr;
-            bmr = l->BeginRecord(begin);
-            assert(bmr == b::BMRESULT_SUCCEED);
-
-            // コピー宛先、ソースそれぞれにバリアを張る
-            b::CMD_PIPELINE_BARRIER barreir{};
-            b::BUFFER_BARRIER_DESC buffer_barreirs[4]{};
-            {
-                buffer_barreirs[0].src_queue_type = b::COMMAND_TYPE_DIRECT;
-                buffer_barreirs[0].dst_queue_type = b::COMMAND_TYPE_DIRECT;
-                buffer_barreirs[0].barrier_flags  = b::RESOURCE_BARRIER_FLAG_NONE;
-
-                buffer_barreirs[0].buffer         = vertex_buffer.Get();
-                buffer_barreirs[0].src_state      = b::RESOURCE_STATE_UNDEFINED;
-                buffer_barreirs[0].dst_state      = b::RESOURCE_STATE_COPY_DST_WRITE;
-
-                buffer_barreirs[1] = buffer_barreirs[0];
-                buffer_barreirs[1].buffer         = vertex_buffer_src.Get();
-                buffer_barreirs[1].src_state      = b::RESOURCE_STATE_HOST_READ_WRITE;
-                buffer_barreirs[1].dst_state      = b::RESOURCE_STATE_COPY_SRC_READ;
-
-                buffer_barreirs[2] = buffer_barreirs[0];
-                buffer_barreirs[3] = buffer_barreirs[1];
-                buffer_barreirs[2].buffer         = index_buffer.Get();
-                buffer_barreirs[3].buffer         = index_buffer_src.Get();
-
-                barreir.src_stages           = b::PIPELINE_STAGE_FLAG_HOST;
-                barreir.dst_stages           = b::PIPELINE_STAGE_FLAG_COPY_RESOLVE;
-                barreir.dependency_flags     = b::DEPENDENCY_FLAG_NONE;
-                barreir.num_buffer_barriers  = _countof(buffer_barreirs);
-                barreir.buffer_barriers      = buffer_barreirs;
-                barreir.num_texture_barriers = 0;
-                barreir.texture_barriers     = nullptr;
-
-                l->PipelineBarrier(barreir);
-            }
-
-            // バッファをコピー
-            b::CMD_COPY_BUFFER_REGION copy_buffer{};
-            b::BUFFER_COPY_REGION copy_region{};
-            {
-                copy_buffer.num_regions = 1;
-                copy_buffer.regions = &copy_region;
-
-                copy_region.src_offset      = 0;
-                copy_region.dst_offset      = 0;
-                copy_region.size_in_bytes   = vertex_buffer->GetDesc().buffer.size_in_bytes;
-                copy_buffer.src_buffer      = vertex_buffer_src.Get();
-                copy_buffer.dst_buffer      = vertex_buffer.Get();
-                l->CopyBufferRegion(copy_buffer);
-
-                copy_region.src_offset      = 0;
-                copy_region.dst_offset      = 0;
-                copy_region.size_in_bytes   = index_buffer->GetDesc().buffer.size_in_bytes;
-                copy_buffer.src_buffer      = index_buffer_src.Get();
-                copy_buffer.dst_buffer      = index_buffer.Get();
-                l->CopyBufferRegion(copy_buffer);
-            }
-
-            // 頂点バッファ、インデックスバッファとして使用するバリアを用意
-            {
-                buffer_barreirs[0].buffer         = vertex_buffer.Get();
-                buffer_barreirs[0].src_state      = b::RESOURCE_STATE_COPY_DST_WRITE;
-                buffer_barreirs[0].dst_state      = b::RESOURCE_STATE_UNDEFINED;
-
-                buffer_barreirs[1] = buffer_barreirs[0];
-                buffer_barreirs[1].buffer         = index_buffer.Get();
-                buffer_barreirs[1].src_state      = b::RESOURCE_STATE_COPY_DST_WRITE;
-                buffer_barreirs[1].dst_state      = b::RESOURCE_STATE_UNDEFINED;
-
-                barreir.src_stages           = b::PIPELINE_STAGE_FLAG_COPY_RESOLVE;
-                barreir.dst_stages           = b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE;
-                barreir.dependency_flags     = b::DEPENDENCY_FLAG_NONE;
-                barreir.num_buffer_barriers  = 2;
-                barreir.buffer_barriers      = buffer_barreirs;
-                barreir.num_texture_barriers = 0;
-                barreir.texture_barriers     = nullptr;
-
-                l->PipelineBarrier(barreir);
-            }
-
-            bmr = l->EndRecord();
-            assert(bmr == b::BMRESULT_SUCCEED);
-
-            // キューへ送信
-            {
-                b::SUBMIT_INFO submit_info{};
-                submit_info.wait_fence.num_fences        = 0;
-                submit_info.wait_fence.fences            = nullptr;
-                submit_info.wait_fence.fence_values      = nullptr;
-                submit_info.num_command_lists_to_execute = 1;
-                submit_info.command_lists_to_execute     = l.GetAddressOf();
-                submit_info.signal_fence.num_fences      = 0;
-                submit_info.signal_fence.fences          = nullptr;
-                submit_info.signal_fence.fence_values    = nullptr;
-
-                b::SUBMIT_DESC submit{};
-                submit.num_submit_infos    = 1;
-                submit.submit_infos        = &submit_info;
-                submit.signal_fence_to_cpu = util_fence.Get();
-                bmr = command_queue->Submit(submit);
-                assert(bmr == b::BMRESULT_SUCCEED);
-
-                // 待機
-                auto bmr = util_fence->Wait(0, 10);
-                assert(bmr == b::BMRESULT_SUCCEED);
-
-                // GPU_TO_CPUフェンスをリセット
-                bmr = util_fence->Reset();
-                assert(bmr == b::BMRESULT_SUCCEED);
-            }
-        }
-
     }
 
+    return true;
+}
+bool HelloTriangle::CopyBuffers()
+{
+    // 頂点、インデックスバッファデータをデバイスローカルバッファへコピー
+    b::BMRESULT bmr{};
+    auto&& l = cmd_lists[0];
+
+    b::COMMAND_LIST_BEGIN_DESC begin{};
+    begin.flags = b::COMMAND_LIST_BEGIN_FLAG_NONE;
+    begin.inheritance_desc = nullptr;
+
+    // 記録を開始
+    bmr = l->BeginRecord(begin);
+    BMR_RET_IF_FAILED(bmr);
+
+    // コピー宛先、ソースそれぞれにバリアを張る
+    b::CMD_PIPELINE_BARRIER barreir{};
+    b::BUFFER_BARRIER_DESC buffer_barreirs[4]{};
+    {
+        buffer_barreirs[0].src_queue_type = b::COMMAND_TYPE_DIRECT;
+        buffer_barreirs[0].dst_queue_type = b::COMMAND_TYPE_DIRECT;
+        buffer_barreirs[0].barrier_flags  = b::RESOURCE_BARRIER_FLAG_NONE;
+
+        buffer_barreirs[0].buffer         = vertex_buffer.Get();
+        buffer_barreirs[0].src_state      = b::RESOURCE_STATE_UNDEFINED;
+        buffer_barreirs[0].dst_state      = b::RESOURCE_STATE_COPY_DST_WRITE;
+
+        buffer_barreirs[1] = buffer_barreirs[0];
+        buffer_barreirs[1].buffer         = vertex_buffer_src.Get();
+        buffer_barreirs[1].src_state      = b::RESOURCE_STATE_HOST_READ_WRITE;
+        buffer_barreirs[1].dst_state      = b::RESOURCE_STATE_COPY_SRC_READ;
+
+        buffer_barreirs[2] = buffer_barreirs[0];
+        buffer_barreirs[3] = buffer_barreirs[1];
+        buffer_barreirs[2].buffer         = index_buffer.Get();
+        buffer_barreirs[3].buffer         = index_buffer_src.Get();
+
+        barreir.src_stages           = b::PIPELINE_STAGE_FLAG_HOST;
+        barreir.dst_stages           = b::PIPELINE_STAGE_FLAG_COPY_RESOLVE;
+        barreir.dependency_flags     = b::DEPENDENCY_FLAG_NONE;
+        barreir.num_buffer_barriers  = _countof(buffer_barreirs);
+        barreir.buffer_barriers      = buffer_barreirs;
+        barreir.num_texture_barriers = 0;
+        barreir.texture_barriers     = nullptr;
+
+        l->PipelineBarrier(barreir);
+    }
+
+    // バッファをコピー
+    b::CMD_COPY_BUFFER_REGION copy_buffer{};
+    b::BUFFER_COPY_REGION copy_region{};
+    {
+        copy_buffer.num_regions = 1;
+        copy_buffer.regions = &copy_region;
+
+        copy_region.src_offset      = 0;
+        copy_region.dst_offset      = 0;
+        copy_region.size_in_bytes   = vertex_buffer->GetDesc().buffer.size_in_bytes;
+        copy_buffer.src_buffer      = vertex_buffer_src.Get();
+        copy_buffer.dst_buffer      = vertex_buffer.Get();
+        l->CopyBufferRegion(copy_buffer);
+
+        copy_region.src_offset      = 0;
+        copy_region.dst_offset      = 0;
+        copy_region.size_in_bytes   = index_buffer->GetDesc().buffer.size_in_bytes;
+        copy_buffer.src_buffer      = index_buffer_src.Get();
+        copy_buffer.dst_buffer      = index_buffer.Get();
+        l->CopyBufferRegion(copy_buffer);
+    }
+
+    // 頂点バッファ、インデックスバッファとして使用するバリアを用意
+    {
+        buffer_barreirs[0].buffer       = vertex_buffer.Get();
+        buffer_barreirs[0].src_state    = b::RESOURCE_STATE_COPY_DST_WRITE;
+        buffer_barreirs[0].dst_state    = b::RESOURCE_STATE_UNDEFINED;
+
+        buffer_barreirs[1] = buffer_barreirs[0];
+        buffer_barreirs[1].buffer       = index_buffer.Get();
+        buffer_barreirs[1].src_state    = b::RESOURCE_STATE_COPY_DST_WRITE;
+        buffer_barreirs[1].dst_state    = b::RESOURCE_STATE_UNDEFINED;
+
+        barreir.src_stages              = b::PIPELINE_STAGE_FLAG_COPY_RESOLVE;
+        barreir.dst_stages              = b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE;
+        barreir.dependency_flags        = b::DEPENDENCY_FLAG_NONE;
+        barreir.num_buffer_barriers     = 2;
+        barreir.buffer_barriers         = buffer_barreirs;
+        barreir.num_texture_barriers    = 0;
+        barreir.texture_barriers        = nullptr;
+
+        l->PipelineBarrier(barreir);
+    }
+
+    // 記録を終了
+    bmr = l->EndRecord();
+    BMR_RET_IF_FAILED(bmr);
+
+    // キューへ送信
+    {
+        b::SUBMIT_INFO submit_info{};
+        submit_info.wait_fence.num_fences        = 0;
+        submit_info.wait_fence.fences            = nullptr;
+        submit_info.wait_fence.fence_values      = nullptr;
+        submit_info.num_command_lists_to_execute = 1;
+        submit_info.command_lists_to_execute     = l.GetAddressOf();
+        submit_info.signal_fence.num_fences      = 0;
+        submit_info.signal_fence.fences          = nullptr;
+        submit_info.signal_fence.fence_values    = nullptr;
+
+        b::SUBMIT_DESC submit{};
+        submit.num_submit_infos    = 1;
+        submit.submit_infos        = &submit_info;
+        submit.signal_fence_to_cpu = util_fence.Get();
+        bmr = command_queue->Submit(submit);
+        BMR_RET_IF_FAILED(bmr);
+    }
+
+    // 待機
+    bmr = util_fence->Wait(0, UINT32_MAX);
+    BMR_RET_IF_FAILED(bmr);
+
+    // GPU_TO_CPUフェンスをリセット
+    bmr = util_fence->Reset();
+    BMR_RET_IF_FAILED(bmr);
+
+    return true;
+}
+bool HelloTriangle::CreateBufferViews()
+{
+    b::BMRESULT bmr{};
     // 頂点バッファビューを作成
     {
         b::VERTEX_BUFFER_VIEW_DESC vbvdesc{};
@@ -736,7 +865,7 @@ void HelloTriangle::LoadAssets()
         vbvdesc.strides_in_bytes    = &strides_in_bytes;
 
         bmr = device->CreateVertexBufferView(vertex_buffer.Get(), vbvdesc, &vertex_buffer_view);
-        assert(bmr == b::BMRESULT_SUCCEED);
+        BMR_RET_IF_FAILED(bmr);
     }
 
     // インデックスバッファビューを作成
@@ -747,19 +876,16 @@ void HelloTriangle::LoadAssets()
         ibvdesc.index_type      = b::INDEX_TYPE_UINT16;
 
         bmr = device->CreateIndexBufferView(index_buffer.Get(), ibvdesc, &index_buffer_view);
-        assert(bmr == b::BMRESULT_SUCCEED);
+        BMR_RET_IF_FAILED(bmr);
     }
 
-    // 描画コマンドを記録
-    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
-    {
-        PrepareFrame(i);
-    }
+    return true;
 }
 
 void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
 {
-    cmd_allocator[_buffer_index]->Reset(b::COMMAND_ALLOCATOR_RESET_FLAG_RELEASE_RESOURCES);
+    auto reset_flags = b::COMMAND_ALLOCATOR_RESET_FLAG_RELEASE_RESOURCES;
+    cmd_allocator[_buffer_index]->Reset(reset_flags);
 
     auto&& l = cmd_lists[_buffer_index];
     b::COMMAND_LIST_BEGIN_DESC begin{};
@@ -816,10 +942,6 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
 void HelloTriangle::Tick()
 {
     timer.Tick();
-
-    if (platform->GetWindow()->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
-        return;
-
     Update();
     Render();
 }
@@ -829,19 +951,27 @@ void HelloTriangle::Update()
     if (timer.IsOneSecElapsed())
         platform->GetLogger()->LogInfo(("fps: " + std::to_string(timer.GetFramesPerSecond())).c_str());
 
+    if (platform->GetWindow()->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
+        return;
+
     // 次のバックバッファを取得
-    {
-        uint32_t next_buffer_index = 0;
-        auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index);
-        assert(bmr == b::BMRESULT_SUCCEED || bmr == b::BMRESULT_SUCCEED_NOT_READY);
+    MoveToNextFrame();
+}
 
-        back_buffer_index = next_buffer_index;
-    }
+void HelloTriangle::MoveToNextFrame()
+{
+    uint32_t next_buffer_index = 0;
+    auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index);
+    assert(bmr == b::BMRESULT_SUCCEED || bmr == b::BMRESULT_SUCCEED_NOT_READY);
 
+    back_buffer_index = next_buffer_index;
 }
 
 void HelloTriangle::Render()
 {
+    if (platform->GetWindow()->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
+        return;
+
     auto cmd_lists_data  = cmd_lists.data();
     auto cmd_fences_data = cmd_fences.data();
     b::BMRESULT bmr{};
@@ -898,24 +1028,7 @@ void HelloTriangle::OnResized(BufferResizedEventArgs* _args)
     back_buffers     = &swapchain->GetBuffers();
     swapchain_fences = &swapchain->GetPresentCompleteFences();
 
-    framebuffers.resize(BACK_BUFFER_COUNT);
-    {
-        b::FRAMEBUFFER_DESC fb_desc{};
-        for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
-        {
-            b::IView* attachment = (*back_buffers)[i].rtv.Get();
-            fb_desc.flags           = b::FRAMEBUFFER_FLAG_NONE;
-            fb_desc.render_pass     = render_pass.Get();
-            fb_desc.num_attachments = 1;
-            fb_desc.attachments     = &attachment;
-
-            auto bmr = device->CreateFramebuffer(fb_desc, &framebuffers[i]);
-            assert(bmr == b::BMRESULT_SUCCEED);
-        }
-    }
-
-    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
-        PrepareFrame(i);
+    CreateFramebuffer();
 
 }
 
