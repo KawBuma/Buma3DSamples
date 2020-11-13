@@ -4,3 +4,5 @@ git clone https://github.com/ocornut/imgui.git
 ./Buma3D
 git clone https://github.com/KawBuma/Buma3D.git 
 
+./cereal
+git clone https://github.com/USCiLab/cereal.git 

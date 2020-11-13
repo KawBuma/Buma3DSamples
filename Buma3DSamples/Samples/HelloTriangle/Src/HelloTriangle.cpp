@@ -151,7 +151,7 @@ bool HelloTriangle::PrepareSwapChain()
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
                                                  init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
-    scd.flags = b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT /*| b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC*/;
+    scd.flags = b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT | b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC;
     platform->GetWindow()->ResizeWindow({ 1280,720 }, scd.flags);
     if (!(platform->GetWindow()->CreateSwapChain(scd, &swapchain)))
         return false;
@@ -209,6 +209,8 @@ bool HelloTriangle::LoadAssets()
     // 描画コマンドを記録
     for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
         PrepareFrame(i);
+
+    return true;
 }
 
 bool HelloTriangle::CreateRootSignature()
@@ -917,7 +919,7 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
 
         static float sc = 0.f;
         static float sx = 0.f;
-        sc = sc + 0.003f;
+        sc = sc + 0.34f * timer.GetElapsedSecondsF();
         sx = sinf(sc);
         b::CLEAR_VALUE            clear_val{ b::CLEAR_RENDER_TARGET_VALUE{0.8f * sx ,0.32f,0.13f,1.f} };
         b::RENDER_PASS_BEGIN_DESC rpbd{ render_pass.Get(), framebuffers[_buffer_index].Get(), 1, &clear_val };
@@ -982,7 +984,7 @@ void HelloTriangle::Render()
     // コマンドリストとフェンスを送信
     {
         cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
-        PrepareFrame(back_buffer_index);
+        //PrepareFrame(back_buffer_index);
 
         // 待機フェンス
         wait_fence_desc.Reset();
@@ -1029,6 +1031,8 @@ void HelloTriangle::OnResized(BufferResizedEventArgs* _args)
     swapchain_fences = &swapchain->GetPresentCompleteFences();
 
     CreateFramebuffer();
+    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
+        PrepareFrame(i);
 
 }
 

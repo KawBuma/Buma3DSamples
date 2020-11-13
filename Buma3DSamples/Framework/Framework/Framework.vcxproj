@@ -58,7 +58,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\Inputs\Inc;$(ProjectDir)\..\Imgui\Inc;$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\Inputs\Inc;$(ProjectDir)\..\Imgui\Inc;$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)..\..\External\cereal\include;$(ProjectDir)..\..\External\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
@@ -83,7 +83,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\Inputs\Inc;$(ProjectDir)\..\Imgui\Inc;$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\Inputs\Inc;$(ProjectDir)\..\Imgui\Inc;$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)..\..\External\cereal\include;$(ProjectDir)..\..\External\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>

@@ -223,10 +223,12 @@ bool PlatformWindows::PrepareDeviceResources()
     if (dll_dir != cmd_lines.end())
         dir = (**(dll_dir + 1)).c_str();
 
+    auto&& enable_debug = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return (*_str) == "--enable-b3d-debug"; });
+
     DEVICE_RESOURCE_DESC drd{};
     drd.type                   = type;
     drd.library_dir            = dir ? dir : "";
-    drd.is_enable_debug        = true;
+    drd.is_enable_debug        = enable_debug != cmd_lines.end();
     drd.message_logger         = logger;
     drd.DebugMessageCallback   = B3DMessageCallback;
     if (!device_resources->Init(drd)) return false;

@@ -361,4 +361,7 @@ MigrationBackup/
 #Buma3DSample Externals
 /Buma3DSamples/External/imgui
 /Buma3DSamples/External/Buma3D
+/Buma3DSamples/External/cereal
+
+#Buma3DSample Log
 /Buma3DSamples/log.txt
