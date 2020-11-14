@@ -278,6 +278,14 @@ void DeviceResources::UninitB3D()
     pfn.reset();
 }
 
+const buma3d::RESOURCE_HEAP_PROPERTIES* DeviceResources::FindHeapIndex(buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _flags) const
+{
+    auto begin = resource_heap_props.data();
+    auto end = begin + resource_heap_props.size();
+    auto find = std::find_if(begin, end, [_flags](const buma3d::RESOURCE_HEAP_PROPERTIES& _props) { return (_props.flags & _flags) == _flags; });
+    return find != end ? find : nullptr;
+}
+
 bool DeviceResources::WaitForGpu()
 {
     return device->WaitIdle() == buma3d::BMRESULT_SUCCEED;

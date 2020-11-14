@@ -6,6 +6,9 @@
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
 #define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
 
+std::vector<float> g_fpss;
+bool g_first = true;
+
 namespace init = buma3d::hlp::init;
 
 namespace buma
@@ -105,7 +108,7 @@ HelloTriangle::HelloTriangle()
 
 HelloTriangle::~HelloTriangle()
 {
-    Term();
+    //Term();
 }
 
 HelloTriangle* HelloTriangle::Create()
@@ -118,6 +121,8 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     platform = &_platform;
     dr       = platform->GetDeviceResources();
     device   = dr->GetDevice();
+
+    platform->GetWindow()->SetWindowTitle("Buma3DSamples - HelloTriangle");
 
     if (!PrepareSwapChain()) return false;
     PrepareSubmitInfo();
@@ -920,8 +925,8 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
         static float sc = 0.f;
         static float sx = 0.f;
         sc = sc + 0.34f * timer.GetElapsedSecondsF();
-        sx = sinf(sc);
-        b::CLEAR_VALUE            clear_val{ b::CLEAR_RENDER_TARGET_VALUE{0.8f * sx ,0.32f,0.13f,1.f} };
+        sx = fabsf(sinf(sc));
+        b::CLEAR_VALUE            clear_val{ b::CLEAR_RENDER_TARGET_VALUE{0.9f * sx ,0.28f,0.13f,1.f} };
         b::RENDER_PASS_BEGIN_DESC rpbd{ render_pass.Get(), framebuffers[_buffer_index].Get(), 1, &clear_val };
         b::SUBPASS_BEGIN_DESC     spbd{ b::SUBPASS_CONTENTS_INLINE };
         l->BeginRenderPass(rpbd, spbd);
@@ -944,18 +949,21 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
 void HelloTriangle::Tick()
 {
     timer.Tick();
+    if (timer.IsOneSecElapsed())
+    {
+        if (!g_first)
+            g_fpss.emplace_back(timer.GetFramesPerSecond());
+        g_first = false;
+
+        platform->GetLogger()->LogInfo(("fps: " + std::to_string(timer.GetFramesPerSecond())).c_str());
+    }
+
     Update();
     Render();
 }
 
 void HelloTriangle::Update()
 {
-    if (timer.IsOneSecElapsed())
-        platform->GetLogger()->LogInfo(("fps: " + std::to_string(timer.GetFramesPerSecond())).c_str());
-
-    if (platform->GetWindow()->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
-        return;
-
     // 次のバックバッファを取得
     MoveToNextFrame();
 }
@@ -984,7 +992,7 @@ void HelloTriangle::Render()
     // コマンドリストとフェンスを送信
     {
         cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
-        //PrepareFrame(back_buffer_index);
+        PrepareFrame(back_buffer_index);
 
         // 待機フェンス
         wait_fence_desc.Reset();
@@ -1021,6 +1029,7 @@ void HelloTriangle::Render()
 
 void HelloTriangle::OnResize(ResizeEventArgs* _args)
 {
+    command_queue->WaitIdle();
     framebuffers = {};
     back_buffers = {};
 }
@@ -1034,11 +1043,35 @@ void HelloTriangle::OnResized(BufferResizedEventArgs* _args)
     for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
         PrepareFrame(i);
 
+    Update();
+    Render();
 }
 
 void HelloTriangle::Term()
 {
     dr->WaitForGpu();
+
+    // result
+    {
+        float res = 0.f;
+        float size = static_cast<float>(g_fpss.size());
+        for (auto& i : g_fpss)
+            res += i;
+        std::stringstream ss;
+        ss << "\nprof result: average fps";
+        ss << (res / size) << std::endl;
+
+        //ss << 100.f * ((res / size) / 5000.f);
+        //ss << "% vs. 5000fps" << std::endl;
+
+        //ss << 100.f * ((res / size) / 6000.f);
+        //ss << "% vs. 6000fps" << std::endl;
+
+        //ss << 100.f * ((res / size) / 7000.f);
+        //ss << "% vs. 7000fps" << std::endl << std::endl;
+
+        platform->GetLogger()->LogInfo(ss.str().c_str());
+    }
 
     // オブジェクトの解放
     cmd_lists = {};

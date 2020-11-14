@@ -63,17 +63,24 @@ bool WindowWindows::ResizeWindow(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHA
     return true;
 }
 
+bool WindowWindows::SetWindowTitle(const char* _text)
+{
+    return SetWindowTextA(hwnd, _text);
+}
+
 bool WindowWindows::ProcessMessage()
 {
+    if (window_process_flags & WINDOW_PROCESS_FLAG_EXIT)
+        return false;
+
     window_process_flags = WINDOW_PROCESS_FLAG_NONE;
     // キューの残りメッセージがゼロになるまで取得
     while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
     {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-
         if (msg.message == WM_QUIT)
             return false;
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
     }
 
     input::KeyboardInput::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
@@ -86,6 +93,7 @@ bool WindowWindows::ProcessMessage()
 bool WindowWindows::Exit()
 {
     window_process_flags |= WINDOW_PROCESS_FLAG_EXIT;
+    platform.GetLogger()->LogInfo("exit");
     return true;
 }
 
@@ -168,7 +176,6 @@ bool WindowWindows::CreateSurface()
     auto&& dr = platform.GetDeviceResources();
     buma3d::SURFACE_PLATFORM_DATA_WINDOWS data_win{ platform.GetHinstance(), hwnd };
     buma3d::SURFACE_DESC                  sfs_desc{ buma3d::SURFACE_PLATFORM_DATA_TYPE_WINDOWS, &data_win };
-
     auto bmr = dr->GetAdapter()->CreateSurface(sfs_desc, &surface);
     if (bmr == buma3d::BMRESULT_FAILED)
         return false;
@@ -181,14 +188,17 @@ bool WindowWindows::CreateSurface()
 
 bool WindowWindows::OnResize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags)
 {
-    windowed_size   = _size;
+    buma3d::EXTENT2D size = _size;
+    if (!(window_state_flags & WINDOW_STATE_FLAG_MAXIMIZED) && window_state_flags & WINDOW_STATE_FLAG_MINIMIZED)
+        windowed_size = _size;
+
     aspect_ratio    = float(_size.width) / float(_size.height);
     swapchain_flags = _swapchain_flags;
 
     bool result = true;
     if (swapchain)
     {
-        auto args = ResizeEventArgs{ windowed_size, swapchain_flags };
+        auto args = ResizeEventArgs{ size, swapchain_flags };
         (*delegate_on_resize)(&args);
         result = ResizeBuffers(_size, _swapchain_flags);
         if (result)
@@ -489,28 +499,28 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         switch (_wparam)
         {
         case SIZE_RESTORED:
-            fw->platform.GetLogger()->LogInfo("window restored");
+            fw->platform.GetLogger()->LogDebug("window restored");
             fw->window_state_flags &= ~WINDOW_STATE_FLAG_MINIMIZED;
             break;
 
         case SIZE_MINIMIZED:
-            fw->platform.GetLogger()->LogInfo("window minimized");
+            fw->platform.GetLogger()->LogDebug("window minimized");
             fw->window_state_flags |= WINDOW_STATE_FLAG_MINIMIZED;
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE_MINIMIZED;
             break;
 
         case SIZE_MAXIMIZED:
-            fw->platform.GetLogger()->LogInfo("window maximized");
-            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MINIMIZED;
+            fw->platform.GetLogger()->LogDebug("window maximized");
+            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MAXIMIZED;
             break;
 
         case SIZE_MAXSHOW:
-            fw->platform.GetLogger()->LogInfo("window maxshow");
+            fw->platform.GetLogger()->LogDebug("window maxshow");
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE_MAXSHOW;
             break;
 
         case SIZE_MAXHIDE:
-            fw->platform.GetLogger()->LogInfo("window maxhide");
+            fw->platform.GetLogger()->LogDebug("window maxhide");
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE_MAXHIDE;
             break;
 
@@ -521,20 +531,26 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         if (fw->window_state_flags & WINDOW_STATE_FLAG_MINIMIZED)
             break;
 
-        RECT rc{};
-        GetClientRect(_hwnd, &rc);
-        fw->OnResize({ uint32_t(rc.right - rc.left), uint32_t(rc.bottom - rc.top) }, fw->swapchain_flags);
+        fw->OnResize({ uint32_t(LOWORD(_lparam)), uint32_t(HIWORD(_lparam)) }, fw->swapchain_flags);
+        break;
+    }
+    case WM_MOVE:
+    {
+        if (!(fw->window_state_flags & WINDOW_STATE_FLAG_FULLSCREEN))
+            fw->windowed_offset = { (int32_t)LOWORD(_lparam), (int32_t)HIWORD(_lparam) };
         break;
     }
     case WM_ENTERSIZEMOVE:
     {
         fw->window_state_flags |= WINDOW_STATE_FLAG_IN_SIZEMOVE;
         fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZEMOVE;
+        fw->platform.GetLogger()->LogDebug("enter sizemove");
         break;
     }
     case WM_EXITSIZEMOVE:
     {
         fw->window_state_flags &= ~WINDOW_STATE_FLAG_IN_SIZEMOVE;
+        fw->platform.GetLogger()->LogDebug("exit sizemove");
         break;
     }
     case WM_GETMINMAXINFO:
@@ -565,15 +581,15 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         switch (_wparam)
         {
         case WA_ACTIVE:
-            fw->platform.GetLogger()->LogInfo("window activated");
+            fw->platform.GetLogger()->LogDebug("window activated");
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_ACTIVATED;
             break;
         case WA_CLICKACTIVE:
-            fw->platform.GetLogger()->LogInfo("window click activated");
+            fw->platform.GetLogger()->LogDebug("window click activated");
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_ACTIVATED;
             break;
         case WA_INACTIVE:
-            fw->platform.GetLogger()->LogInfo("window deactivated");
+            fw->platform.GetLogger()->LogDebug("window deactivated");
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_DEACTIVATED;
             break;
         default:
@@ -639,48 +655,23 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
                 SetWindowLong(_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
                 SetWindowLong(_hwnd, GWL_EXSTYLE, 0);
 
-                auto width  = fw->windowed_size.width;
-                auto height = fw->windowed_size.height;
-                //fw->OnResize(fw->windowed_size, fw->swapchain_flags);
-                ShowWindow(_hwnd, SW_SHOWNORMAL);
-
-                int dispx = GetSystemMetrics(SM_CXSCREEN);
-                int dispy = GetSystemMetrics(SM_CYSCREEN);
-
-                //RECT rc;
-                ////rc.
-                ////AdjustWindowRect(_hwnd, rc);
-                //GetWindowRect(_hwnd, &rc);
-                ////width = width + (width - (rc.right - rc.left));
-                ////height = height + (height - (rc.bottom - rc.top));
-
-                //SetWindowPos(_hwnd, HWND_TOP, (dispx - width) / 2, (dispy - height) / 2, width, height, SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
-                RECT rw, rc;
-                GetWindowRect(_hwnd, &rw);
-                GetClientRect(_hwnd, &rc);
-
-                int new_width  = (rw.right  - rw.left) - (rc.right  - rc.left) + width;
-                int new_height = (rw.bottom - rw.top ) - (rc.bottom - rc.top ) + height;
+                fw->window_state_flags &= ~WINDOW_STATE_FLAG_FULLSCREEN;
 
                 SetWindowPos(_hwnd, NULL,
-                             (dispx - width ) / 2 -  (new_width  - width ),
-                             (dispy - height) / 2 - ((new_height - height) / 2),
-                             new_width, new_height,
-                             SWP_NOSIZE | SWP_NOZORDER);
-                SetWindowPos(_hwnd, NULL, 0, 0, new_width, new_height, SWP_NOMOVE | SWP_NOZORDER);
-
-                fw->window_state_flags &= ~WINDOW_STATE_FLAG_FULLSCREEN;
+                             fw->windowed_offset.x, fw->windowed_offset.y,
+                             fw->windowed_size.width, fw->windowed_size.height,
+                             SWP_NOZORDER);
+                ShowWindow(_hwnd, SW_SHOWNORMAL);
             }
             else
             {
                 SetWindowLong(_hwnd, GWL_STYLE, 0);
                 SetWindowLong(_hwnd, GWL_EXSTYLE, WS_EX_TOPMOST);
 
-                SetWindowPos(_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+                fw->window_state_flags |= WINDOW_STATE_FLAG_FULLSCREEN;
 
                 ShowWindow(_hwnd, SW_SHOWMAXIMIZED);
-
-                fw->window_state_flags |= WINDOW_STATE_FLAG_FULLSCREEN;
+                SetWindowPos(_hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
             }
         }
         break;
@@ -703,7 +694,7 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     }
 
     default:
-        // この(WndProc関数内で処理しないメッセージ)の場合、DefWindowProcを返すことでシステムがデフォルトの処理を行います。
+        // WndProc関数内で処理しないメッセージの場合、DefWindowProcを返すことでシステムがデフォルトの処理を行います。
         return DefWindowProc(_hwnd, _message, _wparam, _lparam);
     }
 

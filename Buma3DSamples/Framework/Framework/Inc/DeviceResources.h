@@ -50,6 +50,10 @@ public:
 
     const std::unique_ptr<shader::ShaderLoader>& GetShaderLoader() { return shader_laoder; }
 
+    const buma3d::RESOURCE_HEAP_PROPERTIES* FindHeapIndex(buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _flags) const;
+    const std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>& GetResourceHeapProperties() const { return resource_heap_props; }
+    const std::vector<buma3d::COMMAND_QUEUE_PROPERTIES>& GetQueueProperties()        const { return queue_props; }
+
     // const std::vector<std::shared_ptr<buma::GpuTimerPool>>&      GetGpuTimerPool(const buma3d::COMMAND_TYPE _type)   const { return direct_gpu_timer_pools[_type]; }
     // std::shared_ptr<buma::MyImgui>                               GetMyImGui()                                        const { return my_imugi; }
 

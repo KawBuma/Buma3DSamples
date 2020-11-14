@@ -15,6 +15,7 @@ public:
     virtual ~PlatformWindows();
 
     int MainLoop() override;
+    void ProcessMain();
 
     HINSTANCE GetHinstance() const { return hins; }
 
@@ -31,6 +32,7 @@ protected:
     bool PrepareDeviceResources() override;
     bool PrepareWindow(const WINDOW_DESC& _desc) override;
     bool RegisterWndClass();
+    bool PrepareLog();
 
 private:
     WNDCLASSEXW                             wnd_class;

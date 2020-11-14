@@ -12,7 +12,7 @@ class ConsoleSession
 {
 public:
     ConsoleSession()
-        : ofs("./log.txt", std::ios::out | std::ios::trunc, std::ios::_Default_open_prot)
+        //: ofs("./log.txt", std::ios::out | std::ios::trunc, std::ios::_Default_open_prot)
     {
     }
 
@@ -40,10 +40,10 @@ public:
         auto res = FreeConsole();
         assert(res != 0);
         fclose(stream);
-        ofs.close();
+        //ofs.close();
     }
 
-    std::ofstream ofs;
+    //std::ofstream ofs;
 private:
     FILE*         stream;
 
@@ -51,6 +51,9 @@ private:
 
 void B3D_APIENTRY PlatformWindows::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVERITY _sev, buma3d::DEBUG_MESSAGE_CATEGORY_FLAG _category, const buma3d::Char8T* const _msg, void* _user_data)
 {
+    if (_category == buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_B3D_DETAILS)
+        return;
+
     static const char* SEVERITIES[]
     {
        "[ INFO"
@@ -119,10 +122,6 @@ PlatformWindows::PlatformWindows()
     , console_session   {}
     , logger            {}
 {
-    console_session = std::make_shared<ConsoleSession>();
-    console_session->Begin();
-
-    logger = std::make_shared<debug::LoggerWindows>();
 }
 
 PlatformWindows::~PlatformWindows()
@@ -134,13 +133,19 @@ PlatformWindows::~PlatformWindows()
 int PlatformWindows::MainLoop()
 {
     int result = 0;
-    while (window_windows->ProcessMessage())
+    auto&& wnd = *window;
+    while (wnd.ProcessMessage())
     {
-        timer.Tick();
-        app->Tick();
+        ProcessMain();
     }
 
     return result;
+}
+
+void PlatformWindows::ProcessMain()
+{
+    timer.Tick();
+    app->Tick();
 }
 
 bool PlatformWindows::Init(const PLATFORM_DESC& _desc)
@@ -155,12 +160,14 @@ bool PlatformWindows::Init(const PLATFORM_DESC& _desc)
     cmdline     = util::ConvertWideToAnsi(dat->lpCmdLine);
     num_cmdshow = dat->nCmdShow;
 
+    if (!PrepareLog())                      return false;
     if (!RegisterWndClass())                return false;
     if (!PrepareDeviceResources())          return false;
     if (!PrepareWindow(_desc.window_desc))  return false;
 
     app->Prepare(*this);
 
+    is_prepared = true;
     return true;
 }
 
@@ -214,7 +221,7 @@ bool PlatformWindows::PrepareDeviceResources()
         if (next == "vulkan")
             type = INTERNAL_API_TYPE_VULKAN;
 
-        else if (next == "d3d12" || next == "dx12")
+        else if ((next == "d3d12") || (next == "dx12"))
             type = INTERNAL_API_TYPE_D3D12;
     }
 
@@ -263,6 +270,20 @@ bool PlatformWindows::RegisterWndClass()
 
     auto res =  RegisterClassEx(&wnd_class);
     return res != 0;
+}
+
+bool PlatformWindows::PrepareLog()
+{
+    auto&& enable_debug = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return (*_str) == "--enable-log"; });
+    auto is_enabled = enable_debug != cmd_lines.end();
+    if (is_enabled)
+    {
+        console_session = std::make_shared<ConsoleSession>();
+        console_session->Begin();
+    }
+    logger = std::make_shared<debug::LoggerWindows>(is_enabled);
+
+    return true;
 }
 
 

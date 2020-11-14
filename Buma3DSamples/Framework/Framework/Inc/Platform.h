@@ -48,11 +48,13 @@ public:
     std::shared_ptr<WindowBase>                         GetWindow()          const { return window; }
     const std::vector<std::unique_ptr<std::string>>&    GetCommandLines()    const { return cmd_lines; }
     virtual const StepTimer*                            GetStepTimer()       const { return &timer; }
+    bool                                                IsPrepared()         const { return is_prepared; }
 
     virtual bool Init(const PLATFORM_DESC& _desc) = 0;
     virtual bool Term() = 0;
 
     virtual debug::ILogger* GetLogger() = 0;
+
 
 protected:
     virtual bool ParseCommandLines(const PLATFORM_DESC& _desc) = 0;
@@ -65,6 +67,7 @@ protected:
     std::shared_ptr<DeviceResources>            device_resources;
     std::shared_ptr<WindowBase>                 window;
     StepTimer                                   timer;
+    bool                                        is_prepared;
 
 };
 

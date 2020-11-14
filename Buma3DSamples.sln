@@ -32,10 +32,13 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Buma3DSamples", "Buma3DSamp
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloTriangle", "Buma3DSamples\Samples\HelloTriangle\HelloTriangle.vcxproj", "{C17B89B9-0BB8-49AF-903B-5E11EC9D38DD}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Buma3DSharedInc", "Buma3DSamples\External\Buma3D\Project\SharedInc\v16\Buma3DSharedInc.vcxitems", "{9552BD49-305E-4198-B23B-09A629FE1BBF}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		Buma3DSamples\External\Buma3D\Project\SharedInc\v16\Buma3DSharedInc.vcxitems*{26e803ba-793b-4c45-bd7b-a0b8498a0f98}*SharedItemsImports = 4
 		Buma3DSamples\External\Buma3D\Project\SharedInc\v16\Buma3DSharedInc.vcxitems*{5a9c032e-e05c-435b-b110-a7e04eedd1d1}*SharedItemsImports = 4
+		Buma3DSamples\External\Buma3D\Project\SharedInc\v16\Buma3DSharedInc.vcxitems*{9552bd49-305e-4198-b23b-09a629fe1bbf}*SharedItemsImports = 9
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -104,6 +107,7 @@ Global
 		{5A9C032E-E05C-435B-B110-A7E04EEDD1D1} = {35951C44-C525-42BC-9DCE-DA51423F760B}
 		{26E803BA-793B-4C45-BD7B-A0B8498A0F98} = {35951C44-C525-42BC-9DCE-DA51423F760B}
 		{C17B89B9-0BB8-49AF-903B-5E11EC9D38DD} = {BBF7681E-1ACD-4E1B-A8F6-3CAE92BCEFBB}
+		{9552BD49-305E-4198-B23B-09A629FE1BBF} = {35951C44-C525-42BC-9DCE-DA51423F760B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B61617D9-7ECD-40F0-B8B1-1087FB9F2216}

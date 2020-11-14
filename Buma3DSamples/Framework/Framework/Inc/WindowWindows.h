@@ -35,9 +35,10 @@ public:
     WindowWindows(const WindowWindows&) = delete;
     virtual ~WindowWindows();
     
+    static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
     bool OffsetWindow(const buma3d::OFFSET2D& _offset) override;
     bool ResizeWindow(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags) override;
-    static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
+    bool SetWindowTitle(const char* _text) override;
 
     bool ProcessMessage() override;
     bool Exit()           override;

@@ -4,16 +4,22 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/async.h>
 #include "spdlog/sinks/basic_file_sink.h"
+#include <filesystem>
 
 namespace buma
 {
 namespace debug
 {
 
-LoggerWindows::LoggerWindows()
+LoggerWindows::LoggerWindows(bool _is_enable)
+    : is_enable{ _is_enable }
 {
-    //if (false)
-        async_file = spdlog::basic_logger_mt<spdlog::default_factory>("buma::debug::LoggerWindows::async_file", "./Log/Log.txt", /*truncate*/true);
+    if (is_enable)
+    {
+        if (!std::filesystem::exists("./Log"))
+            std::filesystem::create_directory("./Log");
+        async_file = spdlog::basic_logger_mt<spdlog::default_factory>("buma::LoggerWindows", "./Log/Log.txt", /*truncate*/true);
+    }
 }
 
 LoggerWindows::~LoggerWindows()
