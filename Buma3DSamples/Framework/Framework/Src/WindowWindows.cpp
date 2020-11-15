@@ -6,6 +6,22 @@
 namespace buma
 {
 
+namespace /*anonymous*/
+{
+
+inline buma3d::EXTENT2D ConvertToWindowSize(HWND _hwnd, const buma3d::EXTENT2D& _client_size)
+{
+    RECT wr{}, cr{};
+    GetWindowRect(_hwnd, &wr);
+    GetClientRect(_hwnd, &cr);
+    uint32_t diff_w = uint32_t((wr.right - wr.left) - cr.right);
+    uint32_t diff_h = uint32_t((wr.bottom - wr.top) - cr.bottom);
+    return { _client_size.width + diff_w, _client_size.height + diff_h };
+}
+
+}// namespace /*anonymous*/
+
+
 WindowWindows::WindowWindows(PlatformWindows&   _platform,
                              WNDCLASSEXW&       _wnd_class,
                              const WINDOW_DESC& _desc)
@@ -42,16 +58,6 @@ bool WindowWindows::OffsetWindow(const buma3d::OFFSET2D& _offset)
 {
     windowed_offset = _offset;
     return SetWindowPos(hwnd, NULL, _offset.x, _offset.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-}
-
-buma3d::EXTENT2D ConvertToWindowSize(HWND _hwnd, const buma3d::EXTENT2D& _client_size)
-{
-    RECT wr{}, cr{};
-    GetWindowRect(_hwnd, &wr);
-    GetClientRect(_hwnd, &cr);
-    uint32_t diff_w = uint32_t((wr.right - wr.left) - cr.right);
-    uint32_t diff_h = uint32_t((wr.bottom - wr.top) - cr.bottom);
-    return { _client_size.width + diff_w, _client_size.height + diff_h };
 }
 
 bool WindowWindows::ResizeWindow(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags = buma3d::SWAP_CHAIN_FLAG_NONE)
@@ -501,27 +507,34 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
         case SIZE_RESTORED:
             fw->platform.GetLogger()->LogDebug("window restored");
             fw->window_state_flags &= ~WINDOW_STATE_FLAG_MINIMIZED;
+            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MAXIMIZED;
             break;
 
         case SIZE_MINIMIZED:
             fw->platform.GetLogger()->LogDebug("window minimized");
             fw->window_state_flags |= WINDOW_STATE_FLAG_MINIMIZED;
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE_MINIMIZED;
+            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MAXIMIZED;
             break;
 
         case SIZE_MAXIMIZED:
             fw->platform.GetLogger()->LogDebug("window maximized");
-            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MAXIMIZED;
+            fw->window_state_flags |= WINDOW_STATE_FLAG_MAXIMIZED;
+            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MINIMIZED;
             break;
 
         case SIZE_MAXSHOW:
             fw->platform.GetLogger()->LogDebug("window maxshow");
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE_MAXSHOW;
+            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MINIMIZED;
+            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MAXIMIZED;
             break;
 
         case SIZE_MAXHIDE:
             fw->platform.GetLogger()->LogDebug("window maxhide");
             fw->window_process_flags |= WINDOW_PROCESS_FLAG_SIZE_MAXHIDE;
+            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MINIMIZED;
+            fw->window_state_flags &= ~WINDOW_STATE_FLAG_MAXIMIZED;
             break;
 
         default:

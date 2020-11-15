@@ -149,6 +149,7 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
     pfn->Buma3DUninitialize             = (buma3d::PFN_Buma3DUninitialize)            GetProcAddress(pfn->b3d_module, "Buma3DUninitialize");
 
     auto bmr = pfn->Buma3DInitialize(desc);
+    assert(bmr == buma3d::BMRESULT_SUCCEED);
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
 
@@ -193,7 +194,10 @@ bool DeviceResources::PickAdapter()
     {
         auto&& desc = adapter_tmp->GetDesc();
         if (max_vram < desc.dedicated_video_memory)
+        {
+            max_vram = desc.dedicated_video_memory;
             adapter = adapter_tmp;
+        }
     }
 
     return true;

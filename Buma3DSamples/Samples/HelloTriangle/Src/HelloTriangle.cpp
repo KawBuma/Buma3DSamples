@@ -66,6 +66,8 @@ private:
 HelloTriangle::HelloTriangle()
     : ApplicationBase       ()
     , platform              {}
+    , spwindow              {}
+    , window                {}
     , device                {}
     , command_queue         {}
     , timer                 {}
@@ -122,7 +124,9 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     dr       = platform->GetDeviceResources();
     device   = dr->GetDevice();
 
-    platform->GetWindow()->SetWindowTitle("Buma3DSamples - HelloTriangle");
+    spwindow = platform->GetWindow();
+    window   = spwindow.get();
+    window->SetWindowTitle("Buma3DSamples - HelloTriangle");
 
     if (!PrepareSwapChain()) return false;
     PrepareSubmitInfo();
@@ -146,9 +150,8 @@ void HelloTriangle::CreateEvents()
     // イベントを登録
     on_resize = ResizeEvent::Create(*this);
     on_resized = BufferResizedEvent::Create(*this);
-    auto&& wnd = platform->GetWindow();
-    wnd->AddResizeEvent(on_resize);
-    wnd->AddBufferResizedEvent(on_resized);
+    window->AddResizeEvent(on_resize);
+    window->AddBufferResizedEvent(on_resized);
 }
 
 bool HelloTriangle::PrepareSwapChain()
@@ -157,8 +160,8 @@ bool HelloTriangle::PrepareSwapChain()
                                                  init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
     scd.flags = b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT | b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC;
-    platform->GetWindow()->ResizeWindow({ 1280,720 }, scd.flags);
-    if (!(platform->GetWindow()->CreateSwapChain(scd, &swapchain)))
+    window->ResizeWindow({ 1280,720 }, scd.flags);
+    if (!(window->CreateSwapChain(scd, &swapchain)))
         return false;
 
     back_buffers = &swapchain->GetBuffers();
@@ -185,7 +188,7 @@ bool HelloTriangle::Init()
 
 bool HelloTriangle::LoadAssets()
 {
-    auto aspect_ratio = platform->GetWindow()->GetAspectRatio();
+    auto aspect_ratio = window->GetAspectRatio();
     triangle = {
           { {  0.0f ,  0.25f * aspect_ratio, 0.0f, 1.f }, { 1.f, 0.f, 0.f, 1.f} }
         , { {  0.25f, -0.25f * aspect_ratio, 0.0f, 1.f }, { 0.f, 1.f, 0.f, 1.f} }
@@ -964,6 +967,8 @@ void HelloTriangle::Tick()
 
 void HelloTriangle::Update()
 {
+    if (window->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
+        return;
     // 次のバックバッファを取得
     MoveToNextFrame();
 }
@@ -979,7 +984,7 @@ void HelloTriangle::MoveToNextFrame()
 
 void HelloTriangle::Render()
 {
-    if (platform->GetWindow()->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
+    if (window->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
         return;
 
     auto cmd_lists_data  = cmd_lists.data();

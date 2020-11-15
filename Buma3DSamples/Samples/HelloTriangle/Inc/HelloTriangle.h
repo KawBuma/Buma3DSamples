@@ -72,6 +72,8 @@ private:
 
 private:
     PlatformBase*                                               platform;
+    std::shared_ptr<WindowBase>                                 spwindow;
+    WindowBase*                                                 window;
     buma3d::util::Ptr<buma3d::IDevice>                          device;
     buma3d::util::Ptr<buma3d::ICommandQueue>                    command_queue;
     StepTimer                                                   timer;
