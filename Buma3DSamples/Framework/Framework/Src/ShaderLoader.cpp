@@ -30,6 +30,11 @@ void ShaderLoader::LoadShaderFromBinary(const char* _filename, std::vector<uint8
 
 void ShaderLoader::LoadShaderFromHLSL(const LOAD_SHADER_DESC& _desc, std::vector<uint8_t>* _dst)
 {
+    LoadShaderFromHLSL(type, _desc, _dst);
+}
+
+void ShaderLoader::LoadShaderFromHLSL(INTERNAL_API_TYPE _type, const LOAD_SHADER_DESC& _desc, std::vector<uint8_t>* _dst)
+{
     namespace SC = ShaderConductor;
     using SCC = ShaderConductor::Compiler;
 
@@ -69,7 +74,7 @@ void ShaderLoader::LoadShaderFromHLSL(const LOAD_SHADER_DESC& _desc, std::vector
     }
 
 
-    switch (type)
+    switch (_type)
     {
     case buma::INTERNAL_API_TYPE_D3D12:
     {
@@ -121,6 +126,7 @@ void ShaderLoader::LoadShaderFromHLSL(const LOAD_SHADER_DESC& _desc, std::vector
                                  , reinterpret_cast<const uint8_t*>(result.target.Data()) + result.target.Size());
 
 }
+
 
 }// namespace shader
 }// namespace buma3d

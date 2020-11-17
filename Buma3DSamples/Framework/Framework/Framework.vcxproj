@@ -101,6 +101,7 @@
     <ClCompile Include="Src\Application.cpp" />
     <ClCompile Include="Src\DeviceResources.cpp" />
     <ClCompile Include="Src\Framework.cpp" />
+    <ClCompile Include="Src\ImmediateContext.cpp" />
     <ClCompile Include="Src\LazyDelegate.cpp" />
     <ClCompile Include="Src\LoggerWindows.cpp" />
     <ClCompile Include="Src\pch.cpp">

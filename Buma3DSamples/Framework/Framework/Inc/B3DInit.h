@@ -8,6 +8,17 @@ namespace hlp
 namespace init
 {
 
+inline COMMAND_ALLOCATOR_DESC CommandAllocatorDesc(COMMAND_TYPE _type, COMMAND_LIST_LEVEL _level = COMMAND_LIST_LEVEL_PRIMARY, COMMAND_ALLOCATOR_FLAGS _flags = COMMAND_ALLOCATOR_FLAG_NONE)
+{
+    return COMMAND_ALLOCATOR_DESC{ _type, _level, _flags };
+}
+
+inline COMMAND_LIST_DESC CommandListDesc(ICommandAllocator* _allocator, NodeMask _node_mask)
+{
+    auto&& desc = _allocator->GetDesc();
+    return COMMAND_LIST_DESC{ _allocator, desc.type, desc.level, _node_mask };
+}
+
 inline FENCE_DESC TimelineFenceDesc(uint64_t _initial_value = 0, FENCE_FLAGS _flags = FENCE_FLAG_NONE)
 {
     return FENCE_DESC{ FENCE_TYPE_TIMELINE, _initial_value, _flags };

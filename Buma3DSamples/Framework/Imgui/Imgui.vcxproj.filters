@@ -27,4 +27,12 @@
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Src\Imgui_PS.hlsl">
+      <Filter>Sources</Filter>
+    </FxCompile>
+    <FxCompile Include="Src\Imgui_VS.hlsl">
+      <Filter>Sources</Filter>
+    </FxCompile>
+  </ItemGroup>
 </Project>

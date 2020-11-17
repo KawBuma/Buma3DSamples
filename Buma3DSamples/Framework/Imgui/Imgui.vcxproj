@@ -59,7 +59,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)..\..\External\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\cereal\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
@@ -80,7 +80,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)..\..\External\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\cereal\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
@@ -99,6 +99,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\MyImgui.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Src\Imgui_PS.hlsl" />
+    <FxCompile Include="Src\Imgui_VS.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
