@@ -111,6 +111,7 @@
     <ClCompile Include="Src\Platform.cpp" />
     <ClCompile Include="Src\PlatformWindows.cpp" />
     <ClCompile Include="Src\ShaderLoader.cpp" />
+    <ClCompile Include="Src\StagingBufferPool.cpp" />
     <ClCompile Include="Src\StepTimer.cpp" />
     <ClCompile Include="Src\SwapChain.cpp" />
     <ClCompile Include="Src\Utils.cpp" />
@@ -129,6 +130,7 @@
     <ClInclude Include="Inc\Platform.h" />
     <ClInclude Include="Inc\PlatformWindows.h" />
     <ClInclude Include="Inc\ShaderLoader.h" />
+    <ClInclude Include="Inc\StagingBufferPool.h" />
     <ClInclude Include="Inc\StepTimer.h" />
     <ClInclude Include="Inc\SwapChain.h" />
     <ClInclude Include="Inc\Utils.h" />

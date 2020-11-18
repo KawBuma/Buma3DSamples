@@ -52,12 +52,9 @@ PS_INPUT main(VS_INPUT input)
 )";
 
 
-
 }//namespace /*anonymous*/
 
 #include "MyImGui.h"
-
-#include <DirectXTex.h>
 
 // Include compiled shaders for ImGui.
 #include "./shader/ImGUI_VS.h"

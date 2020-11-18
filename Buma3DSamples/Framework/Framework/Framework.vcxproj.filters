@@ -12,6 +12,12 @@
     <Filter Include="Headers">
       <UniqueIdentifier>{9a0f2e7b-ffa1-4b44-a395-9bd6fd53d016}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Headers\Resource">
+      <UniqueIdentifier>{46afcfcd-cef1-4eb6-9b73-699f77cf59a6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sources\Resource">
+      <UniqueIdentifier>{e8856fcf-f294-40ff-ae08-a264c327f6c8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -61,6 +67,9 @@
     </ClCompile>
     <ClCompile Include="Src\ImmediateContext.cpp">
       <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\StagingBufferPool.cpp">
+      <Filter>Sources\Resource</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -114,6 +123,9 @@
     </ClInclude>
     <ClInclude Include="Inc\LazyDelegate.h">
       <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\StagingBufferPool.h">
+      <Filter>Headers\Resource</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
