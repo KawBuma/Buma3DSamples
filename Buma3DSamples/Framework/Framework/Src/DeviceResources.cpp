@@ -92,8 +92,8 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
     pfn = std::make_unique<B3D_PFN>();
 
     buma3d::ALLOCATOR_DESC desc{};
-    desc.is_enable_allocator_debug = false;
-    desc.custom_allocator          = nullptr;
+    desc.is_enabled_allocator_debug = false;
+    desc.custom_allocator           = nullptr;
 
     std::string path;
     ConvertBackShashToSlash(GetCurrentDir(&path));
@@ -158,10 +158,10 @@ bool DeviceResources::PickAdapter()
     // ファクトリ作成
     buma3d::DEVICE_FACTORY_DESC fac_desc{};
 
-    fac_desc.flags           = buma3d::DEVICE_FACTORY_FLAG_NONE;
-    fac_desc.debug.is_enable = desc.is_enable_debug;
+    fac_desc.flags              = buma3d::DEVICE_FACTORY_FLAG_NONE;
+    fac_desc.debug.is_enabled   = desc.is_enabled_debug;
 
-    if (fac_desc.debug.is_enable)
+    if (fac_desc.debug.is_enabled)
     {
         fac_desc.debug.debug_message_callback.user_data = desc.message_logger.get();
         fac_desc.debug.debug_message_callback.Callback  = desc.DebugMessageCallback;
@@ -170,15 +170,15 @@ bool DeviceResources::PickAdapter()
     for (size_t i = 0; i < buma3d::DEBUG_MESSAGE_SEVERITY_END; i++)
     {
         auto&& desc = descs[i];
-        desc.is_enable_debug_break = false;// レポート時のブレイク
-        desc.severity              = buma3d::DEBUG_MESSAGE_SEVERITY(i);
-        desc.category_flags        = buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_ALL;
+        desc.is_enabled_debug_break = false;// レポート時のブレイク
+        desc.severity               = buma3d::DEBUG_MESSAGE_SEVERITY(i);
+        desc.category_flags         = buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_ALL;
         if (desc.severity == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
-            desc.is_enable_debug_break = false;// レポート時のブレイク
+            desc.is_enabled_debug_break = false;// レポート時のブレイク
     }
     fac_desc.debug.num_debug_messages             = ARRAYSIZE(descs);
     fac_desc.debug.debug_messages                 = descs;
-    fac_desc.debug.gpu_based_validation.is_enable = false;// GPU検証
+    fac_desc.debug.gpu_based_validation.is_enabled = false;// GPU検証
     fac_desc.debug.gpu_based_validation.flags     = buma3d::GPU_BASED_VALIDATION_FLAG_NONE;
 
     // 作成

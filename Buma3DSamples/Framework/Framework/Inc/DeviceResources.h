@@ -29,7 +29,7 @@ struct DEVICE_RESOURCE_DESC
 {
     INTERNAL_API_TYPE                       type;
     std::string                             library_dir;
-    bool                                    is_enable_debug;
+    bool                                    is_enabled_debug;
     std::shared_ptr<buma::debug::ILogger>   message_logger;
     buma3d::PFN_Buma3DDebugMessageCallback  DebugMessageCallback;
 };

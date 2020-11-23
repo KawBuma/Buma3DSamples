@@ -1,0 +1,11 @@
+./Buma3D
+git clone https://github.com/KawBuma/Buma3D.git 
+
+./imgui
+git clone https://github.com/ocornut/imgui.git 
+
+./cereal
+git clone https://github.com/USCiLab/cereal.git 
+
+./stb
+git clone https://github.com/nothings/stb.git 

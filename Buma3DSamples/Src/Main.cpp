@@ -9,7 +9,9 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
                       _In_     int       nCmdShow      )
 {
     int code = -1;
+#ifdef _DEBUG
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
     {
         auto platform = buma::CreatePlatform();
         {
