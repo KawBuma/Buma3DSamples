@@ -115,6 +115,7 @@
     <ClCompile Include="Src\StepTimer.cpp" />
     <ClCompile Include="Src\SwapChain.cpp" />
     <ClCompile Include="Src\Utils.cpp" />
+    <ClCompile Include="Src\VariableSizeAllocationsManager.cpp" />
     <ClCompile Include="Src\Window.cpp" />
     <ClCompile Include="Src\WindowWindows.cpp" />
   </ItemGroup>
@@ -137,6 +138,7 @@
     <ClInclude Include="Inc\Window.h" />
     <ClInclude Include="Inc\WindowWindows.h" />
     <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\VariableSizeAllocationsManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

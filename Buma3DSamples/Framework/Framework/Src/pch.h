@@ -42,6 +42,7 @@
 #include "Platform.h"
 #include "Window.h"
 
+#include "VariableSizeAllocationsManager.h"
 
 #include "Framework.h"
 

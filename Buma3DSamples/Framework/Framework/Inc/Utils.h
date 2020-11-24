@@ -231,6 +231,108 @@ private:
 
 };
 
+#pragma region valhelper
+
+template <typename T>
+inline constexpr T AlignUpWithMask(T _value, size_t _mask)
+{
+    return static_cast<T>((static_cast<size_t>(_value) + _mask) & ~_mask);
+}
+
+template <typename T>
+inline constexpr T AlignDownWithMask(T _value, size_t _mask)
+{
+    return static_cast<T>(static_cast<size_t>(_value) & ~_mask);
+}
+
+template <typename T>
+inline constexpr T AlignUp(T _value, size_t _alignment)
+{
+    return AlignUpWithMask(_value, _alignment - 1);
+}
+
+template <typename T>
+inline constexpr T AlignDown(T _value, size_t _alignment)
+{
+    return AlignDownWithMask(_value, _alignment - 1);
+}
+
+template <typename T>
+inline constexpr bool IsAligned(T _value, size_t _alignment)
+{
+    return (static_cast<size_t>(_value) & (_alignment - 1)) == 0;
+}
+
+template <typename T>
+inline constexpr T DivideByMultiple(T _value, size_t _alignment)
+{
+    return static_cast<T>((static_cast<size_t>(_value) + _alignment - 1) / _alignment);
+}
+
+template<typename T, typename RetT = size_t>
+inline constexpr RetT Get32BitValues()
+{
+    return AlignUp(sizeof(T), 4) / 4;
+}
+
+uint8_t Buma3DBitScanForward(unsigned long* _result_index, uint32_t _bitmask);
+uint8_t Buma3DBitScanForward(unsigned long* _result_index, uint64_t _bitmask);
+uint8_t Buma3DBitScanReverse(unsigned long* _result_index, uint32_t _bitmask);
+uint8_t Buma3DBitScanReverse(unsigned long* _result_index, uint64_t _bitmask);
+
+template <typename T, std::enable_if_t<sizeof(T) == sizeof(uint32_t), int> = 0>
+inline int GetFirstBitIndex(T _bits)
+{
+    unsigned long index = 0;
+    auto res = Buma3DBitScanForward(&index, static_cast<uint32_t>(_bits));
+    return res ? static_cast<int>(index) : -1;
+}
+
+template <typename T, std::enable_if_t<sizeof(T) == sizeof(uint64_t), int> = 0>
+inline int GetFirstBitIndex(T _bits)
+{
+    unsigned long index = 0;
+    auto res = Buma3DBitScanForward(&index, static_cast<uint64_t>(_bits));
+    return res ? static_cast<int>(index) : -1;
+}
+
+template <typename T, std::enable_if_t<sizeof(T) == sizeof(uint32_t), int> = 0>
+inline int GetLastBitIndex(T _bits)
+{
+    unsigned long index = 0;
+    auto res = Buma3DBitScanReverse(&index, static_cast<uint32_t>(_bits));
+    return res ? static_cast<int>(index) : -1;
+}
+
+template <typename T, std::enable_if_t<sizeof(T) == sizeof(uint64_t), int> = 0>
+inline int GetLastBitIndex(T _bits)
+{
+    unsigned long index = 0;
+    auto res = Buma3DBitScanReverse(&index, static_cast<uint64_t>(_bits));
+    return res ? static_cast<int>(index) : -1;
+}
+
+template<typename T>
+inline T Log2(T _value)
+{
+    int mssb = GetLastBitIndex(_value);  // most significant set bit
+    int lssb = GetFirstBitIndex(_value); // least significant set bit
+    if (mssb == -1 || lssb == -1)
+        return 0;
+
+    // 2の累乗（1セットビットのみ）の場合、ビットのインデックスを返します。
+    // それ以外の場合は、最上位のセットビットのインデックスに1を加算して、小数ログを切り上げます。
+    return static_cast<T>(mssb) + static_cast<T>(mssb == lssb ? 0 : 1);
+}
+
+template <typename T>
+inline T NextPow2(T _value)
+{
+    return _value == 0 ? 0 : 1 << Log2(_value);
+}
+
+#pragma endregion valhelper
+
 
 }// namespace util
 }// namespace buma

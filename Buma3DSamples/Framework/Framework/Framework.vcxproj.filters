@@ -71,6 +71,9 @@
     <ClCompile Include="Src\StagingBufferPool.cpp">
       <Filter>Sources\Resource</Filter>
     </ClCompile>
+    <ClCompile Include="Src\VariableSizeAllocationsManager.cpp">
+      <Filter>Sources\Resource</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h">
@@ -126,6 +129,9 @@
     </ClInclude>
     <ClInclude Include="Inc\StagingBufferPool.h">
       <Filter>Headers\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\VariableSizeAllocationsManager.h">
+      <Filter>Sources\Resource</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
