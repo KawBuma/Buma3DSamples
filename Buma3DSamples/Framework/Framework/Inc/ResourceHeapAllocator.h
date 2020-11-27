@@ -7,11 +7,12 @@ class ResourceHeapAllocationPage;
 struct RESOURCE_HEAP_ALLOCATION
 {
     operator bool() const { return parent_page; }
-    ResourceHeapAllocationPage* parent_page;
-    size_t                      alignment;
-    size_t                      non_aligned_offset;
-    size_t                      aligned_offset() const { return util::AlignUp(non_aligned_offset, alignment); };
-    size_t                      aligned_size;
+    void*                                       parent_page; // ResourceHeapAllocationPage*
+    VariableSizeAllocationsManager::ALLOCATION  allocation;
+    size_t                                      alignment;
+    size_t                                      aligned_offset;
+    size_t                                      aligned_size;
+    uint32_t                                    pool_index;
 };
 
 class ResourceHeapAllocator;
@@ -22,8 +23,10 @@ class ResourceHeapAllocationPage
 public:
     struct RESOURCE_HEAP_PAGE_DESC
     {
-        size_t page_size;
-        size_t heap_index;
+        size_t      page_size;
+        size_t      alignment;
+        size_t      min_alignment;
+        uint32_t    heap_index;
     };
 
 public:
@@ -31,13 +34,14 @@ public:
     ResourceHeapAllocationPage(const ResourceHeapAllocationPage&) = delete;
     ~ResourceHeapAllocationPage();
 
-    RESOURCE_HEAP_ALLOCATION Allocate(size_t _size, size_t _alignment);
+    bool Allocate(size_t _size, size_t _alignment, RESOURCE_HEAP_ALLOCATION* _dst_allocation);
     void Free(RESOURCE_HEAP_ALLOCATION& _allocation);
+    void Reset();
+    const RESOURCE_HEAP_PAGE_DESC& GetHeapDesc() const;
 
 private:
     ResourceHeapAllocator&                          owner;
-    RESOURCE_HEAP_PAGE_DESC                         desc;
-    std::unique_ptr<VariableSizeAllocationsManager> allocation;
+    std::unique_ptr<VariableSizeAllocationsManager> allocation_manager;
     buma3d::util::Ptr<buma3d::IResourceHeap>        heap;
 
 };
@@ -46,13 +50,24 @@ class ResourceHeapAllocator
 {
     friend class ResourceHeapAllocationPage;
 public:
-    ResourceHeapAllocator(ResourceHeapsAllocator& _owner);
+    ResourceHeapAllocator(ResourceHeapsAllocator& _owner, const ResourceHeapAllocationPage::RESOURCE_HEAP_PAGE_DESC& _page_desc);
     ResourceHeapAllocator(const ResourceHeapAllocator&) = delete;
     ~ResourceHeapAllocator();
 
+    bool Allocate(size_t _size, size_t _alignment, RESOURCE_HEAP_ALLOCATION* _dst_allocation);
+    void Free(RESOURCE_HEAP_ALLOCATION& _allocation);
+    void Reset();
+
 private:
-    ResourceHeapsAllocator&                                  owner;
-    std::vector<std::unique_ptr<ResourceHeapAllocationPage>> pages;
+    void ChangePage();
+    void AddNewPage();
+
+private:
+    ResourceHeapsAllocator&                                             owner;
+    ResourceHeapAllocationPage::RESOURCE_HEAP_PAGE_DESC                 page_desc;
+    std::unordered_set<std::unique_ptr<ResourceHeapAllocationPage>>     pages;
+    std::unordered_set<ResourceHeapAllocationPage*>                     available_pages;
+    ResourceHeapAllocationPage*                                         current_page;
 
 };
 
@@ -92,9 +107,18 @@ public:
     ResourceHeapsAllocator(const ResourceHeapsAllocator&) = delete;
     ~ResourceHeapsAllocator();
 
+    RESOURCE_HEAP_ALLOCATION Allocate(size_t _size, size_t _alignment, uint32_t _heap_index);
+    void Free(RESOURCE_HEAP_ALLOCATION& _allocation);
+    void Reset();
+
+private:
+    size_t GetPoolIndexFromSize(size_t _x);
+    size_t GetPoolIndex(size_t _x);
+    size_t GetPageSizeFromPoolIndex(size_t _x);
+
 private:
     using HeapAllocationsByType = std::array<std::unique_ptr<ResourceHeapAllocator>, /*heap type bitsで表現可能な種類の最大数*/32>;
-    using HeapAllocationsBySize = std::array<std::unique_ptr<HeapAllocationsByType>, ALLOCATOR_POOL_COUNT>;
+    using HeapAllocationsBySize = std::array<HeapAllocationsByType, ALLOCATOR_POOL_COUNT>;
     buma3d::util::Ptr<buma3d::IDevice>  device;
     HeapAllocationsBySize               allocations;
     buma3d::DEVICE_ADAPTER_LIMITS       limits;
