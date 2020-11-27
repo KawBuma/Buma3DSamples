@@ -74,6 +74,9 @@
     <ClCompile Include="Src\VariableSizeAllocationsManager.cpp">
       <Filter>Sources\Resource</Filter>
     </ClCompile>
+    <ClCompile Include="Src\ResourceHeapAllocator.cpp">
+      <Filter>Sources\Resource</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Src\pch.h">
@@ -132,6 +135,9 @@
     </ClInclude>
     <ClInclude Include="Src\VariableSizeAllocationsManager.h">
       <Filter>Sources\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\ResourceHeapAllocator.h">
+      <Filter>Headers\Resource</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

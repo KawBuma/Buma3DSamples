@@ -331,6 +331,17 @@ inline T NextPow2(T _value)
     return _value == 0 ? 0 : 1 << Log2(_value);
 }
 
+template <typename T>
+inline bool IsPowOfTwo(T _value)
+{
+    return _value > 0 && (_value & (_value - 1)) == 0;
+}
+
+inline constexpr size_t Kib(size_t _x) { return 1024 * _x; }
+inline constexpr size_t Mib(size_t _x) { return Kib(1024) * _x; }
+inline constexpr size_t Gib(size_t _x) { return Mib(1024) * _x; }
+
+
 #pragma endregion valhelper
 
 

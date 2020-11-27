@@ -4,13 +4,16 @@
 namespace buma
 {
 
-VariableSizeAllocationsManager::VariableSizeAllocationsManager(SizeT _page_size)
+VariableSizeAllocationsManager::VariableSizeAllocationsManager(SizeT _page_size, SizeT _min_alignment)
     : page_size             { _page_size }
+    , min_alignment         { _min_alignment }
     , free_size             { _page_size }
+    , capable_alignment     {}
     , free_blocks_by_offset {}
     , free_blocks_by_size   {}
 {
-    AddNewBlock(0, page_size);
+    BUMA_ASSERT(util::IsPowOfTwo(min_alignment));
+    Reset();
 }
 
 VariableSizeAllocationsManager::~VariableSizeAllocationsManager()
@@ -20,38 +23,94 @@ VariableSizeAllocationsManager::~VariableSizeAllocationsManager()
 
 void VariableSizeAllocationsManager::Reset()
 {
+    ResetCapableAlignment();
     free_size = page_size;
     free_blocks_by_offset.clear();
     free_blocks_by_size.clear();
+    AddNewBlock(0, page_size);
 }
 
 VariableSizeAllocationsManager::ALLOCATION
-VariableSizeAllocationsManager::Allocate(SizeT _size)
+VariableSizeAllocationsManager::Allocate(SizeT _size, SizeT _alignment)
 {
-    // 割当可能かをチェック
-    if (_size == 0 || _size > free_size)
+    BUMA_ASSERT(util::IsPowOfTwo(_alignment));
+
+    _alignment = std::max(_alignment, min_alignment);
+    auto aligned_size = util::AlignUp(_size, _alignment);
+
+    if (!CheckAllocatable(aligned_size))
         return ALLOCATION{};
 
-    auto&& it_size_capable_blocks = free_blocks_by_size.lower_bound(_size);
+    // VariableSizeAllocationsManagerの記事にはありませんが、実際には、アライメントによる追加の実装が行われています。
+    // https://github.com/DiligentGraphics/DiligentCore/blob/master/Graphics/GraphicsAccessories/interface/VariableSizeAllocationsManager.hpp#L188
+
+    // |block_offset
+    //        *alignment
+    // |------|                      capable_alignment
+    // ooooooo*--------------------* _alignment
+    // |-------------|               alignment_reserve (_alignment - capable_alignment)
+    // |--------------aligned_size---------------|
+    // |------it_size_offset_capable_block-------|
+    // 
+    // block_offset が要求アライメントで整列されていない場合: 
+    // |------|------|------|------|------|------|------|
+    // ooooooo*--------------------*--------------------*
+    // ooooooo|--------------aligned_size---------------|
+    // |------it_size_offset_capable_block-------|xxxxxxx <-アライメントによってサイズ不足に
+    //
+    // block_offsetをアラインしても割り当て可能なブロックを取得する必要があります。
+    // |------|------|------|------|------|------|------|
+    // ooooooo*--------------------*--------------------*
+    // ooooooo|--------------aligned_size---------------|
+    // |-------------|------it_size_offset_capable_block-------|
+    // |------------------------------------------------*------|
+
+    auto alignment_reserve = _alignment > capable_alignment ? _alignment - capable_alignment : 0;
+    auto&& it_size_capable_blocks = free_blocks_by_size.lower_bound(aligned_size + alignment_reserve);
     if (it_size_capable_blocks == free_blocks_by_size.end())
         return ALLOCATION{};
 
-    // ブロックの情報を取り出す
-    auto&& size_capable_blocks = *it_size_capable_blocks;
-    auto&& it_size_capable_block = size_capable_blocks.second;
-    auto block_offset = size_capable_blocks.first;
-    auto block_size   = it_size_capable_block->first;
+    auto it_size_offset_capable_block = it_size_capable_blocks->second;
+    auto&& size_offset_capable_block = *it_size_offset_capable_block;
+    OffsetT block_offset = size_offset_capable_block.first;
+    SizeT   block_size   = size_offset_capable_block.second.size;
 
-    ALLOCATION result{ block_offset, block_size };
+    // <--------------------------------block_size------------------------------>
+    // |block_offset |aligned_offset                                            |
+    // <---margin--->                                                           |
+    // <------aligned_size------><---margin--->|***                             |
+    // <----------------result----------------><-------aligned_remain_size------>
+    // 
+    // |block_offset |aligned_offset           |                                |
+    // |not use      |aligned_offset + size    |
+    // <xxxxxxxxxxxx>|----result-------------->|
+
+    auto aligned_offset         = util::AlignUp(block_offset, _alignment);
+    auto margin                 = aligned_offset - block_offset;
+    auto aligned_remain_size    = block_size - margin;
+
+    ALLOCATION result{ block_offset, aligned_size + margin };
 
     // ブロックの情報を更新
-    free_size -= _size;
     free_blocks_by_size  .erase(it_size_capable_blocks);
-    free_blocks_by_offset.erase(it_size_capable_block);
-    block_offset += _size;
-    block_size   -= _size;
+    free_blocks_by_offset.erase(it_size_offset_capable_block);
+    free_size -= result.size;
     if (block_size > 0)
-        AddNewBlock(block_offset, block_size);
+        AddNewBlock(block_offset + result.size, block_size - result.size);
+
+    // capable_alignment  |---------------|...
+    //            align : |--------------->
+    //        not align1: |------->       |        
+    //        not align2: |---------------------->
+    if (!util::IsAligned(aligned_size, capable_alignment))
+    {
+        // not po2: |-|---|--->---|...
+        //     po2: |-|---|------->...
+        if (util::IsPowOfTwo(aligned_size))// aligned_sizeが2のべき乗の場合、次回割当時にアライメントよりカバレッジの広いとして使用できます。
+            capable_alignment = aligned_size;
+        else
+            capable_alignment = std::min(capable_alignment, _alignment);
+    }
 
     return result;
 }
@@ -108,8 +167,23 @@ VariableSizeAllocationsManager::Free(ALLOCATION& _allocation)
     // |prev_block.first                  |使用中  |_allocation.offset              |使用中  |next_block.first                  |
     // |<-----prev_block.second.size----->|<xxxxxx>|<------_allocation.size-------->|<xxxxxx>|<-----next_block.second.size----->|
 
-    free_size += size;
     AddNewBlock(offset, size);
+
+    free_size += size;
+    if (IsEmpty())
+    {
+        BUMA_ASSERT(GetNumFreeBlocks() == 1);
+        ResetCapableAlignment();
+    }
+
+    _allocation.offset = 0;
+    _allocation.size   = 0;
+}
+
+bool VariableSizeAllocationsManager::CheckAllocatable(SizeT _aligned_size) const
+{
+    // 割当可能かをチェック
+    return _aligned_size != 0 && _aligned_size <= free_size;
 }
 
 void VariableSizeAllocationsManager::AddNewBlock(OffsetT _offset, SizeT _size)
@@ -117,6 +191,13 @@ void VariableSizeAllocationsManager::AddNewBlock(OffsetT _offset, SizeT _size)
     auto&& it_new_block_offset = free_blocks_by_offset.emplace(_offset, FREE_BLOCK_INFO{ _size, {} }).first;
     auto&& it_new_block_size   = free_blocks_by_size.emplace(_size, it_new_block_offset);
     it_new_block_offset->second.it_order_by_size = it_new_block_size;
+}
+
+void VariableSizeAllocationsManager::ResetCapableAlignment()
+{
+    capable_alignment = min_alignment;
+    while (capable_alignment * 2 <= page_size)
+        capable_alignment *= 2;
 }
 
 

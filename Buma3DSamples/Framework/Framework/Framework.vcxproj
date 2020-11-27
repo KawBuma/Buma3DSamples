@@ -110,6 +110,7 @@
     </ClCompile>
     <ClCompile Include="Src\Platform.cpp" />
     <ClCompile Include="Src\PlatformWindows.cpp" />
+    <ClCompile Include="Src\ResourceHeapAllocator.cpp" />
     <ClCompile Include="Src\ShaderLoader.cpp" />
     <ClCompile Include="Src\StagingBufferPool.cpp" />
     <ClCompile Include="Src\StepTimer.cpp" />
@@ -124,6 +125,7 @@
     <ClInclude Include="Inc\B3DInit.h" />
     <ClInclude Include="Inc\DeviceResources.h" />
     <ClInclude Include="Inc\Framework.h" />
+    <ClInclude Include="Inc\ResourceHeapAllocator.h" />
     <ClInclude Include="Inc\ImmediateContext.h" />
     <ClInclude Include="Inc\LazyDelegate.h" />
     <ClInclude Include="Inc\Logger.h" />

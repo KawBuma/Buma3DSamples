@@ -3,6 +3,10 @@
 namespace buma
 {
 
+/**
+ * @brief メモリ割当におけるオフセットとサイズ管理のみを目的とした割り当てマネージャ
+ * @note 割り当てのアルゴリズムについて: Variable Size Memory Allocations Manager: http://diligentgraphics.com/diligent-engine/architecture/d3d12/variable-size-memory-allocations-manager/
+*/
 class VariableSizeAllocationsManager
 {
 public:
@@ -10,25 +14,33 @@ public:
     using SizeT     = size_t;
     struct ALLOCATION
     {
+        operator bool()       { return size; }
+        operator bool() const { return size; }
         OffsetT offset;
         SizeT   size;
     };
 
 public:
-    VariableSizeAllocationsManager(SizeT _page_size);
+    VariableSizeAllocationsManager(SizeT _page_size, SizeT _min_alignment = 8);
     VariableSizeAllocationsManager(const VariableSizeAllocationsManager&) = delete;
     ~VariableSizeAllocationsManager();
 
     void Reset();
 
-    ALLOCATION Allocate (SizeT _size);
+    // 戻り値のoffsetはアラインされていない可能性がありますが、offsetを_alignment値で切り上げた際にsizeが不足しない事は保証されます: 
+    //      (AlignUp(ALLOCATION::offset, _alignment) + _size) <= ALLOCATION::size
+    ALLOCATION Allocate (SizeT _size, SizeT _alignment);
     void       Free     (ALLOCATION& _allocation);
 
+    bool  IsEmpty()          const { return page_size == free_size; }
     SizeT GetPageSize()      const { return page_size; }
     SizeT GetRemainingSize() const { return free_size; }
+    size_t GetNumFreeBlocks() const { return free_blocks_by_offset.size(); }
 
 private:
+    bool CheckAllocatable(SizeT _aligned_size) const;
     void AddNewBlock(OffsetT _offset, SizeT _size);
+    void ResetCapableAlignment();
 
 private:
     struct FREE_BLOCK_INFO;
@@ -43,7 +55,9 @@ private:
 
 private:
     const SizeT             page_size;
+    const SizeT             min_alignment;
     SizeT                   free_size;
+    SizeT                   capable_alignment;
 
     MapFreeBlocksByOffset   free_blocks_by_offset;
     MapFreeBlocksBySize     free_blocks_by_size;

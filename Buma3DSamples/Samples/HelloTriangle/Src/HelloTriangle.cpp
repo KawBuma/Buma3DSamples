@@ -437,17 +437,17 @@ bool HelloTriangle::CreateGraphicsPipelines()
 
         b::RASTERIZATION_STATE_DESC rs{};
         {
-            rs.fill_mode                     = b::FILL_MODE_SOLID;
-            rs.cull_mode                     = b::CULL_MODE_BACK;
-            rs.is_front_counter_clockwise    = false;
-            rs.is_enable_depth_clip          = false;
-            rs.is_enable_depth_bias          = false;
-            rs.depth_bias_scale              = 0;
-            rs.depth_bias_clamp              = 0.f;
-            rs.depth_bias_slope_scale        = 0.f;
-            rs.is_enable_conservative_raster = false;
-            rs.line_rasterization_mode       = b::LINE_RASTERIZATION_MODE_DEFAULT;
-            rs.line_width                    = 1.f;
+            rs.fill_mode                        = b::FILL_MODE_SOLID;
+            rs.cull_mode                        = b::CULL_MODE_BACK;
+            rs.is_front_counter_clockwise       = false;
+            rs.is_enabled_depth_clip            = false;
+            rs.is_enabled_depth_bias            = false;
+            rs.depth_bias_scale                 = 0;
+            rs.depth_bias_clamp                 = 0.f;
+            rs.depth_bias_slope_scale           = 0.f;
+            rs.is_enabled_conservative_raster   = false;
+            rs.line_rasterization_mode          = b::LINE_RASTERIZATION_MODE_DEFAULT;
+            rs.line_width                       = 1.f;
             
             pso_desc.rasterization_state  = &rs;
         }
@@ -456,11 +456,11 @@ bool HelloTriangle::CreateGraphicsPipelines()
 
         b::MULTISAMPLE_STATE_DESC ms{};
         {
-            ms.is_enable_alpha_to_coverage      = false;
-            ms.is_enable_sample_rate_shading    = false;
+            ms.is_enabled_alpha_to_coverage     = false;
+            ms.is_enabled_sample_rate_shading   = false;
             ms.rasterization_samples            = 1;
             ms.sample_masks                     = b::B3D_DEFAULT_SAMPLE_MASK;
-            ms.sample_position_state.is_enable  = false;
+            ms.sample_position_state.is_enabled = false;
             ms.sample_position_state.desc       = nullptr;
 
             pso_desc.multisample_state = &ms;
@@ -468,13 +468,13 @@ bool HelloTriangle::CreateGraphicsPipelines()
 
         b::DEPTH_STENCIL_STATE_DESC ds{};
         {
-            ds.is_enable_depth_test        = false;
-            ds.is_enable_depth_write       = false;
-            ds.depth_comparison_func       = b::COMPARISON_FUNC_NEVER;
-            ds.is_enable_depth_bounds_test = false;
-            ds.min_depth_bounds            = 0;
-            ds.max_depth_bounds            = 1;
-            ds.is_enable_stencil_test      = false;
+            ds.is_enabled_depth_test        = false;
+            ds.is_enabled_depth_write       = false;
+            ds.depth_comparison_func        = b::COMPARISON_FUNC_NEVER;
+            ds.is_enabled_depth_bounds_test = false;
+            ds.min_depth_bounds             = 0;
+            ds.max_depth_bounds             = 1;
+            ds.is_enabled_stencil_test      = false;
             
             ds.stencil_front_face.fail_op         = b::STENCIL_OP_KEEP;
             ds.stencil_front_face.depth_fail_op   = b::STENCIL_OP_KEEP;
@@ -498,21 +498,21 @@ bool HelloTriangle::CreateGraphicsPipelines()
         b::BLEND_STATE_DESC bs{};
         b::RENDER_TARGET_BLEND_DESC attachments{};
         {
-            attachments.is_enable_blend  = false;
-            attachments.src_blend        = b::BLEND_FACTOR_ONE;
-            attachments.dst_blend        = b::BLEND_FACTOR_ONE;
-            attachments.blend_op         = b::BLEND_OP_ADD;
-            attachments.src_blend_alpha  = b::BLEND_FACTOR_ONE;
-            attachments.dst_blend_alpha  = b::BLEND_FACTOR_ONE;
-            attachments.blend_op_alpha   = b::BLEND_OP_ADD;
-            attachments.color_write_mask = b::COLOR_WRITE_FLAG_ALL;
+            attachments.is_enabled_blend    = false;
+            attachments.src_blend           = b::BLEND_FACTOR_ONE;
+            attachments.dst_blend           = b::BLEND_FACTOR_ONE;
+            attachments.blend_op            = b::BLEND_OP_ADD;
+            attachments.src_blend_alpha     = b::BLEND_FACTOR_ONE;
+            attachments.dst_blend_alpha     = b::BLEND_FACTOR_ONE;
+            attachments.blend_op_alpha      = b::BLEND_OP_ADD;
+            attachments.color_write_mask    = b::COLOR_WRITE_FLAG_ALL;
 
-            bs.is_enable_independent_blend = false;
-            bs.is_enable_logic_op          = false;
-            bs.logic_op                    = b::LOGIC_OP_SET;
-            bs.num_attachments             = 1;
-            bs.attachments                 = &attachments;
-            bs.blend_constants             = { 1.f, 1.f, 1.f, 1.f };
+            bs.is_enabled_independent_blend = false;
+            bs.is_enabled_logic_op          = false;
+            bs.logic_op                     = b::LOGIC_OP_SET;
+            bs.num_attachments              = 1;
+            bs.attachments                  = &attachments;
+            bs.blend_constants              = { 1.f, 1.f, 1.f, 1.f };
 
             pso_desc.blend_state = &bs;
         }

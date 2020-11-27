@@ -26,6 +26,14 @@
 #include "Buma3D.h"
 #include "Util/Buma3DPtr.h"
 
+#define BUMA_ASSERT(x) assert(x)
+
+#define BMR_IS_FAILED(x) (x >= buma3d::BMRESULT_FAILED) 
+#define BMR_IS_SUCCEEDED(x) (x < buma3d::BMRESULT_FAILED)
+#define BMR_ASSERT_IF_FAILED(x) BUMA_ASSERT((x) && #x) 
+#define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { BUMA_ASSERT(false && #x); return false; }
+#define BUMA_RET_IF_FAILED(x) if (!(x)) { BUMA_ASSERT(false && #x); return false; }
+
 #include "B3DInit.h"
 
 #define NOMINMAX
@@ -43,6 +51,7 @@
 #include "Window.h"
 
 #include "VariableSizeAllocationsManager.h"
+#include "ResourceHeapAllocator.h"
 
 #include "Framework.h"
 
