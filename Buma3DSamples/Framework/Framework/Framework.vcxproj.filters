@@ -77,11 +77,14 @@
     <ClCompile Include="Src\ResourceHeapAllocator.cpp">
       <Filter>Sources\Resource</Filter>
     </ClCompile>
+    <ClCompile Include="Src\DeferredContext.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\FormatUtils.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Src\pch.h">
-      <Filter>Sources</Filter>
-    </ClInclude>
     <ClInclude Include="Inc\Window.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -138,6 +141,18 @@
     </ClInclude>
     <ClInclude Include="Inc\ResourceHeapAllocator.h">
       <Filter>Headers\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\ResourceHeapProperties.h">
+      <Filter>Headers\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\pch.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\DeferredContext.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\FormatUtils.h">
+      <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

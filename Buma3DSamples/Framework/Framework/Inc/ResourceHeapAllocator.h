@@ -38,6 +38,7 @@ public:
     void Free(RESOURCE_HEAP_ALLOCATION& _allocation);
     void Reset();
     const RESOURCE_HEAP_PAGE_DESC& GetHeapDesc() const;
+    bool IsFull() const;
 
 private:
     ResourceHeapAllocator&                          owner;
@@ -76,31 +77,11 @@ class ResourceHeapsAllocator
     friend class ResourceHeapAllocationPage;
     friend class ResourceHeapAllocator;
 
-    template<typename T>
-    static constexpr T Log2(T _value)
-    {
-        if (!_value) return 0;
-        int mssb = 0, lssb = 0, cnt = 0;
-
-        cnt = (sizeof(T) * 8) - 1;
-        while (cnt != -1) { if (_value & static_cast<T>(1ull << cnt)) break; cnt--; }
-        mssb = cnt;
-
-        cnt = 0;
-        while (cnt < sizeof(T) * 8) { if (_value & static_cast<T>(1ull << cnt)) break; cnt++; }
-        lssb = cnt;
-
-        return static_cast<T>(mssb) + static_cast<T>(mssb == lssb ? 0 : 1);
-    }
-
 public:
-#pragma region constexpr
     static constexpr size_t MIN_PAGE_SIZE           = util::Mib(128);
-    static constexpr size_t ALLOCATOR_INDEX_SHIFT   = Log2<size_t>(MIN_PAGE_SIZE);
+    static constexpr size_t ALLOCATOR_INDEX_SHIFT   = util::Log2Cexpr<size_t>(MIN_PAGE_SIZE);
     static constexpr size_t ALLOCATOR_POOL_COUNT    = sizeof(size_t) * 8 - ALLOCATOR_INDEX_SHIFT;
-
     static_assert((MIN_PAGE_SIZE & (MIN_PAGE_SIZE - 1)) == 0, "min_page_size size must be a power of 2");
-#pragma endregion
 
 public:
     ResourceHeapsAllocator(buma3d::IDeviceAdapter* _adapter, buma3d::IDevice* _device);

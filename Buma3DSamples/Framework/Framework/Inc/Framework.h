@@ -9,7 +9,13 @@
 #include "Util/Buma3DPtr.h"
 #include "B3DInit.h"
 
+#include "FormatUtils.h"
 #include "Utils.h"
+
+#include "VariableSizeAllocationsManager.h"
+#include "ResourceHeapAllocator.h"
+#include "ResourceHeapProperties.h"
+
 #include "DeviceResources.h"
 #include "SwapChain.h"
 #include "Platform.h"

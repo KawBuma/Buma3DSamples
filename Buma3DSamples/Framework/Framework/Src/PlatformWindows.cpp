@@ -13,6 +13,8 @@ class ConsoleSession
 public:
     ConsoleSession()
         //: ofs("./log.txt", std::ios::out | std::ios::trunc, std::ios::_Default_open_prot)
+        //, stream{}
+        : stream{}
     {
     }
 
@@ -45,7 +47,7 @@ public:
 
     //std::ofstream ofs;
 private:
-    FILE*         stream;
+    FILE* stream;
 
 };
 

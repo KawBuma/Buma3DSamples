@@ -1,45 +1,53 @@
 #include "pch.h"
 #include "StagingBufferPool.h"
 
-#define BMTEXT (x)
+#ifdef _DEBUG
+#define BMTEXT(_x) 
+
+#else
+#define BMTEXT(_x) 
+
+#endif
 
 namespace buma
 {
 
 #pragma region BufferPage
 
-BufferPage::BufferPage(buma3d::IDevice* _device, size_t _page_size) 
-    : resource(nullptr)
-    , map_data_base_ptr(0)
-    , gpu_virtual_address_base(0)
-    , page_size(_page_size)
-    , offset(0)
-    , is_full(false)
+BufferPage::BufferPage(BufferPageAllocator& _owner, size_t _page_size)
+    : owner                     { _owner }
+    , resource                  {}
+    , map_data_base_ptr         {}
+    , gpu_virtual_address_base  {}
+    , page_size                 { _page_size }
+    , offset                    {}
+    , is_full                   {}
 {
-    HRESULT hr;
-    hr = _device->CreateCommittedResource( &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD)
-                                         , D3D12_HEAP_FLAG_NONE
-                                         , &CD3DX12_RESOURCE_DESC::Buffer(_page_size)
-                                         , D3D12_RESOURCE_STATE_GENERIC_READ
-                                         , nullptr
-                                         , IID_PPV_ARGS(&resource)
-    );
-    ASSERT_HR(hr);
-    resource->SetName((L"UploadBuffer size: " + std::to_wstring(_page_size)).c_str());
+    auto desc = buma3d::hlp::init::CommittedResourceDesc(owner.owner.heap_prop->heap_index, buma3d::RESOURCE_HEAP_FLAG_NONE
+                                                         , buma3d::hlp::init::BufferResourceDesc(_page_size, owner.owner.usage_flags));
 
-    hr = resource->Map(0, nullptr, &map_data_base_ptr);
-    ASSERT_HR(hr);
+    auto bmr = owner.owner.device->CreateCommittedResource(desc, &resource);
+    BMR_ASSERT_IF_FAILED(bmr);
+
+    resource->SetName(("BufferPage size: " + std::to_string(_page_size)).c_str());
+
+    bmr = resource->GetHeap()->Map();
+    BMR_ASSERT_IF_FAILED(bmr);
+
+    buma3d::MAPPED_RANGE range{};
+    bmr = resource->GetHeap()->GetMappedData(&range, &map_data_base_ptr);
+    BMR_ASSERT_IF_FAILED(bmr);
 
     gpu_virtual_address_base = resource->GetGPUVirtualAddress();
 }
 
 BufferPage::~BufferPage()
 {
-    resource->Unmap(0, nullptr);
-    map_data_base_ptr = nullptr;
+    resource->GetHeap()->Unmap();
+    map_data_base_ptr        = nullptr;
     gpu_virtual_address_base = 0;
-    page_size = 0;
-    offset = 0;
+    page_size                = 0;
+    offset                   = 0;
 }
 
 void BufferPage::Reset() 
@@ -49,7 +57,7 @@ void BufferPage::Reset()
 
 bool BufferPage::CheckFreeSpace()
 {
-    if (page_size - offset < D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT)
+    if (page_size - offset < owner.owner.dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment)
         is_full = true;
 
     return is_full;
@@ -57,8 +65,8 @@ bool BufferPage::CheckFreeSpace()
 
 bool BufferPage::CheckIsAllocatable(size_t _size_in_bytes, size_t _alignment)
 {
-    auto aligned_size    = Math::AlignUp(_size_in_bytes, _alignment);
-    auto aligned_offset = Math::AlignUp(offset         , _alignment);
+    auto aligned_size   = util::AlignUp(_size_in_bytes, _alignment);
+    auto aligned_offset = util::AlignUp(offset         , _alignment);
 
     // 作成したリソースのサイズを超えない場合true
     return (aligned_offset + aligned_size) <= page_size;
@@ -66,19 +74,13 @@ bool BufferPage::CheckIsAllocatable(size_t _size_in_bytes, size_t _alignment)
 
 bool BufferPage::CheckIsAllocatableAligned(size_t _aligned_size_in_bytes, size_t _alignment)
 {
-    return (_aligned_size_in_bytes + Math::AlignUp(offset, _alignment)) <= page_size;
+    return (_aligned_size_in_bytes + util::AlignUp(offset, _alignment)) <= page_size;
 }
 
 BUFFER_ALLOCATION_PART BufferPage::Allocate(size_t _size_in_bytes, size_t _aligned_size_in_bytes, size_t _alignment)
 {
-    //auto aligned_size    = Math::AlignUp(_size_in_bytes, _alignment);
-    auto aligned_offset = Math::AlignUp(offset         , _alignment);
-
-    //if (CheckIsAllocatableAligned(_size_in_bytes, _alignment) == false)
-    //{
-    //    // Can't allocate space from page.
-    //    throw std::bad_alloc();
-    //}
+    //auto aligned_size = util::AlignUp(_size_in_bytes, _alignment);
+    auto aligned_offset = util::AlignUp(offset, _alignment);
 
     BUFFER_ALLOCATION_PART alloc_part = {};
 
@@ -89,53 +91,53 @@ BUFFER_ALLOCATION_PART BufferPage::Allocate(size_t _size_in_bytes, size_t _align
     {
         offset = aligned_offset + _aligned_size_in_bytes;
 
-        alloc_part.parent_resouce= resource.Get();
-        alloc_part.map_data_part = static_cast<unsigned char*>(map_data_base_ptr) + aligned_offset;
-        alloc_part.gpu_address      = gpu_virtual_address_base                          + aligned_offset;
-        alloc_part.data_offset     = aligned_offset;
-        alloc_part.size_in_bytes = _size_in_bytes;
+        alloc_part.parent_resouce   = resource.Get();
+        alloc_part.map_data_part    = static_cast<unsigned char*>(map_data_base_ptr) + aligned_offset;
+        alloc_part.gpu_address      = gpu_virtual_address_base                       + aligned_offset;
+        alloc_part.data_offset      = aligned_offset;
+        alloc_part.size_in_bytes    = _size_in_bytes;
         return alloc_part;
     }
     else
     {
         // 空き容量を確認する
         CheckFreeSpace();
-        alloc_part.parent_resouce = resource.Get();
-        alloc_part.map_data_part = nullptr;
+        alloc_part.parent_resouce   = resource.Get();
+        alloc_part.map_data_part    = nullptr;
         alloc_part.gpu_address      = 0;
-        alloc_part.data_offset     = 0;
-        alloc_part.size_in_bytes = 0;
+        alloc_part.data_offset      = 0;
+        alloc_part.size_in_bytes    = 0;
         return alloc_part;
     }
 }
 
 BUFFER_ALLOCATION_PART BufferPage::AllocateUnsafe(size_t _size_in_bytes, size_t _aligned_size_in_bytes, size_t _alignment)
 {
-    //auto aligned_size    = Math::AlignUp(_size_in_bytes, _alignment);
-    auto aligned_offset = Math::AlignUp(offset, _alignment);
+    //auto aligned_size    = util::AlignUp(_size_in_bytes, _alignment);
+    auto aligned_offset = util::AlignUp(offset, _alignment);
 
     std::lock_guard<std::mutex> allocate_guard(allocate_mutex);
 
     offset = aligned_offset + _aligned_size_in_bytes;
-    BUFFER_ALLOCATION_PART alloc_part =
-    {
-        resource.Get()
-        ,static_cast<unsigned char*>(map_data_base_ptr) + aligned_offset
-        , gpu_virtual_address_base                        + aligned_offset
+    BUFFER_ALLOCATION_PART alloc_part = {
+          resource.Get()
+        , static_cast<unsigned char*>(map_data_base_ptr) + aligned_offset
+        , gpu_virtual_address_base                       + aligned_offset
         , aligned_offset
         , _size_in_bytes
     };
     return alloc_part;
 }
 
-#pragma endregion
-
+#pragma endregion BufferPage
 
 #pragma region BufferPageAllocator
 
-BufferPageAllocator::BufferPageAllocator(buma3d::IDevice* _device, size_t _size) 
-    :device(_device), buffer_page_allocation_size(_size)
+BufferPageAllocator::BufferPageAllocator(StagingBufferPool& _owner, size_t _size)
+    : owner                         { _owner }
+    , buffer_page_allocation_size   { _size }
 {
+
 }
 
 void BufferPageAllocator::Reset()
@@ -147,23 +149,21 @@ void BufferPageAllocator::Reset()
         i->Reset();
 
     // available_buffer_pagesのbackを設定
-    available_buffer_pages    = buffer_pages;
+    available_buffer_pages  = buffer_pages;
     main_buffer_page        = available_buffer_pages.back();
     available_buffer_pages.pop_back();
 }
 
 std::shared_ptr<BufferPage> BufferPageAllocator::MakeAndGetNewBufferPage()
 {
-    auto new_buffer_page = std::make_shared<BufferPage>(device.Get(), buffer_page_allocation_size);
+    auto new_buffer_page = std::make_shared<BufferPage>(*this, buffer_page_allocation_size);
     buffer_pages.emplace_back(std::move(new_buffer_page));
-#ifdef _DEBUG
     BMTEXT("BufferPageAllocator - Allocated size: " + std::to_string(buffer_page_allocation_size) + ", this size total: " + std::to_string(buffer_pages.size()));
-#endif // _DEBUG
     return buffer_pages.back();
 }
 void BufferPageAllocator::MakeNewBufferPage()
 {
-    auto new_buffer_page = std::make_shared<BufferPage>(device.Get(), buffer_page_allocation_size);
+    auto new_buffer_page = std::make_shared<BufferPage>(*this, buffer_page_allocation_size);
     buffer_pages.emplace_back(std::move(new_buffer_page));
 }
 
@@ -172,7 +172,7 @@ BUFFER_ALLOCATION_PART BufferPageAllocator::Allocate(size_t _size_in_bytes, size
     if (main_buffer_page == false)
         main_buffer_page = MakeAndGetNewBufferPage();
 
-    auto aligned_size = Math::AlignUp(_size_in_bytes, _alignment);
+    auto aligned_size = util::AlignUp(_size_in_bytes, _alignment);
     BUFFER_ALLOCATION_PART buffer_part = main_buffer_page->Allocate(_size_in_bytes, aligned_size, _alignment);
 
     if (buffer_part.map_data_part == nullptr)
@@ -195,7 +195,7 @@ BUFFER_ALLOCATION_PART BufferPageAllocator::Allocate(size_t _size_in_bytes, size
 
 std::shared_ptr<BufferPage> BufferPageAllocator::FindAllocatablePage(size_t _aligned_size_in_bytes, size_t _alignment)
 {
-    //size_t aligned_size = Math::AlignUp(_size_in_bytes, _alignment);
+    //size_t aligned_size = util::AlignUp(_size_in_bytes, _alignment);
 
     for (auto&& i : available_buffer_pages)
         if (i->CheckIsAllocatableAligned(_aligned_size_in_bytes, _alignment) == true)
@@ -207,17 +207,17 @@ std::shared_ptr<BufferPage> BufferPageAllocator::FindAllocatablePage(size_t _ali
 
 void BufferPageAllocator::ChangeMainPage(size_t _aligned_size_in_bytes, size_t _alignment)
 {
-    //size_t aligned_size = Math::AlignUp(_size_in_bytes, _alignment);
+    //size_t aligned_size = util::AlignUp(_size_in_bytes, _alignment);
 
     auto* pages = available_buffer_pages.data();
     auto  size    = available_buffer_pages.size();
     for (size_t i = 0; i < size; i++)
     {
-        auto page = pages[i];
+        auto&& page = pages[i];
         if (page->CheckIsAllocatableAligned(_aligned_size_in_bytes, _alignment) == true)
         {
             main_buffer_page = page;
-            EraseContainerElem(available_buffer_pages, i); // i番目をmain_buffer_pageに渡した後に除外(buffer_pagesが所有)
+            util::EraseContainerElem(available_buffer_pages, i); // i番目をmain_buffer_pageに渡した後に除外(buffer_pagesが所有)
             return;
         }
     }
@@ -226,98 +226,87 @@ void BufferPageAllocator::ChangeMainPage(size_t _aligned_size_in_bytes, size_t _
     main_buffer_page = MakeAndGetNewBufferPage();
 }
 
-#pragma endregion
-
+#pragma endregion BufferPageAllocator
 
 #pragma region UploadBuffer
 
-
-UploadBuffer::UploadBuffer(buma3d::IDevice* _device) :device(_device)
+StagingBufferPool::StagingBufferPool(std::shared_ptr<DeviceResources> _dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _heap_prop_flags, buma3d::BUFFER_USAGE_FLAGS _usage_flags)
+    : dr            { _dr }
+    , heap_prop     {}
+    , usage_flags   { _usage_flags }
+    , device        { _dr->GetDevice() }
+    , limits        { _dr->GetDeviceAdapterLimits() }
 {
+    // READ_BACKとUPLAODは同時に行いません。
+    BUMA_ASSERT((_heap_prop_flags& (buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE | buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE))
+                != (buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE | buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE));
+
+    if (_heap_prop_flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE)
+        heap_prop = dr->GetResourceHeapProperties()->GetHostReadableHeaps().Filter(buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_COHERENT);
+
+    else if (_heap_prop_flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE)
+        heap_prop = dr->GetResourceHeapProperties()->GetHostWritableHeaps().Filter(buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_COHERENT);
+
+    if (!heap_prop)
+        throw std::runtime_error("StagingBufferPool: heap_prop not found.");
+
     int counter = 0;
     for (auto&& i : buffer_page_allocators)
     {
         auto page_size = GetPageSizeFromPoolIndex(counter);
-        i = std::make_unique<BufferPageAllocator>(device.Get(), page_size);
+        i = std::make_unique<BufferPageAllocator>(*this, page_size);
         counter++;
     }
 }
 
-BUFFER_ALLOCATION_PART UploadBuffer::AllocateBufferPart(size_t _size_in_bytes, size_t _alignment)
+StagingBufferPool::~StagingBufferPool()
 {
-    auto pool_size    = NextPow2(_size_in_bytes + _alignment);
+    ResetPages();
+}
+
+BUFFER_ALLOCATION_PART StagingBufferPool::AllocateBufferPart(size_t _size_in_bytes, size_t _alignment)
+{
+    auto pool_size  = util::NextPow2(_size_in_bytes + _alignment);
     auto pool_index = GetPoolIndex(pool_size);
 
     auto& pool = buffer_page_allocators[pool_index];
-    assert(pool != nullptr);
+    BUMA_ASSERT(pool != nullptr);
 
     return pool->Allocate(_size_in_bytes, _alignment);
 }
 
-BUFFER_ALLOCATION_PART UploadBuffer::AllocateConstantBufferPart(size_t _size_in_bytes)
+BUFFER_ALLOCATION_PART StagingBufferPool::AllocateConstantBufferPart(size_t _size_in_bytes)
 {
-    return AllocateBufferPart(_size_in_bytes, alignment_constant);
+    return AllocateBufferPart(_size_in_bytes, limits.min_constant_buffer_offset_alignment);
 }
 
-void UploadBuffer::ResetPages()
+void StagingBufferPool::ResetPages()
 {
     for (auto&& i : buffer_page_allocators)
         i->Reset();
 }
 
-size_t UploadBuffer::NextPow2(size_t _x)
+size_t StagingBufferPool::GetPoolIndexFromSize(size_t _x)
 {
-    // 例 x = 7
-    _x--;// 6 (0110)
-    _x |= _x >> 1;    // 0110 |= 0011 == 0111 (7)
-    _x |= _x >> 2;    // 0111 |= 0001 == 0111 (7)
-    _x |= _x >> 4;    // 0111 |= 0000 == 0111 (7)
-    _x |= _x >> 8;    // 0111 |= 0000 == 0111 (7)
-    _x |= _x >> 16;    // 0111 |= 0000 == 0111 (7)
-#ifdef _WIN64
-    _x |= _x >> 32;    // 0111 |= 0000 == 0111 (7)
-#endif
-    return ++_x;    // 7 (0111) + 1 == 1000 (8)
-                    // のような感じで値は8になる
-                    // 256も然り
+    size_t allocator_page_size = _x >> ALLOCATOR_INDEX_SHIFT;
+    int bit_index = 0;
+    bit_index = util::GetFirstBitIndex(allocator_page_size);
+    return bit_index != -1 ? bit_index + 1 : 0;
 }
-size_t UploadBuffer::GetPoolIndexFromSize(size_t _x)
+
+size_t StagingBufferPool::GetPoolIndex(size_t _x)
 {
-    // xが4096よりも小さい(x < 4096)の場合は0
-    // xが4096よりも大きい(x >= 4096)の場合は1
-    // xが4096*2よりも大きい(x >= 4096*2)の場合は2
-    // xが4096*3よりも大きい(x >= 4096*3)の場合は3
-    size_t allocator_page_size = _x >> allocator_index_shift;
-    // gives a value from range:
-    // 0 - sub-4k allocator
-    // 1 - 4k allocator
-    // 2 - 8k allocator
-    // 4 - 16k allocator
-    // etc...
-    // Need to convert to an index.
-    DWORD bit_index = 0;
-    // マスク データの最下位ビット (LSB) から最上位ビット (MSB) に向かって設定済みビット (1) を検索します。
-    // 00001000 の場合は4
-    // 10000000 の場合は8
-    //                       &結果     , 検索対象のビット   ) 対象が0001(1)だった場合0が返るので+1する(これ以降))
-#ifdef _WIN64
-    return _BitScanForward64(&bit_index, allocator_page_size) ? bit_index + 1 : 0;
-#else
-    return _BitScanForward(&bit_index, static_cast<DWORD>(allocator_page_size)) ? bit_index + 1 : 0;
-#endif
+    return GetPoolIndexFromSize(util::NextPow2(_x));
 }
-size_t UploadBuffer::GetPoolIndex(size_t _x)
-{
-    return GetPoolIndexFromSize(NextPow2(_x));
-}
-size_t UploadBuffer::GetPageSizeFromPoolIndex(size_t _x)
+
+size_t StagingBufferPool::GetPageSizeFromPoolIndex(size_t _x)
 {
     _x = (_x == 0) ? 0 : _x - 1; // clamp to zero
-    return std::max<size_t>(min_page_size, size_t(1) << (_x + allocator_index_shift));
+    return std::max<size_t>(MIN_PAGE_SIZE, size_t(1) << (_x + ALLOCATOR_INDEX_SHIFT));
 }
 
 
-#pragma endregion
+#pragma endregion UploadBuffer
 
 
 }// namespace buma

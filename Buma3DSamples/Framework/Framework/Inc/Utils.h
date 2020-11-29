@@ -64,6 +64,12 @@ inline std::wstring ConvertAnsiToWide(const std::string&  _str)                 
 inline std::string  ConvertWideToAnsi(const wchar_t*       _wstr)                         { return ConvertWideToCp(CODEPAGE_ACP, _wstr); }
 inline std::string  ConvertWideToAnsi(const std::wstring& _wstr)                          { return ConvertWideToCp(CODEPAGE_ACP, int(_wstr.size() + 1ull), _wstr.c_str()); }
 
+inline buma3d::UINT3 CalcMipExtents(uint32_t _mip_slice, const buma3d::EXTENT3D& _extent_mip0)
+{
+    return {  std::max(_extent_mip0.width  >> _mip_slice, 1ui32)
+            , std::max(_extent_mip0.height >> _mip_slice, 1ui32)
+            , std::max(_extent_mip0.depth  >> _mip_slice, 1ui32) };
+}
 
 class Mapper
 {
@@ -231,6 +237,176 @@ private:
 
 };
 
+class TextureBarrierRange
+{
+public:
+    TextureBarrierRange()
+        : barrier_range{}
+        , subres_ranges{}
+    {
+    }
+
+    ~TextureBarrierRange()
+    {
+    }
+
+    void AddSubresRange()
+    {
+
+    }
+
+    void Reset()
+    {
+        barrier_range.texture                   = nullptr;
+        barrier_range.num_subresource_ranges    = 0;
+    }
+
+    void AddSubresRange(buma3d::TEXTURE_ASPECT_FLAGS _aspect, uint32_t _mip_slice, uint32_t _array_slice, uint32_t _array_size = 1, uint32_t _mip_levels = 1)
+    {
+        Resize(barrier_range.num_subresource_ranges + 1);
+        auto&& range = subres_ranges.data()[barrier_range.num_subresource_ranges++];
+        range.array_size    = _array_size;
+        range.mip_levels    = _mip_levels;
+        range.offset.aspect         = _aspect;
+        range.offset.mip_slice      = _mip_slice;
+        range.offset.array_slice    = _array_slice;
+    }
+
+    const buma3d::TEXTURE_BARRIER_RANGE* Get(buma3d::ITexture* _texture)
+    {
+        barrier_range.texture = _texture;
+        return &barrier_range;
+    }
+
+private:
+    void Resize(uint32_t _num_subres_ranges)
+    {
+        if (_num_subres_ranges > barrier_range.num_subresource_ranges)
+        {
+            subres_ranges.resize(_num_subres_ranges);
+            barrier_range.subresource_ranges = subres_ranges.data();
+        }
+    }
+
+    buma3d::TEXTURE_BARRIER_RANGE           barrier_range;
+    std::vector<buma3d::SUBRESOURCE_RANGE>  subres_ranges;
+
+};
+
+
+class PipelineBarrierDesc
+{
+public:
+    PipelineBarrierDesc()
+        : barrier           {}
+        , buffer_barreirs   {}
+        , texture_barreirs  {}
+    {}
+    ~PipelineBarrierDesc() {}
+
+    void Reset()
+    {
+        barrier.num_buffer_barriers  = 0;
+        barrier.num_texture_barriers = 0;
+        barrier.dependency_flags     = buma3d::DEPENDENCY_FLAG_NONE;
+    }
+
+    void AddBufferBarrier(const buma3d::BUFFER_BARRIER_DESC& _buffer_barrier)
+    {
+        Resize(barrier.num_buffer_barriers, barrier.buffer_barriers, &buffer_barreirs);
+        buffer_barreirs.data()[barrier.num_buffer_barriers++] = _buffer_barrier;
+    }
+
+    void AddTextureBarrier(const buma3d::TEXTURE_BARRIER_DESC& _texture_barrier)
+    {
+        Resize(barrier.num_texture_barriers, barrier.texture_barriers, &texture_barreirs);
+        texture_barreirs.data()[barrier.num_texture_barriers++] = _texture_barrier;
+    }
+
+    const buma3d::CMD_PIPELINE_BARRIER& Get(buma3d::PIPELINE_STAGE_FLAGS _src_stages, buma3d::PIPELINE_STAGE_FLAGS _dst_stages, buma3d::DEPENDENCY_FLAGS _dependency_flags = buma3d::DEPENDENCY_FLAG_NONE)
+    {
+        barrier.src_stages       = _src_stages;
+        barrier.dst_stages       = _dst_stages;
+        barrier.dependency_flags = _dependency_flags;
+        return barrier;
+    }
+
+private:
+    template<typename T>
+    void Resize(uint32_t _num, const T*& _ptr, std::vector<T>* _dst)
+    {
+        if (_num > _dst->size())
+        {
+            _dst->resize(_num);
+            _ptr = _dst->data();
+        }
+    }
+
+    buma3d::CMD_PIPELINE_BARRIER                    barrier;
+    std::vector<buma3d::BUFFER_BARRIER_DESC>        buffer_barreirs;
+    std::vector<buma3d::TEXTURE_BARRIER_DESC>       texture_barreirs;
+
+};
+
+
+#pragma region containerhelper
+
+template <typename T>
+inline void SwapClear(T& _container)
+{
+    { T().swap(_container); }
+}
+
+template <typename T>
+inline typename T::iterator EraseContainerElem(T& _container, const size_t _erase_pos)
+{
+    return _container.erase(_container.begin() + _erase_pos);
+}
+
+// _first_pos: 0~, _last_pos: _container.size()までの間で設定してください
+template <typename T>
+inline typename T::iterator EraseContainerRange(T& _container, const size_t _first_pos, const size_t _last_pos)
+{
+    typename T::const_iterator it = _container.begin();
+    return _container.erase(it + _first_pos, it + _last_pos);
+}
+
+template <typename T>
+inline typename T::iterator InsertContainerElem(T& _container, const size_t _insert_pos, const typename T::value_type& _value)
+{
+    return _container.insert(_container.begin() + _insert_pos, _value);
+}
+
+template <typename T>
+inline typename T::iterator InsertContainerElem(T& _container, const size_t _insert_pos, typename T::value_type&& _value)
+{
+    return _container.insert(_container.begin() + _insert_pos, _value);
+}
+
+template <typename T>
+inline typename T::iterator InsertContainerElemCount(T& _container, const size_t _insert_pos, const size_t _insert_count, const typename T::value_type& _value)
+{
+    return _container.insert(_container.begin() + _insert_pos, _insert_count, _value);
+}
+
+template <typename T>
+inline typename T::iterator InsertContainerElemCount(T& _container, const size_t _insert_pos, const size_t _insert_count, typename T::value_type&& _value)
+{
+    return _container.insert(_container.begin() + _insert_pos, _insert_count, _value);
+}
+
+// _insert_first: 0 ~ _insert_container.size()までの間で設定してください
+// _insert_last: 0 ~ _insert_container.size()までの間で設定してください
+// _insert_firstと _insert_lastが同じの場合要素は挿入されません
+template <typename T>
+inline typename T::iterator InsertContainerElemRange(T& _container, const size_t _insert_pos, T& _insert_container, const size_t _insert_first, const size_t _insert_last)
+{
+    typename T::iterator ins_it = _insert_container.begin();
+    return _container.insert(_container.begin() + _insert_pos, ins_it + _insert_first, ins_it + _insert_last);
+}
+
+#pragma endregion
+
 #pragma region valhelper
 
 template <typename T>
@@ -315,6 +491,8 @@ inline int GetLastBitIndex(T _bits)
 template<typename T>
 inline T Log2(T _value)
 {
+    if (!_value) return 0;
+
     int mssb = GetLastBitIndex(_value);  // most significant set bit
     int lssb = GetFirstBitIndex(_value); // least significant set bit
     if (mssb == -1 || lssb == -1)
@@ -322,6 +500,23 @@ inline T Log2(T _value)
 
     // 2の累乗（1セットビットのみ）の場合、ビットのインデックスを返します。
     // それ以外の場合は、最上位のセットビットのインデックスに1を加算して、小数ログを切り上げます。
+    return static_cast<T>(mssb) + static_cast<T>(mssb == lssb ? 0 : 1);
+}
+
+template<typename T>
+inline constexpr T Log2Cexpr(T _value)
+{
+    if (!_value) return 0;
+    int mssb = 0, lssb = 0, cnt = 0;
+
+    cnt = (sizeof(T) * 8) - 1;
+    while (cnt != -1) { if (_value & static_cast<T>(1ull << cnt)) break; cnt--; }
+    mssb = cnt;
+
+    cnt = 0;
+    while (cnt < sizeof(T) * 8) { if (_value & static_cast<T>(1ull << cnt)) break; cnt++; }
+    lssb = cnt;
+
     return static_cast<T>(mssb) + static_cast<T>(mssb == lssb ? 0 : 1);
 }
 
@@ -344,6 +539,15 @@ inline constexpr size_t Gib(size_t _x) { return Mib(1024) * _x; }
 
 #pragma endregion valhelper
 
+inline bool IsSucceeded(buma3d::BMRESULT _bmr)
+{
+    return _bmr < buma3d::BMRESULT_FAILED;
+}
+
+inline bool IsFailed(buma3d::BMRESULT _bmr)
+{
+    return _bmr <= buma3d::BMRESULT_FAILED;
+}
 
 }// namespace util
 }// namespace buma

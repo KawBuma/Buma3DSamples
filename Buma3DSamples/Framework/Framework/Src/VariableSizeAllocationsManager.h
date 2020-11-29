@@ -32,12 +32,14 @@ public:
     ALLOCATION Allocate (SizeT _size, SizeT _alignment);
     void       Free     (ALLOCATION& _allocation);
 
-    bool  IsEmpty()          const { return page_size == free_size; }
-    SizeT GetPageSize()      const { return page_size; }
-    SizeT GetRemainingSize() const { return free_size; }
-    size_t GetNumFreeBlocks() const { return free_blocks_by_offset.size(); }
+    bool    IsEmpty()          const { return page_size == free_size; }
+    SizeT   GetPageSize()      const { return page_size; }
+    SizeT   GetRemainingSize() const { return free_size; }
+    size_t  GetNumFreeBlocks() const { return free_blocks_by_offset.size(); }
+    SizeT   GetMaxBlockSize()  const { return max_block_size; }
 
 private:
+    void UpdateBlockInfo(OffsetT _offset, SizeT _size);
     bool CheckAllocatable(SizeT _aligned_size) const;
     void AddNewBlock(OffsetT _offset, SizeT _size);
     void ResetCapableAlignment();
@@ -58,6 +60,7 @@ private:
     const SizeT             min_alignment;
     SizeT                   free_size;
     SizeT                   capable_alignment;
+    SizeT                   max_block_size;
 
     MapFreeBlocksByOffset   free_blocks_by_offset;
     MapFreeBlocksBySize     free_blocks_by_size;

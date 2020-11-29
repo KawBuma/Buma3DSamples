@@ -9,6 +9,7 @@ VariableSizeAllocationsManager::VariableSizeAllocationsManager(SizeT _page_size,
     , min_alignment         { _min_alignment }
     , free_size             { _page_size }
     , capable_alignment     {}
+    , max_block_size        {}
     , free_blocks_by_offset {}
     , free_blocks_by_size   {}
 {
@@ -27,6 +28,7 @@ void VariableSizeAllocationsManager::Reset()
     free_size = page_size;
     free_blocks_by_offset.clear();
     free_blocks_by_size.clear();
+    max_block_size = page_size;
     AddNewBlock(0, page_size);
 }
 
@@ -41,7 +43,7 @@ VariableSizeAllocationsManager::Allocate(SizeT _size, SizeT _alignment)
     if (!CheckAllocatable(aligned_size))
         return ALLOCATION{};
 
-    // VariableSizeAllocationsManagerの記事にはありませんが、実際には、アライメントによる追加の実装が行われています。
+    // VariableSizeAllocationsManagerの記事にはありませんが、実際には、アライメントのために追加の実装が行われています。
     // https://github.com/DiligentGraphics/DiligentCore/blob/master/Graphics/GraphicsAccessories/interface/VariableSizeAllocationsManager.hpp#L188
 
     // |block_offset
@@ -79,7 +81,7 @@ VariableSizeAllocationsManager::Allocate(SizeT _size, SizeT _alignment)
     // |block_offset |aligned_offset                                            |
     // <---margin--->                                                           |
     // <------aligned_size------><---margin--->|***                             |
-    // <----------------result----------------><-------aligned_remain_size------>
+    // <----------------result----------------><-------------------------------->
     // 
     // |block_offset |aligned_offset           |                                |
     // |not use      |aligned_offset + size    |
@@ -87,7 +89,6 @@ VariableSizeAllocationsManager::Allocate(SizeT _size, SizeT _alignment)
 
     auto aligned_offset         = util::AlignUp(block_offset, _alignment);
     auto margin                 = aligned_offset - block_offset;
-    auto aligned_remain_size    = block_size - margin;
 
     ALLOCATION result{ block_offset, aligned_size + margin };
 
@@ -95,8 +96,9 @@ VariableSizeAllocationsManager::Allocate(SizeT _size, SizeT _alignment)
     free_blocks_by_size  .erase(it_size_capable_blocks);
     free_blocks_by_offset.erase(it_size_offset_capable_block);
     free_size -= result.size;
-    if (block_size > 0)
-        AddNewBlock(block_offset + result.size, block_size - result.size);
+    auto new_block_size = block_size - result.size;
+    if (new_block_size > 0)
+        AddNewBlock(block_offset + result.size, new_block_size);
 
     // capable_alignment  |---------------|...
     //            align : |--------------->
@@ -106,11 +108,14 @@ VariableSizeAllocationsManager::Allocate(SizeT _size, SizeT _alignment)
     {
         // not po2: |-|---|--->---|...
         //     po2: |-|---|------->...
-        if (util::IsPowOfTwo(aligned_size))// aligned_sizeが2のべき乗の場合、次回割当時にアライメントよりカバレッジの広いとして使用できます。
+        if (util::IsPowOfTwo(aligned_size))// aligned_sizeが2のべき乗の場合、次回割当時により広いカバレッジのアライメントを使用できます(より小さなブロックをアライメントの考慮(alignment_reserve)をせずに割当可能になります)。
             capable_alignment = aligned_size;
         else
             capable_alignment = std::min(capable_alignment, _alignment);
     }
+
+    if (block_size == max_block_size)
+        max_block_size = new_block_size;
 
     return result;
 }
@@ -122,8 +127,7 @@ VariableSizeAllocationsManager::Free(ALLOCATION& _allocation)
 
     if (free_blocks_by_offset.empty())
     {
-        free_size += _allocation.size;
-        AddNewBlock(_allocation.offset, _allocation.size);
+        UpdateBlockInfo(_allocation.offset, _allocation.size);
         return;
     }
 
@@ -167,9 +171,8 @@ VariableSizeAllocationsManager::Free(ALLOCATION& _allocation)
     // |prev_block.first                  |使用中  |_allocation.offset              |使用中  |next_block.first                  |
     // |<-----prev_block.second.size----->|<xxxxxx>|<------_allocation.size-------->|<xxxxxx>|<-----next_block.second.size----->|
 
-    AddNewBlock(offset, size);
+    UpdateBlockInfo(offset, size);
 
-    free_size += size;
     if (IsEmpty())
     {
         BUMA_ASSERT(GetNumFreeBlocks() == 1);
@@ -180,10 +183,17 @@ VariableSizeAllocationsManager::Free(ALLOCATION& _allocation)
     _allocation.size   = 0;
 }
 
+void VariableSizeAllocationsManager::UpdateBlockInfo(OffsetT _offset, SizeT _size)
+{
+    free_size += _size;
+    max_block_size = std::max(max_block_size, _size);
+    AddNewBlock(_offset, _size);
+}
+
 bool VariableSizeAllocationsManager::CheckAllocatable(SizeT _aligned_size) const
 {
-    // 割当可能かをチェック
-    return _aligned_size != 0 && _aligned_size <= free_size;
+    // 割当可能かを簡易チェック
+    return _aligned_size != 0 && _aligned_size <= max_block_size;
 }
 
 void VariableSizeAllocationsManager::AddNewBlock(OffsetT _offset, SizeT _size)

@@ -32,6 +32,7 @@ ResourceHeapAllocationPage::~ResourceHeapAllocationPage()
 bool ResourceHeapAllocationPage::Allocate(size_t _size, size_t _alignment, RESOURCE_HEAP_ALLOCATION* _dst_allocation)
 {
     *_dst_allocation = { this, allocation_manager->Allocate(_size, _alignment) };
+    _dst_allocation->parent_page = this;
     if (_dst_allocation->allocation)
         return false;
 
@@ -60,6 +61,11 @@ const ResourceHeapAllocationPage::RESOURCE_HEAP_PAGE_DESC&
 ResourceHeapAllocationPage::GetHeapDesc() const
 {
     return owner.page_desc;
+}
+
+bool ResourceHeapAllocationPage::IsFull() const
+{
+    return owner.page_desc.min_alignment > allocation_manager->GetMaxBlockSize();
 }
 
 #pragma endregion ResourceHeapAllocationPage
@@ -99,8 +105,8 @@ void ResourceHeapAllocator::Free(RESOURCE_HEAP_ALLOCATION& _allocation)
 {
     BUMA_ASSERT(_allocation == true);
     reinterpret_cast<ResourceHeapAllocationPage*>(_allocation.parent_page)->Free(_allocation);
-    if (current_page != _allocation.parent_page)
-        available_pages.emplace(_allocation.parent_page);
+    if (current_page != _allocation.parent_page)        
+        available_pages.emplace(static_cast<ResourceHeapAllocationPage*>(_allocation.parent_page));
 }
 
 void ResourceHeapAllocator::Reset()
@@ -116,7 +122,9 @@ void ResourceHeapAllocator::Reset()
 
 void ResourceHeapAllocator::ChangePage()
 {
-    available_pages.erase(current_page);
+    if (current_page->IsFull())
+        available_pages.erase(current_page);
+
     current_page = nullptr;
 
     if (available_pages.empty())
@@ -133,7 +141,7 @@ void ResourceHeapAllocator::AddNewPage()
 
 #pragma endregion ResourceHeapAllocator
 
-#pragma region ResourceHeapAllocator
+#pragma region ResourceHeapsAllocator
 
 ResourceHeapsAllocator::ResourceHeapsAllocator(buma3d::IDeviceAdapter* _adapter, buma3d::IDevice* _device)
     : device        { _device }
@@ -166,7 +174,7 @@ RESOURCE_HEAP_ALLOCATION ResourceHeapsAllocator::Allocate(size_t _size, size_t _
         desc.page_size      = pool_size;
         desc.alignment      = limits.max_resource_heap_alignment;
         desc.min_alignment  = limits.min_resource_heap_alignment;
-        heap_allocator = std::make_unique<ResourceHeapAllocator>(desc);
+        heap_allocator = std::make_unique<ResourceHeapAllocator>(*this, desc);
     }
 
     RESOURCE_HEAP_ALLOCATION result{};
@@ -211,7 +219,7 @@ size_t ResourceHeapsAllocator::GetPageSizeFromPoolIndex(size_t _x)
 }
 
 
-#pragma endregion ResourceHeapAllocator
+#pragma endregion ResourceHeapsAllocator
 
 
 }// namespace buma

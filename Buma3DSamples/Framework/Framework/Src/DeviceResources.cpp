@@ -40,7 +40,8 @@ void ConvertSlashToBackShash(std::string* _str)
     }
 }
 
-}
+}// namespace /*anonymous*/
+
 
 struct DeviceResources::B3D_PFN
 {
@@ -52,17 +53,19 @@ struct DeviceResources::B3D_PFN
 };
 
 DeviceResources::DeviceResources()
-    : desc                  {}
-    , pfn                   {}
-    , factory               {}
-    , adapter               {}
-    , device                {}
-    , cmd_queues            {}      
-    //, gpu_timer_pools       {} 
-    //, my_imugi              {}
-    , shader_laoder         {}
-    , resource_heap_props   {}
-    , queue_props           {}
+    : desc                                              {}
+    , pfn                                               {}
+    , factory                                           {}
+    , adapter                                           {}
+    , device                                            {}
+    , cmd_queues                                        {}         
+    //, gpu_timer_pools                                   {}    
+    //, my_imugi                                          {}
+    , shader_laoder                                     {}
+    , resource_heaps_allocator                          {}
+    , limits                                            {}
+    , resource_heap_props                               {}
+    , queue_props                                       {}
 {
 
 }
@@ -82,7 +85,9 @@ bool DeviceResources::Init(const DEVICE_RESOURCE_DESC& _desc)
     if (!GetCommandQueues())                            return false;
     if (!CreateMyImGui())                               return false;
 
-    shader_laoder = std::make_unique<shader::ShaderLoader>(desc.type);
+    resource_heap_props      = std::make_shared<ResourceHeapProperties>(device.Get());
+    shader_laoder            = std::make_unique<shader::ShaderLoader>(desc.type);
+    resource_heaps_allocator = std::make_unique<ResourceHeapsAllocator>(adapter.Get(), device.Get());
 
     return true;
 }
@@ -91,9 +96,9 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
 {
     pfn = std::make_unique<B3D_PFN>();
 
-    buma3d::ALLOCATOR_DESC desc{};
-    desc.is_enabled_allocator_debug = false;
-    desc.custom_allocator           = nullptr;
+    buma3d::ALLOCATOR_DESC b3d_desc{};
+    b3d_desc.is_enabled_allocator_debug = false;
+    b3d_desc.custom_allocator           = nullptr;
 
     std::string path;
     ConvertBackShashToSlash(GetCurrentDir(&path));
@@ -148,7 +153,7 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
     pfn->Buma3DCreateDeviceFactory      = (buma3d::PFN_Buma3DCreateDeviceFactory)     GetProcAddress(pfn->b3d_module, "Buma3DCreateDeviceFactory");
     pfn->Buma3DUninitialize             = (buma3d::PFN_Buma3DUninitialize)            GetProcAddress(pfn->b3d_module, "Buma3DUninitialize");
 
-    auto bmr = pfn->Buma3DInitialize(desc);
+    auto bmr = pfn->Buma3DInitialize(b3d_desc);
     assert(bmr == buma3d::BMRESULT_SUCCEED);
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
@@ -169,12 +174,12 @@ bool DeviceResources::PickAdapter()
     buma3d::DEBUG_MESSAGE_DESC descs[buma3d::DEBUG_MESSAGE_SEVERITY_END]{};
     for (size_t i = 0; i < buma3d::DEBUG_MESSAGE_SEVERITY_END; i++)
     {
-        auto&& desc = descs[i];
-        desc.is_enabled_debug_break = false;// レポート時のブレイク
-        desc.severity               = buma3d::DEBUG_MESSAGE_SEVERITY(i);
-        desc.category_flags         = buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_ALL;
-        if (desc.severity == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
-            desc.is_enabled_debug_break = false;// レポート時のブレイク
+        auto&& debug_desc = descs[i];
+        debug_desc.is_enabled_debug_break = false;// レポート時のブレイク
+        debug_desc.severity = buma3d::DEBUG_MESSAGE_SEVERITY(i);
+        debug_desc.category_flags = buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_ALL;
+        if (debug_desc.severity == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
+            debug_desc.is_enabled_debug_break = false;// レポート時のブレイク
     }
     fac_desc.debug.num_debug_messages             = ARRAYSIZE(descs);
     fac_desc.debug.debug_messages                 = descs;
@@ -192,14 +197,17 @@ bool DeviceResources::PickAdapter()
     buma3d::util::Ptr<buma3d::IDeviceAdapter> adapter_tmp{};
     while (factory->EnumAdapters(cnt++, &adapter_tmp) != buma3d::BMRESULT_FAILED_OUT_OF_RANGE)
     {
-        auto&& desc = adapter_tmp->GetDesc();
-        if (max_vram < desc.dedicated_video_memory)
+        auto&& adapter_desc = adapter_tmp->GetDesc();
+        if (max_vram < adapter_desc.dedicated_video_memory)
         {
-            max_vram = desc.dedicated_video_memory;
+            max_vram = adapter_desc.dedicated_video_memory;
             adapter = adapter_tmp;
         }
     }
+    if (!adapter)
+        return false;
 
+    adapter->GetDeviceAdapterLimits(&limits);
     return true;
 }
 
@@ -280,14 +288,6 @@ void DeviceResources::UninitB3D()
     FreeLibrary(pfn->b3d_module);
     pfn->b3d_module = NULL;
     pfn.reset();
-}
-
-const buma3d::RESOURCE_HEAP_PROPERTIES* DeviceResources::FindHeapIndex(buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _flags) const
-{
-    auto begin = resource_heap_props.data();
-    auto end = begin + resource_heap_props.size();
-    auto find = std::find_if(begin, end, [_flags](const buma3d::RESOURCE_HEAP_PROPERTIES& _props) { return (_props.flags & _flags) == _flags; });
-    return find != end ? find : nullptr;
 }
 
 bool DeviceResources::WaitForGpu()

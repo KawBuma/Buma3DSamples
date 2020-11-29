@@ -137,6 +137,61 @@ inline RENDER_TARGET_VIEW_DESC RenderTargetViewDescTex2D(
                                     SUBRESOURCE_RANGE{ SUBRESOURCE_OFFSET{ _aspect,_mip_slice ,_array_slice }, _array_size, _mip_levels } }, _flags };
 }
 
+inline BUFFER_BARRIER_DESC BufferBarrierDesc(IBuffer*               _buffer,
+                                             RESOURCE_STATE         _src_state,
+                                             RESOURCE_STATE         _dst_state,
+                                             COMMAND_TYPE           _src_queue_type = COMMAND_TYPE_DIRECT,
+                                             COMMAND_TYPE           _dst_queue_type = COMMAND_TYPE_DIRECT,
+                                             RESOURCE_BARRIER_FLAG  _barrier_flags  = RESOURCE_BARRIER_FLAG_NONE)
+{
+    return BUFFER_BARRIER_DESC{
+        _buffer,
+        _src_state,
+        _dst_state,
+        _src_queue_type,
+        _dst_queue_type,
+        _barrier_flags
+    };
+}
+
+inline TEXTURE_BARRIER_DESC TextureBarrierDesc(const TEXTURE_BARRIER_RANGE* _barrier_range,
+                                               RESOURCE_STATE               _src_state,
+                                               RESOURCE_STATE               _dst_state,
+                                               COMMAND_TYPE                 _src_queue_type = COMMAND_TYPE_DIRECT,
+                                               COMMAND_TYPE                 _dst_queue_type = COMMAND_TYPE_DIRECT,
+                                               RESOURCE_BARRIER_FLAG        _barrier_flags  = RESOURCE_BARRIER_FLAG_NONE)
+{
+    return TEXTURE_BARRIER_DESC{
+        TEXTURE_BARRIER_TYPE_BARRIER_RANGE,
+        _barrier_range,
+        _src_state,
+        _dst_state,
+        _src_queue_type,
+        _dst_queue_type,
+        _barrier_flags
+    };
+}
+
+inline TEXTURE_BARRIER_DESC TextureBarrierDesc(IView*                   _view,
+                                               RESOURCE_STATE           _src_state,
+                                               RESOURCE_STATE           _dst_state,
+                                               COMMAND_TYPE             _src_queue_type = COMMAND_TYPE_DIRECT,
+                                               COMMAND_TYPE             _dst_queue_type = COMMAND_TYPE_DIRECT,
+                                               RESOURCE_BARRIER_FLAG    _barrier_flags  = RESOURCE_BARRIER_FLAG_NONE)
+{
+    auto result = TEXTURE_BARRIER_DESC{
+        TEXTURE_BARRIER_TYPE_VIEW,
+        nullptr,
+        _src_state,
+        _dst_state,
+        _src_queue_type,
+        _dst_queue_type,
+        _barrier_flags
+    };
+    result.view = _view;
+    return result;
+}
+
 
 }// namespace init
 }// namespace hlp

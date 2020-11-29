@@ -1,5 +1,4 @@
 #pragma once
-//#include <MyImgui.h>
 
 // プラットフォーム: アプリケーションを起動する。
 // アプリケーション: プラットフォームに対して必要な情報を与え、ウィンドウ等を準備してもらう。
@@ -19,6 +18,9 @@ namespace shader
 class ShaderLoader;
 }
 
+class ResourceHeapProperties;
+class ResourceHeapsAllocator;
+
 enum INTERNAL_API_TYPE
 {
     INTERNAL_API_TYPE_D3D12 = 1,
@@ -34,7 +36,7 @@ struct DEVICE_RESOURCE_DESC
     buma3d::PFN_Buma3DDebugMessageCallback  DebugMessageCallback;
 };
 
-class DeviceResources
+class DeviceResources : public std::enable_shared_from_this<DeviceResources>
 {
 public:
     DeviceResources();
@@ -47,15 +49,14 @@ public:
     const buma3d::util::Ptr<buma3d::IDeviceAdapter>&                GetAdapter()                                    const { return adapter; }
     const buma3d::util::Ptr<buma3d::IDevice>&                       GetDevice()                                     const { return device; }
     const std::vector<buma3d::util::Ptr<buma3d::ICommandQueue>>&    GetCommandQueues(buma3d::COMMAND_TYPE _type)    const { return cmd_queues[_type]; }
+    ResourceHeapsAllocator*                                         GetResourceHeapsAllocator()                     const { return resource_heaps_allocator.get(); }
 
-    const std::unique_ptr<shader::ShaderLoader>& GetShaderLoader() { return shader_laoder; }
-
-    const buma3d::RESOURCE_HEAP_PROPERTIES* FindHeapIndex(buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _flags) const;
-    const std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>& GetResourceHeapProperties() const { return resource_heap_props; }
-    const std::vector<buma3d::COMMAND_QUEUE_PROPERTIES>& GetQueueProperties()        const { return queue_props; }
-
-    // const std::vector<std::shared_ptr<buma::GpuTimerPool>>&      GetGpuTimerPool(const buma3d::COMMAND_TYPE _type)   const { return direct_gpu_timer_pools[_type]; }
-    // std::shared_ptr<buma::MyImgui>                               GetMyImGui()                                        const { return my_imugi; }
+    const std::unique_ptr<shader::ShaderLoader>&                    GetShaderLoader()                                         { return shader_laoder; }
+    const buma3d::DEVICE_ADAPTER_LIMITS&                            GetDeviceAdapterLimits()                            const { return limits; }
+    const std::shared_ptr<ResourceHeapProperties>&                  GetResourceHeapProperties()                         const { return resource_heap_props; }
+    const std::vector<buma3d::COMMAND_QUEUE_PROPERTIES>&            GetQueueProperties()                                const { return queue_props; }
+    //const std::vector<std::shared_ptr<buma::GpuTimerPool>>&         GetGpuTimerPool(const buma3d::COMMAND_TYPE _type)   const { return direct_gpu_timer_pools[_type]; }
+    //std::shared_ptr<buma::MyImgui>                                  GetMyImGui()                                        const { return my_imugi; }
 
     bool WaitForGpu();
 
@@ -78,8 +79,10 @@ private:
     //std::vector<std::shared_ptr<buma::GpuTimerPool>>      gpu_timer_pools[buma3d::COMMAND_TYPE_NUM_TYPES];    // [COMMAND_TYPE]
     //std::shared_ptr<buma::MyImGui>                        my_imugi;
     std::unique_ptr<shader::ShaderLoader>                   shader_laoder;
+    std::unique_ptr<ResourceHeapsAllocator>                 resource_heaps_allocator;
 
-    std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>           resource_heap_props;
+    buma3d::DEVICE_ADAPTER_LIMITS                           limits;
+    std::shared_ptr<ResourceHeapProperties>                 resource_heap_props;
     std::vector<buma3d::COMMAND_QUEUE_PROPERTIES>           queue_props;
 
 };

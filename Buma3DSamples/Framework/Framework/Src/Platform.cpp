@@ -10,6 +10,7 @@ PlatformBase::PlatformBase()
     , device_resources  {}
     , window            {}
     , timer             {}
+    , is_prepared       {}
 {
     
 

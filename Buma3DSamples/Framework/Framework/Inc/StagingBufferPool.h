@@ -13,10 +13,16 @@ struct BUFFER_ALLOCATION_PART
     size_t                      size_in_bytes;  // バイト数
 };
 
+class StagingBufferPool;
+class BufferPageAllocator;
+
 class BufferPage
 {
+    friend class StagingBufferPool;
+    friend class BufferPageAllocator;
+
 public:
-    BufferPage(buma3d::IDevice* _device, size_t _page_size);
+    BufferPage(BufferPageAllocator& _owner, size_t _page_size);
     ~BufferPage();
 
     void                    Reset                       ();
@@ -34,7 +40,8 @@ public:
     bool                    IsFull                      () const { return is_full; }
 
 private:
-    buma3d::util::Ptr<buma3d::IResource>    resource;
+    BufferPageAllocator&                    owner;
+    buma3d::util::Ptr<buma3d::IBuffer>      resource;
     void*                                   map_data_base_ptr;          // mapしたデータのベースポインタ
     buma3d::GpuVirtualAddress               gpu_virtual_address_base;   // GPU仮想アドレスの先頭 
 
@@ -48,8 +55,10 @@ private:
 
 class BufferPageAllocator
 {
+    friend class BufferPage;
+
 public:
-    BufferPageAllocator(buma3d::IDevice* _device, const size_t& _size);
+    BufferPageAllocator(StagingBufferPool& _owner, size_t _size);
     ~BufferPageAllocator() { Reset(); }
 
     void Reset();
@@ -71,7 +80,7 @@ public:
     bool                        IsAllocated             () const { return main_buffer_page.operator bool(); }
 
 private:
-    buma3d::util::Ptr<buma3d::IDevice>          device;
+    StagingBufferPool&                          owner;
     std::vector<std::shared_ptr<BufferPage>>    buffer_pages;
     std::vector<std::shared_ptr<BufferPage>>    available_buffer_pages;
     std::shared_ptr<BufferPage>                 main_buffer_page;
@@ -81,49 +90,38 @@ private:
 };
 
 
-class UploadBuffer
+class StagingBufferPool
 {
+    friend class BufferPage;
+    friend class BufferPageAllocator;
+
+    static constexpr size_t MIN_PAGE_SIZE           = util::Mib(128);
+    static constexpr size_t ALLOCATOR_INDEX_SHIFT   = util::Log2Cexpr<size_t>(MIN_PAGE_SIZE);
+    static constexpr size_t ALLOCATOR_POOL_COUNT    = sizeof(size_t) * 8 - ALLOCATOR_INDEX_SHIFT;
+    static_assert((MIN_PAGE_SIZE & (MIN_PAGE_SIZE - 1)) == 0, "MIN_PAGE_SIZE size must be a power of 2");
+
 public:
-    static constexpr size_t alignment_min           = 4;            // 4byte (頂点バッファなど)
-    static constexpr size_t alignment_default       = 16;           // 4 * 4 byte float4
-    static constexpr size_t alignment_constant      = 256;          // 256byte (定数バッファはリソースのデータ先頭アドレスから数えて256バイトでアライメントされた場所に設定しなければならない)
+    StagingBufferPool(std::shared_ptr<DeviceResources> _dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _heap_prop_flags, buma3d::BUFFER_USAGE_FLAGS _usage_flags);
+    ~StagingBufferPool();
 
-    static constexpr size_t min_page_size           = 64 * 1024;    
-    static constexpr size_t min_alloc_size          = 4 * 1024;
-    static constexpr size_t allocator_index_shift   = 12;           // start block sizes at 4KB
-    static constexpr size_t allocator_pool_count    = 21;           // allocation sizes up to 2GB supported
-    static constexpr size_t pool_index_scale        = 1;            // multiply the allocation size this amount to push large values into the next bucket
-
-    static_assert((1 << allocator_index_shift) == min_alloc_size, "1 << allocator_index_shift must == min_page_size (in KiB)");
-    static_assert((min_page_size & (min_page_size - 1)) == 0    , "min_page_size size must be a power of 2");
-    static_assert((min_alloc_size & (min_alloc_size - 1)) == 0  , "min_alloc_size size must be a power of 2");
-    static_assert(min_alloc_size >= (4 * 1024)                  , "min_alloc_size size must be greater than 4K");
-
-private:
-    // 受け取った引数を その値以上の ( x <= 返却値 ) 2の乗数刻みの値にすることができる
-    // 例えば xが7だった場合は8に
-    // 256の場合は256 256+1の場合は512になる
-    size_t NextPow2(size_t _x);
-    size_t GetPoolIndexFromSize(size_t _x);
-    size_t GetPoolIndex(size_t _x);
-    size_t GetPageSizeFromPoolIndex(size_t _x);
-public:
-
-    UploadBuffer(buma3d::IDevice* _device);
-    ~UploadBuffer() 
-    {
-        ResetPages();
-    }
-
-    BUFFER_ALLOCATION_PART AllocateBufferPart(size_t _size_in_bytes, size_t _alignment = alignment_default);
+    BUFFER_ALLOCATION_PART AllocateBufferPart(size_t _size_in_bytes, size_t _alignment);
     BUFFER_ALLOCATION_PART AllocateConstantBufferPart(size_t _size_in_bytes);
 
     void ResetPages();
     buma3d::util::Ptr<buma3d::IDevice> GetDevice() { return device; }
 
 private:
+    size_t GetPoolIndexFromSize(size_t _x);
+    size_t GetPoolIndex(size_t _x);
+    size_t GetPageSizeFromPoolIndex(size_t _x);
+
+private:
+    std::shared_ptr<DeviceResources>        dr;
+    const buma3d::RESOURCE_HEAP_PROPERTIES* heap_prop;
+    buma3d::BUFFER_USAGE_FLAGS              usage_flags;
     buma3d::util::Ptr<buma3d::IDevice>      device;
-    std::unique_ptr<BufferPageAllocator>    buffer_page_allocators[allocator_pool_count];
+    std::unique_ptr<BufferPageAllocator>    buffer_page_allocators[ALLOCATOR_POOL_COUNT];
+    const buma3d::DEVICE_ADAPTER_LIMITS&    limits;
 
 };
 

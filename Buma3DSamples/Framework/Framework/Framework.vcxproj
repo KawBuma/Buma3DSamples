@@ -99,7 +99,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Src\Application.cpp" />
+    <ClCompile Include="Src\DeferredContext.cpp" />
     <ClCompile Include="Src\DeviceResources.cpp" />
+    <ClCompile Include="Src\FormatUtils.cpp" />
     <ClCompile Include="Src\Framework.cpp" />
     <ClCompile Include="Src\ImmediateContext.cpp" />
     <ClCompile Include="Src\LazyDelegate.cpp" />
@@ -123,7 +125,9 @@
   <ItemGroup>
     <ClInclude Include="Inc\Application.h" />
     <ClInclude Include="Inc\B3DInit.h" />
+    <ClInclude Include="Inc\DeferredContext.h" />
     <ClInclude Include="Inc\DeviceResources.h" />
+    <ClInclude Include="Inc\FormatUtils.h" />
     <ClInclude Include="Inc\Framework.h" />
     <ClInclude Include="Inc\ResourceHeapAllocator.h" />
     <ClInclude Include="Inc\ImmediateContext.h" />
@@ -132,6 +136,7 @@
     <ClInclude Include="Inc\LoggerWindows.h" />
     <ClInclude Include="Inc\Platform.h" />
     <ClInclude Include="Inc\PlatformWindows.h" />
+    <ClInclude Include="Inc\ResourceHeapProperties.h" />
     <ClInclude Include="Inc\ShaderLoader.h" />
     <ClInclude Include="Inc\StagingBufferPool.h" />
     <ClInclude Include="Inc\StepTimer.h" />

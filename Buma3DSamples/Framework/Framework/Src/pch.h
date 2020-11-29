@@ -54,6 +54,7 @@
 
 #include "VariableSizeAllocationsManager.h"
 #include "ResourceHeapAllocator.h"
+#include "ResourceHeapProperties.h"
 
 #include "Framework.h"
 
@@ -76,7 +77,7 @@
 
 #include "ShaderLoader.h"
 
+#include "DeferredContext.h"
 #include "ImmediateContext.h"
-
 
 #endif //PCH_H

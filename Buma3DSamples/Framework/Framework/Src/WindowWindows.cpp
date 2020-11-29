@@ -143,6 +143,7 @@ bool WindowWindows::Init(PlatformBase& _platform, const buma3d::EXTENT2D& _size,
     delegate_on_buffer_resized = IDelegate::CreateDefaultDelegate();
 
     if (!CreateWnd(_size.width, _size.height))  return false;
+    if (!SetWindowTitle(_window_name))          return false;
     if (!CreateSurface())                       return false;
 
     return true;
