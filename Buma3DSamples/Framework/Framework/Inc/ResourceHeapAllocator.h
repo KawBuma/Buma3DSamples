@@ -1,9 +1,9 @@
 #pragma once
+//#include <unordered_set> 
 
 namespace buma
 {
 
-class ResourceHeapAllocationPage;
 struct RESOURCE_HEAP_ALLOCATION
 {
     operator bool() const { return parent_page; }
@@ -16,8 +16,6 @@ struct RESOURCE_HEAP_ALLOCATION
 };
 
 class ResourceHeapAllocator;
-class ResourceHeapsAllocator;
-
 class ResourceHeapAllocationPage
 {
 public:
@@ -47,6 +45,7 @@ private:
 
 };
 
+class ResourceHeapsAllocator;
 class ResourceHeapAllocator
 {
     friend class ResourceHeapAllocationPage;

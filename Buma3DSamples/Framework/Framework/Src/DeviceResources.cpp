@@ -73,6 +73,9 @@ DeviceResources::DeviceResources()
 DeviceResources::~DeviceResources()
 {
     WaitForGpu();
+    resource_heap_props      .reset();
+    resource_heaps_allocator .reset();
+    shader_laoder            .reset();
     UninitB3D();
 }
 

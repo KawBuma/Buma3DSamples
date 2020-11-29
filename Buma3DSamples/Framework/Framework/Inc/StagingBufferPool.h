@@ -27,7 +27,7 @@ public:
 
     void                    Reset                       ();
 
-    bool                    CheckFreeSpace              ();                                                                 // 空き容量が256byte以下の場合ページの割当を止めます
+    bool                    CheckFreeSpace              ();                                                   // 空き容量が256byte以下の場合ページの割当を止めます
     bool                    CheckIsAllocatable          (size_t _size_in_bytes, size_t _alignment);           // 引数を条件にサイズを確保できるか確認します
     bool                    CheckIsAllocatableAligned   (size_t _aligned_size_in_bytes, size_t _alignment);   // アライメントされたサイズを確保できるか確認します
 

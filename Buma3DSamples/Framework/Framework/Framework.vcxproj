@@ -142,10 +142,10 @@
     <ClInclude Include="Inc\StepTimer.h" />
     <ClInclude Include="Inc\SwapChain.h" />
     <ClInclude Include="Inc\Utils.h" />
+    <ClInclude Include="Inc\VariableSizeAllocationsManager.h" />
     <ClInclude Include="Inc\Window.h" />
     <ClInclude Include="Inc\WindowWindows.h" />
     <ClInclude Include="Src\pch.h" />
-    <ClInclude Include="Src\VariableSizeAllocationsManager.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

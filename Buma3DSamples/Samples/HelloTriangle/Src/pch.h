@@ -7,6 +7,8 @@
 #include <vector> 
 #include <map> 
 #include <unordered_map> 
+#include <set> 
+#include <unordered_set> 
 #include <list> 
 #include <stack> 
 #include <queue> 
@@ -21,6 +23,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <mutex>
 
 #include "Buma3D.h"
 #include "Util/Buma3DPtr.h"

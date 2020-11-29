@@ -66,9 +66,9 @@ inline std::string  ConvertWideToAnsi(const std::wstring& _wstr)                
 
 inline buma3d::UINT3 CalcMipExtents(uint32_t _mip_slice, const buma3d::EXTENT3D& _extent_mip0)
 {
-    return {  std::max(_extent_mip0.width  >> _mip_slice, 1ui32)
-            , std::max(_extent_mip0.height >> _mip_slice, 1ui32)
-            , std::max(_extent_mip0.depth  >> _mip_slice, 1ui32) };
+    return buma3d::UINT3{  (std::max)(_extent_mip0.width  >> _mip_slice, 1ui32)
+                         , (std::max)(_extent_mip0.height >> _mip_slice, 1ui32)
+                         , (std::max)(_extent_mip0.depth  >> _mip_slice, 1ui32) };
 }
 
 class Mapper

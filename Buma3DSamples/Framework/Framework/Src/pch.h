@@ -22,11 +22,9 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <mutex>
 
 #include <spdlog/spdlog.h>
-
-#include "Buma3D.h"
-#include "Util/Buma3DPtr.h"
 
 #define BUMA_ASSERT(x) assert(x)
 
@@ -36,25 +34,7 @@
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { BUMA_ASSERT(false && #x); return false; }
 #define BUMA_RET_IF_FAILED(x) if (!(x)) { BUMA_ASSERT(false && #x); return false; }
 
-#include "B3DInit.h"
-
 #define NOMINMAX
-//#include "DeviceResources.h"
-#include "StepTimer.h"
-
-#include "Utils.h"
-#include "DeviceResources.h"
-#include "SwapChain.h"
-
-#include "LazyDelegate.h"
-#include "Logger.h"
-#include "Application.h"
-#include "Platform.h"
-#include "Window.h"
-
-#include "VariableSizeAllocationsManager.h"
-#include "ResourceHeapAllocator.h"
-#include "ResourceHeapProperties.h"
 
 #include "Framework.h"
 
@@ -74,10 +54,5 @@
 #include "LoggerWindows.h"
 #include "WindowWindows.h"
 #include "PlatformWindows.h"
-
-#include "ShaderLoader.h"
-
-#include "DeferredContext.h"
-#include "ImmediateContext.h"
 
 #endif //PCH_H

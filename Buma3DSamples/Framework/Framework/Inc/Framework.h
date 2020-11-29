@@ -1,5 +1,27 @@
 #pragma once
+#include <new>
+#include <memory> 
+#include <array> 
 #include <vector>
+#include <set>
+#include <unordered_set>
+#include <mutex>
+#include <utility>
+#include <algorithm>
+
+#include <map> 
+#include <set> 
+#include <unordered_map> 
+#include <unordered_set> 
+
+#include <iomanip> 
+#include <cstdio>
+#include <cstdlib>
+#include <functional>
+#include <sstream>
+#include <iostream>
+#include <fstream>
+
 
 #include "LazyDelegate.h"
 #include "StepTimer.h"
@@ -12,9 +34,9 @@
 #include "FormatUtils.h"
 #include "Utils.h"
 
+#include "ResourceHeapProperties.h"
 #include "VariableSizeAllocationsManager.h"
 #include "ResourceHeapAllocator.h"
-#include "ResourceHeapProperties.h"
 
 #include "DeviceResources.h"
 #include "SwapChain.h"
@@ -25,6 +47,7 @@
 #include "ShaderLoader.h"
 
 #include "StagingBufferPool.h"
+#include "DeferredContext.h"
 #include "ImmediateContext.h"
 
 namespace buma
