@@ -1,38 +1,21 @@
 #include "pch.h"
-#include "HelloTriangle.h"
+#include "HelloConstantBuffer.h"
 
 #include <cassert>
 
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
 #define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
 
-std::vector<float> g_fpss;
+std::vector<float>* g_fpss = nullptr;
 bool g_first = true;
+constexpr bool USE_HOST_WRITABLE_HEAP = true;
 
 namespace init = buma3d::hlp::init;
 
 namespace buma
 {
 
-const buma3d::RESOURCE_HEAP_PROPERTIES* FindMappableHeap(const std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>& _heap_props)
-{
-    for (auto& i : _heap_props) {
-        if (i.flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE &&
-            i.flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_COHERENT &&
-            !(i.flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_ACCESS_GENERIC_MEMORY_READ_FIXED))
-            return &i;
-    }
-    return nullptr;
-}
-
-const buma3d::RESOURCE_HEAP_PROPERTIES* FindDeviceLocalHeap(const std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>& _heap_props)
-{
-    for (auto& i : _heap_props) {
-        if (i.flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_DEVICE_LOCAL)
-            return &i;
-    }
-    return nullptr;
-}
+Camera g_cam{};
 
 namespace b = buma3d;
 
@@ -40,35 +23,39 @@ template<typename T>
 using Ptr = buma3d::util::Ptr<T>;
 
 
-class HelloTriangle::ResizeEvent : public IEvent
+class HelloConstantBuffer::ResizeEvent : public IEvent
 {
 public:
-    ResizeEvent(HelloTriangle& _owner) : owner{ _owner } {}
+    ResizeEvent(HelloConstantBuffer& _owner) : owner{ _owner } {}
     virtual ~ResizeEvent() {}
     void Execute(IEventArgs* _args) override { owner.OnResize(static_cast<ResizeEventArgs*>(_args)); }
-    static std::shared_ptr<ResizeEvent> Create(HelloTriangle& _owner) { return std::make_shared<ResizeEvent>(_owner); }
+    static std::shared_ptr<ResizeEvent> Create(HelloConstantBuffer& _owner) { return std::make_shared<ResizeEvent>(_owner); }
 private:
-    HelloTriangle& owner;
+    HelloConstantBuffer& owner;
 };
 
-class HelloTriangle::BufferResizedEvent : public IEvent
+class HelloConstantBuffer::BufferResizedEvent : public IEvent
 {
 public:
-    BufferResizedEvent(HelloTriangle& _owner) : owner{ _owner } {}
+    BufferResizedEvent(HelloConstantBuffer& _owner) : owner{ _owner } {}
     virtual ~BufferResizedEvent() {}
     void Execute(IEventArgs* _args) override { owner.OnResized(static_cast<BufferResizedEventArgs*>(_args)); }
-    static std::shared_ptr<BufferResizedEvent> Create(HelloTriangle& _owner) { return std::make_shared<BufferResizedEvent>(_owner); }
+    static std::shared_ptr<BufferResizedEvent> Create(HelloConstantBuffer& _owner) { return std::make_shared<BufferResizedEvent>(_owner); }
 private:
-    HelloTriangle& owner;
+    HelloConstantBuffer& owner;
 };
 
 
-HelloTriangle::HelloTriangle()
+HelloConstantBuffer::HelloConstantBuffer()
     : ApplicationBase       ()
     , platform              {}
     , spwindow              {}
     , window                {}
     , device                {}
+    , triangle              {}
+    , index                 {}
+    , cb_model              {}
+    , cb_scene              {}
     , command_queue         {}
     , timer                 {}
     , swapchain             {}
@@ -86,8 +73,9 @@ HelloTriangle::HelloTriangle()
     , fence_values          {}
     , cmd_fences            {}
     , render_complete_fence {}
-    , heap_props            {}
     , signature             {}
+    , descriptor_pool       {}
+    , descriptor_sets       {}
     , render_pass           {}
     , resource_heap         {}
     , vertex_buffer         {}
@@ -96,6 +84,8 @@ HelloTriangle::HelloTriangle()
     , index_buffer_src      {}
     , vertex_buffer_view    {}
     , index_buffer_view     {}
+    , cb_heap               {}
+    , frame_cbs             {}
     , signal_fence_desc     {}
     , wait_fence_desc       {}
     , submit_info           {}
@@ -105,20 +95,29 @@ HelloTriangle::HelloTriangle()
     , on_resize             {}
     , on_resized            {}
 {    
-     
+    //g_cam.type = Camera::CameraType::firstperson;
+    g_cam.type = Camera::CameraType::lookat;
+	g_cam.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
+	g_cam.setRotation(glm::vec3(0.0f));
+	g_cam.setRotationSpeed(0.5f);
+    g_cam.setPerspective(60.0f, (float)1280 / (float)720, 1.0f, 256.0f);
+
+    g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;    
 }
 
-HelloTriangle::~HelloTriangle()
+HelloConstantBuffer::~HelloConstantBuffer()
 {
+    delete g_fpss;
+    g_fpss = nullptr;
     //Term();
 }
 
-HelloTriangle* HelloTriangle::Create()
+HelloConstantBuffer* HelloConstantBuffer::Create()
 {
-    return new HelloTriangle();
+    return new HelloConstantBuffer();
 }
 
-bool HelloTriangle::Prepare(PlatformBase& _platform)
+bool HelloConstantBuffer::Prepare(PlatformBase& _platform)
 {
     platform = &_platform;
     dr       = platform->GetDeviceResources();
@@ -126,7 +125,7 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
 
     spwindow = platform->GetWindow();
     window   = spwindow.get();
-    window->SetWindowTitle("Buma3DSamples - HelloTriangle");
+    window->SetWindowTitle("Buma3DSamples - HelloConstantBuffer");
 
     if (!PrepareSwapChain()) return false;
     PrepareSubmitInfo();
@@ -136,7 +135,7 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     return true;
 }
 
-void HelloTriangle::PrepareSubmitInfo()
+void HelloConstantBuffer::PrepareSubmitInfo()
 {
     // キューへの送信情報
     submit_info.num_command_lists_to_execute = 1;
@@ -145,7 +144,7 @@ void HelloTriangle::PrepareSubmitInfo()
     submit.submit_infos                      = &submit_info;
 }
 
-void HelloTriangle::CreateEvents()
+void HelloConstantBuffer::CreateEvents()
 {
     // イベントを登録
     on_resize = ResizeEvent::Create(*this);
@@ -154,7 +153,7 @@ void HelloTriangle::CreateEvents()
     window->AddBufferResizedEvent(on_resized);
 }
 
-bool HelloTriangle::PrepareSwapChain()
+bool HelloConstantBuffer::PrepareSwapChain()
 {
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
                                                  init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
@@ -174,29 +173,33 @@ bool HelloTriangle::PrepareSwapChain()
     return true;
 }
 
-bool HelloTriangle::Init()
+bool HelloConstantBuffer::Init()
 {
     auto&& resolution = swapchain->GetSwapChain()->GetDesc().buffer;
     vpiewport       = {   0, 0  ,  (float)resolution.width, (float)resolution.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
     scissor_rect    = { { 0, 0 },        {resolution.width,        resolution.height} };
     command_queue   = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
 
+    ctx.Init(dr, command_queue);
+
     if (!LoadAssets()) return false;
 
     return command_queue;
 }
 
-bool HelloTriangle::LoadAssets()
+bool HelloConstantBuffer::LoadAssets()
 {
     auto aspect_ratio = window->GetAspectRatio();
     triangle = {
-          { {  0.0f ,  0.25f * aspect_ratio, 0.0f, 1.f }, { 1.f, 0.f, 0.f, 1.f} }
-        , { {  0.25f, -0.25f * aspect_ratio, 0.0f, 1.f }, { 0.f, 1.f, 0.f, 1.f} }
-        , { { -0.25f, -0.25f * aspect_ratio, 0.0f, 1.f }, { 0.f, 0.f, 1.f, 1.f} }
+          { {  0.0f , 1.0f, 0.0f, 1.f }, { 1.f, 0.f, 0.f, 1.f} }
+        , { {  1.0f, -1.0f, 0.0f, 1.f }, { 0.f, 1.f, 0.f, 1.f} }
+        , { { -1.0f, -1.0f, 0.0f, 1.f }, { 0.f, 0.f, 1.f, 1.f} }
     };
     index = { 0,1,2 };
 
     if (!CreateRootSignature())     return false;
+    if (!CreateDescriptorPool())    return false;
+    if (!AllocateDescriptorSets())  return false;
     if (!CreateRenderPass())        return false;
     if (!CreateFramebuffer())       return false;
     if (!CreateShaderModules())     return false;
@@ -207,12 +210,15 @@ bool HelloTriangle::LoadAssets()
 
     b::RESOURCE_HEAP_ALLOCATION_INFO         heap_alloc_info{};
     std::vector<b::RESOURCE_ALLOCATION_INFO> alloc_infos;
-    if (!CreateBuffers())           return false;
+    if (!CreateBuffers())                                   return false;
     if (!CreateHeaps(&heap_alloc_info, &alloc_infos))       return false;
     if (!BindResourceHeaps(&heap_alloc_info, &alloc_infos)) return false;
     if (!CreateBuffersForCopy())                            return false;
     if (!CopyBuffers())                                     return false;
     if (!CreateBufferViews())                               return false;
+    if (!CreateConstantBuffer())                            return false;
+    if (!CreateConstantBufferView())                        return false;
+    if (!WriteDescriptorSet())                              return false;
 
     // 描画コマンドを記録
     for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
@@ -221,26 +227,96 @@ bool HelloTriangle::LoadAssets()
     return true;
 }
 
-bool HelloTriangle::CreateRootSignature()
+bool HelloConstantBuffer::CreateRootSignature()
 {
     // ルートシグネチャの作成
     b::ROOT_SIGNATURE_DESC rsdesc{};
-    //b::ROOT_PARAMETER parameters[1]{};
+
+    // ディスクリプタテーブル: 頂点シェーダーに対して register(b0, space0),register(b0, space1) を割り当てます。
+    b::ROOT_PARAMETER parameters[2]{};
+    parameters[0].shader_visibility = b::SHADER_VISIBILITY_VERTEX;
+    parameters[0].type              = b::ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    parameters[1] = parameters[0];
+
+    b::DESCRIPTOR_RANGE ranges[2]{};
+    {
+        ranges[0].type                 = b::DESCRIPTOR_TYPE_CBV;
+        ranges[0].flags                = b::DESCRIPTOR_FLAG_NONE;
+        ranges[0].num_descriptors      = 1;
+
+        ranges[1] = ranges[0];
+
+        // モデル定数
+        ranges[0].base_shader_register = 0;
+        ranges[0].register_space       = 0;
+        parameters[0].descriptor_table.num_descriptor_ranges = 1;
+        parameters[0].descriptor_table.descriptor_ranges     = &ranges[0];
+
+        // シーン定数
+        ranges[1].base_shader_register = 0;
+        ranges[1].register_space       = 1;
+        parameters[1].descriptor_table.num_descriptor_ranges = 1;
+        parameters[1].descriptor_table.descriptor_ranges     = &ranges[1];
+    }
 
     rsdesc.flags                          = b::ROOT_SIGNATURE_FLAG_NONE;
     rsdesc.raytracing_shader_visibilities = b::RAY_TRACING_SHADER_VISIBILITY_FLAG_NONE;
-    rsdesc.num_parameters                 = 0;
-    rsdesc.parameters                     = nullptr;
+    rsdesc.num_parameters                 = _countof(parameters);
+    rsdesc.parameters                     = parameters;
     rsdesc.num_static_samplers            = 0;
     rsdesc.static_samplers                = nullptr;
     rsdesc.num_register_shifts            = 0;
     rsdesc.register_shifts                = nullptr;
 
     auto bmr = device->CreateRootSignature(rsdesc, &signature);
-    assert(bmr == b::BMRESULT_SUCCEED);
-    return bmr == b::BMRESULT_SUCCEED;
+    BMR_RET_IF_FAILED(bmr);
+
+    return true;
 }
-bool HelloTriangle::CreateRenderPass()
+bool HelloConstantBuffer::CreateDescriptorPool()
+{
+    uint32_t max_num_register_space{};
+    std::vector<b::DESCRIPTOR_POOL_SIZE> pool_sizes;
+
+    if constexpr (false)
+    {
+        pool_sizes.resize(signature->GetDescriptorPoolRequirementSizes(BACK_BUFFER_COUNT, &max_num_register_space, nullptr));
+        signature->GetDescriptorPoolRequirementSizes(BACK_BUFFER_COUNT, &max_num_register_space, pool_sizes.data());
+    }
+    else
+    {
+        pool_sizes.resize(device->GetDescriptorPoolSizesAllocationInfo(1, signature.GetAddressOf(), &BACK_BUFFER_COUNT, &max_num_register_space, nullptr));
+        device->GetDescriptorPoolSizesAllocationInfo(1, signature.GetAddressOf(), &BACK_BUFFER_COUNT, &max_num_register_space, pool_sizes.data());
+    }
+
+    assert(pool_sizes[0].type == b::DESCRIPTOR_TYPE_CBV);
+    assert(pool_sizes[0].num_descriptors == 6);
+
+    b::DESCRIPTOR_POOL_DESC pool_desc{};
+    pool_desc.flags                     = b::DESCRIPTOR_POOL_FLAG_NONE;
+    pool_desc.max_sets_allocation_count = BACK_BUFFER_COUNT;
+    pool_desc.max_num_register_space    = max_num_register_space;
+
+    pool_desc.num_pool_sizes = (uint32_t)pool_sizes.size();
+    pool_desc.pool_sizes     = pool_sizes.data();
+    pool_desc.node_mask      = b::B3D_DEFAULT_NODE_MASK;
+
+    auto bmr = device->CreateDescriptorPool(pool_desc, &descriptor_pool);
+    BMR_RET_IF_FAILED(bmr);
+
+    return true;
+}
+bool HelloConstantBuffer::AllocateDescriptorSets()
+{
+    descriptor_sets.resize(BACK_BUFFER_COUNT);
+    for (auto& i : descriptor_sets)
+    {
+        auto bmr = descriptor_pool->AllocateDescriptorSet(signature.Get(), &i);
+        BMR_RET_IF_FAILED(bmr);
+    }
+    return true;
+}
+bool HelloConstantBuffer::CreateRenderPass()
 {
     b::RENDER_PASS_DESC render_pass_desc{};
 
@@ -301,7 +377,7 @@ bool HelloTriangle::CreateRenderPass()
     assert(bmr == b::BMRESULT_SUCCEED);
     return bmr == b::BMRESULT_SUCCEED;
 }
-bool HelloTriangle::CreateFramebuffer()
+bool HelloConstantBuffer::CreateFramebuffer()
 {
     framebuffers.resize(BACK_BUFFER_COUNT);
     b::FRAMEBUFFER_DESC fb_desc{};
@@ -318,12 +394,12 @@ bool HelloTriangle::CreateFramebuffer()
     }
     return true;
 }
-bool HelloTriangle::CreateShaderModules()
+bool HelloConstantBuffer::CreateShaderModules()
 {
     b::BMRESULT bmr{};
     shader_modules.resize(2);
     shader::LOAD_SHADER_DESC desc{};
-    desc.options.packMatricesInRowMajor     = true;        // Experimental: Decide how a matrix get packed
+    desc.options.packMatricesInRowMajor     = false;       // Experimental: Decide how a matrix get packed
     desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
     desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
     desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
@@ -340,7 +416,7 @@ bool HelloTriangle::CreateShaderModules()
     // vs
     {
         desc.entry_point    = "main";
-        desc.filename       = "./VertexShader.hlsl";
+        desc.filename       = "./Samples/HelloConstantBuffer/Shader/VertexShader.hlsl";
         desc.defines        = {};
         desc.stage          = { shader::SHADER_STAGE_VERTEX };
         std::vector<uint8_t> bytecode;
@@ -358,7 +434,7 @@ bool HelloTriangle::CreateShaderModules()
     // ps
     {
         desc.entry_point    = "main";
-        desc.filename       = "./PixelShader.hlsl";
+        desc.filename       = "./Samples/HelloConstantBuffer/Shader/PixelShader.hlsl";
         desc.defines        = {};
         desc.stage          = { shader::SHADER_STAGE_PIXEL };
         std::vector<uint8_t> bytecode;
@@ -375,7 +451,7 @@ bool HelloTriangle::CreateShaderModules()
 
     return true;
 }
-bool HelloTriangle::CreateGraphicsPipelines()
+bool HelloConstantBuffer::CreateGraphicsPipelines()
 {
     b::BMRESULT bmr{};
     // グラフィックスパイプラインの作成
@@ -438,7 +514,8 @@ bool HelloTriangle::CreateGraphicsPipelines()
         b::RASTERIZATION_STATE_DESC rs{};
         {
             rs.fill_mode                        = b::FILL_MODE_SOLID;
-            rs.cull_mode                        = b::CULL_MODE_BACK;
+            rs.cull_mode                        = b::CULL_MODE_NONE;
+            //rs.cull_mode                        = b::CULL_MODE_BACK;
             rs.is_front_counter_clockwise       = false;
             rs.is_enabled_depth_clip            = false;
             rs.is_enabled_depth_bias            = false;
@@ -542,7 +619,7 @@ bool HelloTriangle::CreateGraphicsPipelines()
 
     return true;
 }
-bool HelloTriangle::CreateCommandAllocator()
+bool HelloConstantBuffer::CreateCommandAllocator()
 {
     cmd_allocator.resize(BACK_BUFFER_COUNT);
     for (auto& i : cmd_allocator)
@@ -550,7 +627,7 @@ bool HelloTriangle::CreateCommandAllocator()
         b::COMMAND_ALLOCATOR_DESC cad{};
         cad.type    = b::COMMAND_TYPE_DIRECT;
         cad.level   = b::COMMAND_LIST_LEVEL_PRIMARY;
-        cad.flags   = b::COMMAND_ALLOCATOR_FLAG_NONE | b::COMMAND_ALLOCATOR_FLAG_TRANSIENT;
+        cad.flags   = b::COMMAND_ALLOCATOR_FLAG_NONE /*| b::COMMAND_ALLOCATOR_FLAG_TRANSIENT*/;
 
         auto bmr = device->CreateCommandAllocator(cad, &i);
         BMR_RET_IF_FAILED(bmr);
@@ -558,7 +635,7 @@ bool HelloTriangle::CreateCommandAllocator()
 
     return true;
 }
-bool HelloTriangle::CreateCommandLists()
+bool HelloConstantBuffer::CreateCommandLists()
 {
     cmd_lists.resize(BACK_BUFFER_COUNT);
     b::COMMAND_LIST_DESC cld{};
@@ -576,7 +653,7 @@ bool HelloTriangle::CreateCommandLists()
 
     return true;
 }
-bool HelloTriangle::CreateFences()
+bool HelloConstantBuffer::CreateFences()
 {
     cmd_fences.resize(BACK_BUFFER_COUNT);
     b::FENCE_DESC fd{};
@@ -604,7 +681,7 @@ bool HelloTriangle::CreateFences()
 
     return true;
 }
-bool HelloTriangle::CreateBuffers()
+bool HelloConstantBuffer::CreateBuffers()
 {
     b::BMRESULT bmr{};
     // 頂点バッファリソースの器を作成
@@ -625,7 +702,7 @@ bool HelloTriangle::CreateBuffers()
 
     return true;
 }
-bool HelloTriangle::CreateHeaps(b::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_info, std::vector<b::RESOURCE_ALLOCATION_INFO>* _alloc_infos)
+bool HelloConstantBuffer::CreateHeaps(b::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_info, std::vector<b::RESOURCE_ALLOCATION_INFO>* _alloc_infos)
 {
     // バッファのサイズ要件を取得。
     {
@@ -635,15 +712,9 @@ bool HelloTriangle::CreateHeaps(b::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_in
         BMR_RET_IF_FAILED(bmr);
     }
 
-    // ヒーププロパティを取得
-    {
-        heap_props.resize(device->GetResourceHeapProperties(nullptr));
-        device->GetResourceHeapProperties(heap_props.data());
-    }
-
     // 頂点、インデックスバッファ用リソースヒープを作成
     {
-        auto heap_prop = FindDeviceLocalHeap(heap_props);
+        auto&& heap_prop = dr->GetResourceHeapProperties()->GetDeviceLocalHeaps().Get()[0];
         RET_IF_FAILED(heap_prop);
         RET_IF_FAILED(_heap_alloc_info->heap_type_bits & (1 << heap_prop->heap_index));
 
@@ -662,7 +733,7 @@ bool HelloTriangle::CreateHeaps(b::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_in
 
     return true;
 }
-bool HelloTriangle::BindResourceHeaps(b::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_info, std::vector<b::RESOURCE_ALLOCATION_INFO>* _alloc_infos)
+bool HelloConstantBuffer::BindResourceHeaps(b::RESOURCE_HEAP_ALLOCATION_INFO* _heap_alloc_info, std::vector<b::RESOURCE_ALLOCATION_INFO>* _alloc_infos)
 {
     b::BMRESULT bmr{};
     // 頂点、インデックスバッファをバインド
@@ -685,16 +756,21 @@ bool HelloTriangle::BindResourceHeaps(b::RESOURCE_HEAP_ALLOCATION_INFO* _heap_al
 
     return true;
 }
-bool HelloTriangle::CreateBuffersForCopy()
+bool HelloConstantBuffer::CreateBuffersForCopy()
 {
     // コピー用頂点、インデックスバッファを作成
-    auto heap_prop = FindMappableHeap(heap_props);
-    RET_IF_FAILED(heap_prop);
+    auto heap_props = dr->GetResourceHeapProperties()->GetHostWritableHeaps().Filter();
+    RET_IF_FAILED(!heap_props.Get().empty());
 
-    b::COMMITTED_RESOURCE_DESC comitted_desc = init::CommittedResourceDesc(heap_prop->heap_index, b::RESOURCE_HEAP_FLAG_NONE, {});
+    b::COMMITTED_RESOURCE_DESC comitted_desc = init::CommittedResourceDesc(0, b::RESOURCE_HEAP_FLAG_NONE, {});
     comitted_desc.resource_desc.dimension       = b::RESOURCE_DIMENSION_BUFFER;
     comitted_desc.resource_desc.flags           = b::RESOURCE_FLAG_NONE;
     comitted_desc.resource_desc.buffer.flags    = b::BUFFER_CREATE_FLAG_NONE;
+    comitted_desc.resource_desc.buffer.size_in_bytes = sizeof(VERTEX) * triangle.size();
+
+    auto heap_prop = heap_props.Find(device.Get(), comitted_desc.resource_desc);
+    assert(heap_prop);
+    comitted_desc.heap_index = heap_prop->heap_index;
 
     // コピー用頂点バッファリソースを作成
     {
@@ -734,7 +810,7 @@ bool HelloTriangle::CreateBuffersForCopy()
 
     return true;
 }
-bool HelloTriangle::CopyBuffers()
+bool HelloConstantBuffer::CopyBuffers()
 {
     // 頂点、インデックスバッファデータをデバイスローカルバッファへコピー
     b::BMRESULT bmr{};
@@ -859,7 +935,7 @@ bool HelloTriangle::CopyBuffers()
 
     return true;
 }
-bool HelloTriangle::CreateBufferViews()
+bool HelloConstantBuffer::CreateBufferViews()
 {
     b::BMRESULT bmr{};
     // 頂点バッファビューを作成
@@ -891,10 +967,173 @@ bool HelloTriangle::CreateBufferViews()
 
     return true;
 }
-
-void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
+bool HelloConstantBuffer::CreateConstantBuffer()
 {
-    auto reset_flags = b::COMMAND_ALLOCATOR_RESET_FLAG_RELEASE_RESOURCES;
+    // 定数バッファを作成します。
+    // コマンドリストがGPUで実行中に参照しているリソースが外部(CPU等)から変更されると表示結果に悪影響を与える可能性があります。 
+    // 各フレーム用コマンドリストに同じバッファを使用してしまうと、すべてのコマンドリストで定数バッファの値が書き替わってしまうため、上記の問題が発生します。
+    // したがって、定数バッファはバックバッファ毎に必要です。
+
+    auto cbv_alignment  = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
+    auto cb_desc        = init::BufferResourceDesc(0, init::BUF_CBV_FLAGS);
+    cb_desc.buffer.size_in_bytes += util::AlignUp(sizeof(CB_SCENE), cbv_alignment);
+    cb_desc.buffer.size_in_bytes += util::AlignUp(sizeof(CB_MODEL), cbv_alignment);
+
+    // 定数バッファを作成
+    std::vector<buma3d::IResource*> buffers;
+    buffers.reserve(BACK_BUFFER_COUNT);
+    for (auto& i : frame_cbs)
+    {
+        device->CreatePlacedResource(cb_desc, &i.constant_buffer);
+        buffers.push_back(i.constant_buffer.Get());
+    }
+
+    // 割当可能なヒープの情報とリソースのサイズを取得
+    std::vector<buma3d::RESOURCE_ALLOCATION_INFO>   res_alloc_infos(BACK_BUFFER_COUNT);
+    buma3d::RESOURCE_HEAP_ALLOCATION_INFO           heap_info{};
+    auto bmr = device->GetResourceAllocationInfo((uint32_t)buffers.size(), buffers.data(), res_alloc_infos.data(), &heap_info);
+    BMR_RET_IF_FAILED(bmr);
+    assert(heap_info.heap_type_bits != 0);
+
+    const b::RESOURCE_HEAP_PROPERTIES* heap_prop = {};
+    if constexpr (USE_HOST_WRITABLE_HEAP)
+        heap_prop = dr->GetResourceHeapProperties()->GetHostWritableHeaps().Filter().Find(frame_cbs[0].constant_buffer.Get());
+    else
+        heap_prop = dr->GetResourceHeapProperties()->GetDeviceLocalHeaps().Get()[0];
+
+    assert(heap_info.heap_type_bits & (1 << heap_prop->heap_index));
+    cb_heap = dr->GetResourceHeapsAllocator()->Allocate(  heap_info.total_size_in_bytes
+                                                        , heap_info.required_alignment
+                                                        , heap_prop->heap_index);
+    assert(cb_heap.heap);
+
+    cb_model.model = glm::mat4(1.f);
+    cb_model.model *= glm::translate(cb_model.model, glm::vec3());
+    cb_model.model *= glm::scale    (cb_model.model, glm::vec3(1, 1, 1));
+    cb_model.model *= glm::rotate   (cb_model.model, 0.f, glm::vec3(0, 1, 0));
+
+    cb_scene.view_proj = g_cam.matrices.perspective * g_cam.matrices.view;
+
+    //定数バッファにメモリをバインド
+    uint32_t cnt = 0;
+    b::BIND_RESOURCE_HEAP_INFO bind_info{};
+    bind_info.src_heap            = cb_heap.heap;
+    bind_info.num_bind_node_masks = 0;
+    bind_info.bind_node_masks     = nullptr;
+    for (auto& i : frame_cbs)
+    {
+        bind_info.src_heap_offset   = cb_heap.aligned_offset + res_alloc_infos[cnt++].heap_offset;
+        bind_info.dst_resource      = i.constant_buffer.Get();
+        bmr = device->BindResourceHeaps(1, &bind_info);
+        BMR_RET_IF_FAILED(bmr);
+    }
+
+    // 定数データを送信
+    if constexpr (USE_HOST_WRITABLE_HEAP)
+    {
+        buma3d::MAPPED_RANGE    range{};
+        void*                   data{};
+        bmr = cb_heap.heap->GetMappedData(&range, &data);
+        BMR_RET_IF_FAILED(bmr);
+
+        cnt = 0;
+        for (auto& i : frame_cbs)
+        {
+            i.mapped_data[0] = (uint8_t*)(data)+(cb_heap.aligned_offset + res_alloc_infos[cnt++].heap_offset);
+            i.mapped_data[1] = (uint8_t*)(i.mapped_data[0]) + util::AlignUp(sizeof(CB_MODEL), cbv_alignment);
+            memcpy(i.mapped_data[0], &cb_scene, sizeof(CB_SCENE));
+            memcpy(i.mapped_data[1], &cb_model, sizeof(CB_MODEL));
+        }
+    }
+    else
+    {
+        ImmediateContext ictx(ctx);
+        {
+            util::PipelineBarrierDesc barrier{};
+            for (auto& i : frame_cbs)
+            {
+                ictx.CopyDataToBuffer(i.constant_buffer.Get(), 0
+                                     , sizeof(cb_model), &cb_model);
+
+                ictx.CopyDataToBuffer(i.constant_buffer.Get(), util::AlignUp(sizeof(CB_MODEL), cbv_alignment)
+                                     , sizeof(cb_scene), &cb_scene);
+
+                //barrier.AddBufferBarrier(init::BufferBarrierDesc(i.constant_buffer.Get(), b::RESOURCE_STATE_UNDEFINED, b::RESOURCE_STATE_CONSTANT_READ));
+            }
+            //ctx.PipelineBarrier(barrier.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE));
+        }
+    }
+
+    return true;
+}
+bool HelloConstantBuffer::CreateConstantBufferView()
+{
+    for (auto& i : frame_cbs)
+    {
+        auto cbv_alignment = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
+        b::CONSTANT_BUFFER_VIEW_DESC cbv_desc{};
+        cbv_desc.buffer_offset = 0;
+        cbv_desc.size_in_bytes = util::AlignUp(sizeof(CB_MODEL), cbv_alignment);
+        auto bmr = device->CreateConstantBufferView(i.constant_buffer.Get(), cbv_desc, &i.model_cbv);
+        BMR_RET_IF_FAILED(bmr);
+
+        cbv_desc.buffer_offset = util::AlignUp(sizeof(CB_MODEL), dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment);
+        cbv_desc.size_in_bytes = util::AlignUp(sizeof(CB_SCENE), cbv_alignment);
+        bmr = device->CreateConstantBufferView(i.constant_buffer.Get(), cbv_desc, &i.scene_cbv);
+        BMR_RET_IF_FAILED(bmr);
+    }
+
+    return true;
+}
+bool HelloConstantBuffer::WriteDescriptorSet()
+{
+    b::WRITE_DESCRIPTOR_SET   write_sets[BACK_BUFFER_COUNT]{};
+    b::WRITE_DESCRIPTOR_RANGE write_ranges[BACK_BUFFER_COUNT * 2]{};
+    b::WRITE_DESCRIPTOR_TABLE write_tables[BACK_BUFFER_COUNT * 2]{};
+    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
+    {
+        auto offset = i * 2;
+        {
+            write_ranges[offset + 0].dst_range_index            = 0;
+            write_ranges[offset + 0].dst_first_array_element    = 0;
+            write_ranges[offset + 0].num_descriptors            = 1;
+            write_ranges[offset + 0].src_views                  = (b::IView**)frame_cbs[i].model_cbv.GetAddressOf();
+
+            write_ranges[offset + 1]                            = write_ranges[offset + 0];
+            write_ranges[offset + 1].src_views                  = (b::IView**)frame_cbs[i].scene_cbv.GetAddressOf();
+        }
+
+        {
+            write_tables[offset + 0].dst_root_parameter_index   = 0;
+            write_tables[offset + 0].num_ranges                 = 1;
+            write_tables[offset + 0].ranges                     = &write_ranges[offset + 0];
+
+            write_tables[offset + 1].dst_root_parameter_index   = 1;
+            write_tables[offset + 1].num_ranges                 = 1;
+            write_tables[offset + 1].ranges                     = &write_ranges[offset + 1];
+        }
+
+        write_sets[i].dst_set                  = descriptor_sets[i].Get();
+        write_sets[i].num_descriptor_tables    = 2;
+        write_sets[i].descriptor_tables        = write_tables + offset;
+        write_sets[i].num_dynamic_descriptors  = 0;
+        write_sets[i].dynamic_descriptors      = nullptr;
+    }
+
+    b::UPDATE_DESCRIPTOR_SET_DESC update_desc{};
+    update_desc.num_write_descriptor_sets   = _countof(write_sets);
+    update_desc.write_descriptor_sets       = write_sets;
+    update_desc.num_copy_descriptor_sets    = 0;
+    update_desc.copy_descriptor_sets        = nullptr;
+    auto bmr = device->UpdateDescriptorSets(update_desc);
+    BMR_RET_IF_FAILED(bmr);
+
+    return true;
+}
+
+void HelloConstantBuffer::PrepareFrame(uint32_t _buffer_index)
+{
+    auto reset_flags = b::COMMAND_ALLOCATOR_RESET_FLAG_NONE;
     cmd_allocator[_buffer_index]->Reset(reset_flags);
 
     auto&& l = cmd_lists[_buffer_index];
@@ -925,6 +1164,12 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
         l->SetPipelineState(pipeline.Get());
         l->SetRootSignature(b::PIPELINE_BIND_POINT_GRAPHICS, signature.Get());
 
+        b::CMD_BIND_DESCRIPTOR_SET bind_sets{};
+        bind_sets.descriptor_set                 = descriptor_sets[_buffer_index].Get();
+        bind_sets.num_dynamic_descriptor_offsets = 0;
+        bind_sets.dynamic_descriptor_offsets     = nullptr;
+        l->BindDescriptorSet(b::PIPELINE_BIND_POINT_GRAPHICS, bind_sets);
+
         static float sc = 0.f;
         static float sx = 0.f;
         sc = sc + 0.34f * timer.GetElapsedSecondsF();
@@ -949,13 +1194,13 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
     assert(bmr == b::BMRESULT_SUCCEED);
 }
 
-void HelloTriangle::Tick()
+void HelloConstantBuffer::Tick()
 {
     timer.Tick();
     if (timer.IsOneSecElapsed())
     {
         if (!g_first)
-            g_fpss.emplace_back(timer.GetFramesPerSecond());
+            g_fpss->emplace_back(timer.GetFramesPerSecond());
         g_first = false;
 
         platform->GetLogger()->LogInfo(("fps: " + std::to_string(timer.GetFramesPerSecond())).c_str());
@@ -965,15 +1210,64 @@ void HelloTriangle::Tick()
     Render();
 }
 
-void HelloTriangle::Update()
+void HelloConstantBuffer::Update()
 {
     if (window->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
         return;
+
     // 次のバックバッファを取得
     MoveToNextFrame();
+
+    {
+        auto&& key = input::GetKey();
+        g_cam.keys.up       = key.W.press_count;
+        g_cam.keys.down     = key.S.press_count;
+        g_cam.keys.left     = key.A.press_count;
+        g_cam.keys.right    = key.D.press_count;
+
+        auto&& mouse = input::GetMouse();
+        auto dx = (float)mouse.x.delta;
+        auto dy = (float)mouse.y.delta;
+        if (mouse.buttons.left.press_count)
+            g_cam.rotate(glm::vec3(dy * g_cam.rotationSpeed, dx * g_cam.rotationSpeed, 0.0f));
+
+        if (mouse.buttons.right.press_count)
+            g_cam.translate(glm::vec3(-0.0f, 0.0f, dy * .005f));
+
+        if (mouse.buttons.middle.press_count)
+            g_cam.translate(glm::vec3(dx * 0.005f, -dy * 0.005f, 0.0f));
+
+        auto wheel_delta = static_cast<float>(mouse.rot.delta) * 0.005f;
+        if (wheel_delta != 0.f)
+            g_cam.translate(glm::vec3(0.0f, 0.0f, wheel_delta));
+
+        auto dirty = g_cam.dirty;
+        g_cam.update(timer.GetElapsedSecondsF());
+        //if (g_cam.updated || dirty)
+        {
+            cb_scene.view_proj = g_cam.matrices.perspective * g_cam.matrices.view;
+            if constexpr (USE_HOST_WRITABLE_HEAP)
+            {
+                memcpy(frame_cbs[back_buffer_index].mapped_data[0], &cb_scene, sizeof(CB_SCENE));
+            }
+            else
+            {
+                ctx.Begin();
+                auto cbv_alignment = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
+
+                ctx.CopyDataToBuffer(frame_cbs[back_buffer_index].constant_buffer.Get(), util::AlignUp(sizeof(CB_MODEL), cbv_alignment)
+                                     , util::AlignUp(sizeof(CB_SCENE), cbv_alignment)
+                                     , &cb_scene);
+                ctx.End(ctx.GetGpuWaitFence());
+                ctx.WaitOnCpu();
+                ctx.MakeVisible();
+            }
+        }
+    }
+
 }
 
-void HelloTriangle::MoveToNextFrame()
+void HelloConstantBuffer::MoveToNextFrame()
 {
     uint32_t next_buffer_index = 0;
     auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index);
@@ -982,7 +1276,7 @@ void HelloTriangle::MoveToNextFrame()
     back_buffer_index = next_buffer_index;
 }
 
-void HelloTriangle::Render()
+void HelloConstantBuffer::Render()
 {
     if (window->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
         return;
@@ -1028,21 +1322,28 @@ void HelloTriangle::Render()
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
-    //platform->GetLogger()->LogInfo("framed");
     fence_values[back_buffer_index]++;
 }
 
-void HelloTriangle::OnResize(ResizeEventArgs* _args)
+void HelloConstantBuffer::OnResize(ResizeEventArgs* _args)
 {
     command_queue->WaitIdle();
     framebuffers = {};
     back_buffers = {};
 }
 
-void HelloTriangle::OnResized(BufferResizedEventArgs* _args)
+void HelloConstantBuffer::OnResized(BufferResizedEventArgs* _args)
 {
     back_buffers     = &swapchain->GetBuffers();
     swapchain_fences = &swapchain->GetPresentCompleteFences();
+
+    auto args = static_cast<ResizeEventArgs*>(_args);
+
+    vpiewport       = {   0, 0  ,  (float)args->size.width, (float)args->size.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
+    scissor_rect    = { { 0, 0 },        {args->size.width,        args->size.height} };
+
+    if ((args->size.width > 0.0f) && (args->size.height > 0.0f))
+        g_cam.updateAspectRatio((float)args->size.width / (float)args->size.height);
 
     CreateFramebuffer();
     for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
@@ -1052,35 +1353,41 @@ void HelloTriangle::OnResized(BufferResizedEventArgs* _args)
     Render();
 }
 
-void HelloTriangle::Term()
+void HelloConstantBuffer::Term()
 {
     dr->WaitForGpu();
 
     // result
     {
         float res = 0.f;
-        float size = static_cast<float>(g_fpss.size());
-        for (auto& i : g_fpss)
+        float size = static_cast<float>(g_fpss->size());
+        for (auto& i : *g_fpss)
             res += i;
         std::stringstream ss;
         ss << "\nprof result: average fps";
         ss << (res / size) << std::endl;
 
-        //ss << 100.f * ((res / size) / 5000.f);
-        //ss << "% vs. 5000fps" << std::endl;
-
-        //ss << 100.f * ((res / size) / 6000.f);
-        //ss << "% vs. 6000fps" << std::endl;
-
-        //ss << 100.f * ((res / size) / 7000.f);
-        //ss << "% vs. 7000fps" << std::endl << std::endl;
-
         platform->GetLogger()->LogInfo(ss.str().c_str());
     }
 
     // オブジェクトの解放
+    for (auto& i : cmd_allocator)
+        i->Reset(b::COMMAND_ALLOCATOR_RESET_FLAG_RELEASE_RESOURCES);
     cmd_lists = {};
     cmd_allocator = {};
+    descriptor_sets = {};
+    descriptor_pool.Reset();
+    ctx.Reset();
+    for (auto& i : frame_cbs)
+    {
+        i.model_cbv.Reset();
+        i.scene_cbv.Reset();
+        i.constant_buffer.Reset();
+    }
+    if (cb_heap)
+        dr->GetResourceHeapsAllocator()->Free(cb_heap);
+    cb_model = {};
+    cb_scene = {};
     vertex_buffer_view.Reset();
     index_buffer_view.Reset();
     vertex_buffer.Reset();
@@ -1096,12 +1403,6 @@ void HelloTriangle::Term()
     command_queue.Reset();
     swapchain_fences = {};
     cmd_fences = {};
-
-    device.Reset();
-    window = {};
-    spwindow = {};
-    timer = {};
-    platform = {};
 }
 
 

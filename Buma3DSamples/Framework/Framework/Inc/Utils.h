@@ -313,13 +313,13 @@ public:
 
     void AddBufferBarrier(const buma3d::BUFFER_BARRIER_DESC& _buffer_barrier)
     {
-        Resize(barrier.num_buffer_barriers, barrier.buffer_barriers, &buffer_barreirs);
+        Resize(barrier.num_buffer_barriers + 1, barrier.buffer_barriers, &buffer_barreirs);
         buffer_barreirs.data()[barrier.num_buffer_barriers++] = _buffer_barrier;
     }
 
     void AddTextureBarrier(const buma3d::TEXTURE_BARRIER_DESC& _texture_barrier)
     {
-        Resize(barrier.num_texture_barriers, barrier.texture_barriers, &texture_barreirs);
+        Resize(barrier.num_texture_barriers + 1, barrier.texture_barriers, &texture_barreirs);
         texture_barreirs.data()[barrier.num_texture_barriers++] = _texture_barrier;
     }
 
@@ -546,7 +546,7 @@ inline bool IsSucceeded(buma3d::BMRESULT _bmr)
 
 inline bool IsFailed(buma3d::BMRESULT _bmr)
 {
-    return _bmr <= buma3d::BMRESULT_FAILED;
+    return _bmr >= buma3d::BMRESULT_FAILED;
 }
 
 }// namespace util

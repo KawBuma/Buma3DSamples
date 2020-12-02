@@ -10,6 +10,7 @@ ResourceHeapAllocationPage::ResourceHeapAllocationPage(ResourceHeapAllocator& _o
     : owner                 { _owner }
     , allocation_manager    {}
     , heap                  {}
+    , is_enabled_map        {}
 {
     buma3d::RESOURCE_HEAP_DESC heap_desc{};
     heap_desc.heap_index            = _desc.heap_index;
@@ -20,20 +21,35 @@ ResourceHeapAllocationPage::ResourceHeapAllocationPage(ResourceHeapAllocator& _o
     heap_desc.visible_node_mask     = buma3d::B3D_DEFAULT_NODE_MASK;
     auto bmr = owner.owner.device->CreateResourceHeap(heap_desc, &heap);
     BMR_ASSERT_IF_FAILED(bmr);
+    std::stringstream ss;
+    ss << "ResourceHeapAllocationPage::heap : ";
+    ss << "heap index: " << _desc.heap_index;
+    ss << ", page size: " << _desc.page_size;
+    ss << ", alignment: " << _desc.alignment;
+    heap->SetName(ss.str().c_str());
 
     allocation_manager = std::make_unique<VariableSizeAllocationsManager>(_desc.page_size, _desc.min_alignment);
+
+    if (_desc.is_enabled_map)
+    {
+        is_enabled_map = true;
+        bmr = heap->Map();
+        BMR_ASSERT_IF_FAILED(bmr);
+    }
 }
 
 ResourceHeapAllocationPage::~ResourceHeapAllocationPage()
 {
     allocation_manager.reset();
+    if (heap && is_enabled_map)
+        heap->Unmap();
 }
 
 bool ResourceHeapAllocationPage::Allocate(size_t _size, size_t _alignment, RESOURCE_HEAP_ALLOCATION* _dst_allocation)
 {
-    *_dst_allocation = { this, allocation_manager->Allocate(_size, _alignment) };
+    *_dst_allocation = { this, heap.Get(), allocation_manager->Allocate(_size, _alignment) };
     _dst_allocation->parent_page = this;
-    if (_dst_allocation->allocation)
+    if (!_dst_allocation->allocation)
         return false;
 
     _dst_allocation->parent_page    = this;
@@ -147,7 +163,11 @@ ResourceHeapsAllocator::ResourceHeapsAllocator(buma3d::IDeviceAdapter* _adapter,
     : device        { _device }
     , allocations   {}
     , limits        {}
+    , heap_props    {}
 {
+    heap_props.resize(_device->GetResourceHeapProperties(nullptr));
+    _device->GetResourceHeapProperties(heap_props.data());
+
     _adapter->GetDeviceAdapterLimits(&limits);
 }
 
@@ -171,9 +191,10 @@ RESOURCE_HEAP_ALLOCATION ResourceHeapsAllocator::Allocate(size_t _size, size_t _
     {
         ResourceHeapAllocationPage::RESOURCE_HEAP_PAGE_DESC desc{};
         desc.heap_index     = _heap_index;
-        desc.page_size      = pool_size;
+        desc.page_size      = GetPageSizeFromPoolIndex(pool_index);
         desc.alignment      = limits.max_resource_heap_alignment;
         desc.min_alignment  = limits.min_resource_heap_alignment;
+        desc.is_enabled_map = heap_props[_heap_index].flags & (buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE | buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE);
         heap_allocator = std::make_unique<ResourceHeapAllocator>(*this, desc);
     }
 

@@ -6,8 +6,9 @@ namespace buma
 
 struct RESOURCE_HEAP_ALLOCATION
 {
-    operator bool() const { return parent_page; }
+    operator bool() const { return allocation; }
     void*                                       parent_page; // ResourceHeapAllocationPage*
+    buma3d::IResourceHeap*                      heap;
     VariableSizeAllocationsManager::ALLOCATION  allocation;
     size_t                                      alignment;
     size_t                                      aligned_offset;
@@ -25,6 +26,7 @@ public:
         size_t      alignment;
         size_t      min_alignment;
         uint32_t    heap_index;
+        bool        is_enabled_map;
     };
 
 public:
@@ -42,6 +44,7 @@ private:
     ResourceHeapAllocator&                          owner;
     std::unique_ptr<VariableSizeAllocationsManager> allocation_manager;
     buma3d::util::Ptr<buma3d::IResourceHeap>        heap;
+    bool                                            is_enabled_map;
 
 };
 
@@ -99,9 +102,10 @@ private:
 private:
     using HeapAllocationsByType = std::array<std::unique_ptr<ResourceHeapAllocator>, /*heap type bitsで表現可能な種類の最大数*/32>;
     using HeapAllocationsBySize = std::array<HeapAllocationsByType, ALLOCATOR_POOL_COUNT>;
-    buma3d::util::Ptr<buma3d::IDevice>  device;
-    HeapAllocationsBySize               allocations;
-    buma3d::DEVICE_ADAPTER_LIMITS       limits;
+    buma3d::util::Ptr<buma3d::IDevice>              device;
+    HeapAllocationsBySize                           allocations;
+    buma3d::DEVICE_ADAPTER_LIMITS                   limits;
+    std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>   heap_props;
 
 };
 

@@ -11,6 +11,7 @@ public:
 
     bool Init(std::shared_ptr<DeviceResources> _dr, buma3d::util::Ptr<buma3d::ICommandQueue> _que);
 
+    void Reset();
     void Begin();
 
     void PipelineBarrier(const buma3d::CMD_PIPELINE_BARRIER& _barrier);
@@ -27,12 +28,19 @@ public:
     void CopyBufferToTexture(const buma3d::CMD_COPY_BUFFER_TO_TEXTURE& _args);
     void CopyTextureToBuffer(const buma3d::CMD_COPY_TEXTURE_TO_BUFFER& _args);
 
-    // この関数が呼び出され処理が帰ったタイミングで、結果が反映されます。
-    void End();
+    // GPU待機用フェンスを返します。
+    const buma3d::util::Ptr<buma3d::IFence>& End(const buma3d::util::Ptr<buma3d::IFence>& _wait_fence_to_gpu = nullptr);
+    const buma3d::util::Ptr<buma3d::IFence>& GetGpuWaitFence() { return fence_to_gpu; }
+
+    buma3d::BMRESULT Signal(const buma3d::util::Ptr<buma3d::IFence>& _fence_to_gpu);
+    buma3d::BMRESULT Wait  (const buma3d::util::Ptr<buma3d::IFence>& _fence_to_gpu);
+    buma3d::BMRESULT WaitOnCpu();
+    void MakeVisible();
 
 private:
     std::shared_ptr<DeviceResources>                dr;
     buma3d::util::Ptr<buma3d::IFence>               fence_to_cpu;
+    buma3d::util::Ptr<buma3d::IFence>               fence_to_gpu;
     buma3d::util::Ptr<buma3d::ICommandQueue>        queue;
     buma3d::util::Ptr<buma3d::ICommandAllocator>    allocator;
     buma3d::util::Ptr<buma3d::ICommandList>         list;
@@ -43,6 +51,8 @@ private:
     buma3d::SUBMIT_INFO                             submit_info;
     buma3d::SUBMIT_DESC                             submit;
 
+    uint64_t dummy;
+    bool resetted;
 };
 
 

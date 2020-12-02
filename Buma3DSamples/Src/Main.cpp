@@ -15,7 +15,7 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
     {
         auto platform = buma::CreatePlatform();
         {
-            auto app = std::shared_ptr<buma::HelloTriangle>(buma::HelloTriangle::Create());
+            auto app = std::shared_ptr<buma::HelloConstantBuffer>(buma::HelloConstantBuffer::Create());
             platform->AttachApplication(app);
         }
 

@@ -14,8 +14,8 @@ public:
     using SizeT     = size_t;
     struct ALLOCATION
     {
-        operator bool()       { return size; }
-        operator bool() const { return size; }
+        operator bool()       { return size != 0; }
+        operator bool() const { return size != 0; }
         OffsetT offset;
         SizeT   size;
     };
@@ -39,7 +39,7 @@ public:
     SizeT   GetMaxBlockSize()  const { return max_block_size; }
 
 private:
-    void UpdateBlockInfo(OffsetT _offset, SizeT _size);
+    void UpdateBlockInfo(OffsetT _offset, SizeT _size, const ALLOCATION& _allocation);
     bool CheckAllocatable(SizeT _aligned_size) const;
     void AddNewBlock(OffsetT _offset, SizeT _size);
     void ResetCapableAlignment();

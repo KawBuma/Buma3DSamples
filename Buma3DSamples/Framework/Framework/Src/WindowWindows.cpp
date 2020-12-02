@@ -49,6 +49,8 @@ WindowWindows::WindowWindows(PlatformWindows&   _platform,
 
 WindowWindows::~WindowWindows()
 {
+    swapchain.reset();
+    surface.Reset();
     if (hwnd)
         DestroyWindow(hwnd);
     hwnd = NULL;
@@ -227,7 +229,8 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
 
     //myimgui->WndProcHandler(_hwnd, _message, _wparam, _lparam);
 
-#ifdef _DEBUG
+//#if defined _DEBUG
+#if 0
 #define KEY_NAME(x) { x, #x }
     static std::unordered_map<UINT/*message*/, const char*> MESSAGE_NAMES_MAP = {
           KEY_NAME(WM_NULL)

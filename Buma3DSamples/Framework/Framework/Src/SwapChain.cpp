@@ -19,11 +19,14 @@ SwapChain::SwapChain(std::shared_ptr<DeviceResources> _device_resources, buma3d:
 
 SwapChain::~SwapChain()
 {
-    swapchain->GetDevice()->WaitIdle();
     if (swapchain)
-        return;
+        swapchain->GetDevice()->WaitIdle();
 
     back_buffers = {};
+    swapchain.Reset();
+    surface.Reset();
+    present_complete_fences.signal_fence.Reset();
+    present_complete_fences.signal_fence_to_cpu.Reset();
 }
 
 buma3d::BMRESULT SwapChain::AcquireNextBuffer(uint32_t _timeout_millisec, uint32_t* _dst_back_buffer_index)
@@ -106,7 +109,7 @@ bool SwapChain::GetBackBuffers()
 
 bool SwapChain::CreateViews()
 {
-    auto device = device_resources->GetDevice();
+    auto&& device = device_resources->GetDevice();
     for (auto& i : back_buffers)
     {
         auto&& tdesc = i.tex->GetDesc();
@@ -140,6 +143,8 @@ bool SwapChain::CreatePresentCompleteFences()
     if (bmr >= buma3d::BMRESULT_FAILED)
         return false;
 
+    present_complete_fences.signal_fence       ->SetName("SwapChain::present_complete_fences.signal_fence");
+    present_complete_fences.signal_fence_to_cpu->SetName("SwapChain::present_complete_fences.signal_fence_to_cpu");
     acquire_info.timeout_millisec = 0;
     return true;
 }

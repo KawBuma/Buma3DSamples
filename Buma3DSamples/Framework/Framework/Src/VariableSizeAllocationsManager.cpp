@@ -127,7 +127,7 @@ VariableSizeAllocationsManager::Free(ALLOCATION& _allocation)
 
     if (free_blocks_by_offset.empty())
     {
-        UpdateBlockInfo(_allocation.offset, _allocation.size);
+        UpdateBlockInfo(_allocation.offset, _allocation.size, _allocation);
         return;
     }
 
@@ -135,11 +135,8 @@ VariableSizeAllocationsManager::Free(ALLOCATION& _allocation)
     OffsetT offset = _allocation.offset;
     SizeT   size   = _allocation.size;
 
-    if (it_next_block == free_blocks_by_offset.begin())
-    {
-        // begin()の場合it_prev_blockは存在しない
-    }
-    else
+    if (GetNumFreeBlocks() > 1 &&
+        it_next_block != free_blocks_by_offset.begin()) // begin()の場合it_prev_blockは存在しない
     {
         MapFreeBlocksByOffset::iterator it_prev_block = it_next_block;
         --it_prev_block;
@@ -155,23 +152,27 @@ VariableSizeAllocationsManager::Free(ALLOCATION& _allocation)
             free_blocks_by_offset.erase(it_prev_block);
         }
     }
-
-    auto&& next_block = *it_next_block;
-    if (_allocation.offset + _allocation.size == next_block.first)
+    else if (it_next_block != free_blocks_by_offset.end())
     {
-        // next_blockと隣接している
-        // ~~|_allocation.offset            |next_block.first
-        // ~~|<------_allocation.size------>|<-----next_block.second.size----->|
-        size += next_block.second.size;
-        free_blocks_by_size.erase(next_block.second.it_order_by_size);
-        free_blocks_by_offset.erase(it_next_block);
+        auto&& next_block = *it_next_block;
+        if (_allocation.offset + _allocation.size == next_block.first)
+        {
+            // next_blockと隣接している
+            // ~~|_allocation.offset            |next_block.first
+            // ~~|<------_allocation.size------>|<-----next_block.second.size----->|
+            size += next_block.second.size;
+            free_blocks_by_size.erase(next_block.second.it_order_by_size);
+            free_blocks_by_offset.erase(it_next_block);
+        }
+        else
+        {
+            // こんな場合は結合出来ない
+            // |prev_block.first                  |使用中  |_allocation.offset              |使用中  |next_block.first                  |
+            // |<-----prev_block.second.size----->|<xxxxxx>|<------_allocation.size-------->|<xxxxxx>|<-----next_block.second.size----->|
+        }
     }
 
-    // こんな場合は結合出来ない
-    // |prev_block.first                  |使用中  |_allocation.offset              |使用中  |next_block.first                  |
-    // |<-----prev_block.second.size----->|<xxxxxx>|<------_allocation.size-------->|<xxxxxx>|<-----next_block.second.size----->|
-
-    UpdateBlockInfo(offset, size);
+    UpdateBlockInfo(offset, size, _allocation);
 
     if (IsEmpty())
     {
@@ -183,11 +184,13 @@ VariableSizeAllocationsManager::Free(ALLOCATION& _allocation)
     _allocation.size   = 0;
 }
 
-void VariableSizeAllocationsManager::UpdateBlockInfo(OffsetT _offset, SizeT _size)
+void VariableSizeAllocationsManager::UpdateBlockInfo(OffsetT _new_block_offset, SizeT _new_block_size, const ALLOCATION& _allocation)
 {
-    free_size += _size;
-    max_block_size = std::max(max_block_size, _size);
-    AddNewBlock(_offset, _size);
+    free_size += _allocation.size;
+    assert(free_size <= page_size);
+
+    max_block_size = std::max(max_block_size, _new_block_size);
+    AddNewBlock(_new_block_offset, _new_block_size);
 }
 
 bool VariableSizeAllocationsManager::CheckAllocatable(SizeT _aligned_size) const

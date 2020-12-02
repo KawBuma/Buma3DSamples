@@ -30,8 +30,8 @@
 
 #define BMR_IS_FAILED(x) (x >= buma3d::BMRESULT_FAILED) 
 #define BMR_IS_SUCCEEDED(x) (x < buma3d::BMRESULT_FAILED)
-#define BMR_ASSERT_IF_FAILED(x) BUMA_ASSERT((x) && #x) 
-#define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { BUMA_ASSERT(false && #x); return false; }
+#define BMR_ASSERT_IF_FAILED(x) BUMA_ASSERT(BMR_IS_SUCCEEDED(x) && #x) 
+#define BMR_RET_IF_FAILED(x) if (BMR_IS_FAILED(x)) { BUMA_ASSERT(false && #x); return false; }
 #define BUMA_RET_IF_FAILED(x) if (!(x)) { BUMA_ASSERT(false && #x); return false; }
 
 #define NOMINMAX

@@ -24,7 +24,7 @@ void MouseInput::Update(float _delta_time)
 	UpdatePosParams(mouse_data.x	, state.x);
 	UpdatePosParams(mouse_data.y	, state.y);
 	UpdatePosParams(mouse_data.rot	, state.scrollWheelValue);
-	mouse->ResetScrollWheelValue();
+	//mouse->ResetScrollWheelValue();
 }
 
 MouseInput::MouseInput() : mouse_data{}

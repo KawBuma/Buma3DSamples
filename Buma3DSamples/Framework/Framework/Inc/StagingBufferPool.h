@@ -39,6 +39,9 @@ public:
                                                            
     bool                    IsFull                      () const { return is_full; }
 
+    void Flush();
+    void Invalidate();
+
 private:
     BufferPageAllocator&                    owner;
     buma3d::util::Ptr<buma3d::IBuffer>      resource;
@@ -79,6 +82,9 @@ public:
 
     bool                        IsAllocated             () const { return main_buffer_page.operator bool(); }
 
+    void Flush();
+    void Invalidate();
+
 private:
     StagingBufferPool&                          owner;
     std::vector<std::shared_ptr<BufferPage>>    buffer_pages;
@@ -109,6 +115,18 @@ public:
 
     void ResetPages();
     buma3d::util::Ptr<buma3d::IDevice> GetDevice() { return device; }
+    void Flush();
+    void Invalidate();
+    void MakeVisible()
+    {
+        if (need_flush)
+            Flush();
+        else if (need_invalidate)
+            Invalidate();
+    }
+
+    bool NeedFlush     () const { return need_flush; }
+    bool NeedInvalidate() const { return need_invalidate; }
 
 private:
     size_t GetPoolIndexFromSize(size_t _x);
@@ -117,6 +135,8 @@ private:
 
 private:
     std::shared_ptr<DeviceResources>        dr;
+    bool                                    need_flush;
+    bool                                    need_invalidate;
     const buma3d::RESOURCE_HEAP_PROPERTIES* heap_prop;
     buma3d::BUFFER_USAGE_FLAGS              usage_flags;
     buma3d::util::Ptr<buma3d::IDevice>      device;

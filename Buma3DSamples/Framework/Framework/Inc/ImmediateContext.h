@@ -8,10 +8,8 @@ class DeferredContext;
 class ImmediateContext
 {
 public:
-    ImmediateContext();
+    ImmediateContext(DeferredContext& _ctx);
     ~ImmediateContext();
-
-    bool Init(std::shared_ptr<DeviceResources> _dr, buma3d::util::Ptr<buma3d::ICommandQueue> _que);
 
     void PipelineBarrier(const buma3d::CMD_PIPELINE_BARRIER& _barrier);
 
@@ -50,7 +48,7 @@ private:
 
 private:
     class CommandExecutionScope;
-    std::unique_ptr<DeferredContext> ctx;
+    DeferredContext& ctx;
 
 };
 

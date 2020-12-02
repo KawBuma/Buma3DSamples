@@ -129,6 +129,18 @@ BUFFER_ALLOCATION_PART BufferPage::AllocateUnsafe(size_t _size_in_bytes, size_t 
     return alloc_part;
 }
 
+void BufferPage::Flush()
+{
+    if (offset != 0)
+        resource->GetHeap()->FlushMappedRanges();
+}
+
+void BufferPage::Invalidate()
+{
+    if (offset != 0)
+        resource->GetHeap()->InvalidateMappedRanges();
+}
+
 #pragma endregion BufferPage
 
 #pragma region BufferPageAllocator
@@ -193,6 +205,18 @@ BUFFER_ALLOCATION_PART BufferPageAllocator::Allocate(size_t _size_in_bytes, size
     return buffer_part;
 }
 
+void BufferPageAllocator::Flush()
+{
+    for (auto& i : buffer_pages)
+        i->Flush();
+}
+
+void BufferPageAllocator::Invalidate()
+{
+    for (auto& i : buffer_pages)
+        i->Invalidate();
+}
+
 std::shared_ptr<BufferPage> BufferPageAllocator::FindAllocatablePage(size_t _aligned_size_in_bytes, size_t _alignment)
 {
     //size_t aligned_size = util::AlignUp(_size_in_bytes, _alignment);
@@ -231,21 +255,43 @@ void BufferPageAllocator::ChangeMainPage(size_t _aligned_size_in_bytes, size_t _
 #pragma region UploadBuffer
 
 StagingBufferPool::StagingBufferPool(std::shared_ptr<DeviceResources> _dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _heap_prop_flags, buma3d::BUFFER_USAGE_FLAGS _usage_flags)
-    : dr            { _dr }
-    , heap_prop     {}
-    , usage_flags   { _usage_flags }
-    , device        { _dr->GetDevice() }
-    , limits        { _dr->GetDeviceAdapterLimits() }
+    : dr                        { _dr }
+    , need_flush                {}
+    , need_invalidate           {}
+    , heap_prop                 {}
+    , usage_flags               { _usage_flags }
+    , device                    { _dr->GetDevice() }
+    , buffer_page_allocators    {}
+    , limits                    { _dr->GetDeviceAdapterLimits() }
 {
     // READ_BACKとUPLAODは同時に行いません。
     BUMA_ASSERT((_heap_prop_flags& (buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE | buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE))
                 != (buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE | buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE));
 
+    buma3d::util::Ptr<buma3d::IBuffer> res;
+    device->CreatePlacedResource(buma3d::hlp::init::BufferResourceDesc(512, usage_flags), &res);
+
     if (_heap_prop_flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE)
-        heap_prop = dr->GetResourceHeapProperties()->GetHostReadableHeaps().Filter(buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_COHERENT);
+    {
+        auto&& readable_heaps = dr->GetResourceHeapProperties()->GetHostReadableHeaps();
+        heap_prop = readable_heaps.Filter(buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_COHERENT).Find(res.Get());
+        if (!heap_prop)
+        {
+            heap_prop = readable_heaps.Find(res.Get());
+            need_flush = true;
+        }
+    }
 
     else if (_heap_prop_flags & buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE)
-        heap_prop = dr->GetResourceHeapProperties()->GetHostWritableHeaps().Filter(buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_COHERENT);
+    {
+        auto&& writable_heaps = dr->GetResourceHeapProperties()->GetHostWritableHeaps();
+        heap_prop = writable_heaps.Filter(buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_COHERENT).Find(res.Get());
+        if (!heap_prop)
+        {
+            heap_prop = writable_heaps.Find(res.Get());
+            need_invalidate = true;
+        }
+    }
 
     if (!heap_prop)
         throw std::runtime_error("StagingBufferPool: heap_prop not found.");
@@ -284,6 +330,18 @@ void StagingBufferPool::ResetPages()
 {
     for (auto&& i : buffer_page_allocators)
         i->Reset();
+}
+
+void StagingBufferPool::Flush()
+{
+    for (auto&& i : buffer_page_allocators)
+        i->Flush();
+}
+
+void StagingBufferPool::Invalidate()
+{
+    for (auto&& i : buffer_page_allocators)
+        i->Invalidate();
 }
 
 size_t StagingBufferPool::GetPoolIndexFromSize(size_t _x)
