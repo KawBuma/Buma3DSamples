@@ -1291,7 +1291,7 @@ void HelloConstantBuffer::Render()
     // コマンドリストとフェンスを送信
     {
         cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
-        PrepareFrame(back_buffer_index);
+        //PrepareFrame(back_buffer_index);
 
         // 待機フェンス
         wait_fence_desc.Reset();
