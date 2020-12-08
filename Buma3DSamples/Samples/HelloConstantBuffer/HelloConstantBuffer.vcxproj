@@ -60,7 +60,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -81,7 +81,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>

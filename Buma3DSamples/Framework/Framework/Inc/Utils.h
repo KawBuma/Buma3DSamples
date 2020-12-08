@@ -1,4 +1,5 @@
 #pragma once
+#include <cassert>
 #include <string>
 #include <sstream>
 #include <iomanip>
@@ -293,7 +294,6 @@ private:
 
 };
 
-
 class PipelineBarrierDesc
 {
 public:
@@ -311,12 +311,32 @@ public:
         barrier.dependency_flags     = buma3d::DEPENDENCY_FLAG_NONE;
     }
 
+    void AddBufferBarrier(  buma3d::IBuffer*                _buffer
+                          , buma3d::RESOURCE_STATE          _src_state
+                          , buma3d::RESOURCE_STATE          _dst_state
+                          , buma3d::RESOURCE_BARRIER_FLAG   _barrier_flags  = buma3d::RESOURCE_BARRIER_FLAG_NONE
+                          , buma3d::COMMAND_TYPE            _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
+                          , buma3d::COMMAND_TYPE            _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
+    {
+        Resize(barrier.num_buffer_barriers + 1, barrier.buffer_barriers, &buffer_barreirs);
+        buffer_barreirs.data()[barrier.num_buffer_barriers++] = { _buffer , _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags };
+    }
     void AddBufferBarrier(const buma3d::BUFFER_BARRIER_DESC& _buffer_barrier)
     {
         Resize(barrier.num_buffer_barriers + 1, barrier.buffer_barriers, &buffer_barreirs);
         buffer_barreirs.data()[barrier.num_buffer_barriers++] = _buffer_barrier;
     }
 
+    void AddTextureBarrier(const buma3d::TEXTURE_BARRIER_RANGE* _barrier_range
+                           , buma3d::RESOURCE_STATE             _src_state
+                           , buma3d::RESOURCE_STATE             _dst_state
+                           , buma3d::RESOURCE_BARRIER_FLAG      _barrier_flags  = buma3d::RESOURCE_BARRIER_FLAG_NONE
+                           , buma3d::COMMAND_TYPE               _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
+                           , buma3d::COMMAND_TYPE               _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
+    {
+        Resize(barrier.num_texture_barriers + 1, barrier.texture_barriers, &texture_barreirs);
+        texture_barreirs.data()[barrier.num_texture_barriers++] = { buma3d::TEXTURE_BARRIER_TYPE_BARRIER_RANGE , _barrier_range , _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags };
+    }
     void AddTextureBarrier(const buma3d::TEXTURE_BARRIER_DESC& _texture_barrier)
     {
         Resize(barrier.num_texture_barriers + 1, barrier.texture_barriers, &texture_barreirs);
@@ -345,6 +365,480 @@ private:
     buma3d::CMD_PIPELINE_BARRIER                    barrier;
     std::vector<buma3d::BUFFER_BARRIER_DESC>        buffer_barreirs;
     std::vector<buma3d::TEXTURE_BARRIER_DESC>       texture_barreirs;
+
+};
+
+class RootParameter
+{
+public:
+    RootParameter()
+        : parameter {}
+        , ranges    {}
+    {
+        Reset();
+    }
+    ~RootParameter()
+    {
+        Reset();
+    }
+
+    void Reset()
+    {
+        parameter = {};
+        parameter.shader_visibility = buma3d::SHADER_VISIBILITY_ALL_GRAPHICS_COMPUTE;
+        ranges.reset();
+    }
+
+    void SetShaderVisibility(buma3d::SHADER_VISIBILITY _visibility)
+    {
+        parameter.shader_visibility = _visibility;
+    }
+
+    void InitAsPush32BitConstants(  uint32_t _num32_bit_values
+                                  , uint32_t _shader_register
+                                  , uint32_t _register_space = 0)
+    {
+        parameter.type = buma3d::ROOT_PARAMETER_TYPE_PUSH_32BIT_CONSTANTS;
+        parameter.inline_constants.num32_bit_values = _num32_bit_values;
+        parameter.inline_constants.shader_register  = _shader_register;
+        parameter.inline_constants.register_space   = _register_space;
+    }
+
+    void InitAsDynamicDescriptor(  buma3d::DESCRIPTOR_TYPE   _type
+                                 , uint32_t                  _shader_register
+                                 , uint32_t                  _register_space     = 0 
+                                 , buma3d::DESCRIPTOR_FLAGS  _flags              = buma3d::DEPENDENCY_FLAG_NONE)
+    {
+        parameter.type = buma3d::ROOT_PARAMETER_TYPE_DYNAMIC_DESCRIPTOR;
+        parameter.dynamic_descriptor.type            = _type;
+        parameter.dynamic_descriptor.shader_register = _shader_register;
+        parameter.dynamic_descriptor.register_space  = _register_space;
+        parameter.dynamic_descriptor.flags           = _flags;
+    }
+
+    void InitAsDescriptorTable()
+    {
+        assert(!ranges);
+        parameter.type = buma3d::ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        ranges = std::make_shared<std::vector<buma3d::DESCRIPTOR_RANGE>>();
+    }
+
+    void AddRange(  buma3d::DESCRIPTOR_TYPE   _type
+                  , uint32_t                  _num_descriptors
+                  , uint32_t                  _base_shader_register
+                  , uint32_t                  _register_space       = 0
+                  , buma3d::DESCRIPTOR_FLAGS  _flags                = buma3d::DEPENDENCY_FLAG_NONE)
+    {
+        assert(ranges);
+        ranges->emplace_back(buma3d::DESCRIPTOR_RANGE{ _type, _num_descriptors, _base_shader_register, _register_space, _flags });
+        parameter.descriptor_table.num_descriptor_ranges = (uint32_t)ranges->size();
+        parameter.descriptor_table.descriptor_ranges     = ranges->data();
+    }
+
+    const buma3d::ROOT_PARAMETER& Get()
+    {
+        return parameter;
+    }
+
+private:
+    buma3d::ROOT_PARAMETER                                  parameter;
+    std::shared_ptr<std::vector<buma3d::DESCRIPTOR_RANGE>>  ranges;
+
+};
+
+class RootSignatureDesc
+{
+public:
+    RootSignatureDesc()
+        : desc              {}
+        , parameters        {}
+        , static_samplers   {}
+        , register_shifts   {}
+    {}
+    ~RootSignatureDesc()
+    {
+        desc            = {};
+        parameters      = {};
+        b3d_parameters  = {};
+        static_samplers = {};
+        register_shifts = {};
+    }
+
+    void Reset()
+    {
+        desc = {};
+        parameters.clear();
+        static_samplers.clear();
+    }
+
+    RootParameter& AddNewRootParameter() { return parameters.emplace_back(); }
+    void AddRootParameter(RootParameter&&       _parameter) { parameters.emplace_back(std::move(_parameter)); }
+    void AddRootParameter(const RootParameter&  _parameter) { parameters.emplace_back(_parameter); }
+
+    void AddStaticSampler(buma3d::STATIC_SAMPLER&&      _static_sampler) { static_samplers.emplace_back(std::move(_static_sampler)); }
+    void AddStaticSampler(const buma3d::STATIC_SAMPLER& _static_sampler) { static_samplers.emplace_back(_static_sampler); }
+    void AddStaticSampler(uint32_t _shader_register, uint32_t _register_space, buma3d::ISamplerView* _sampler, buma3d::SHADER_VISIBILITY _shader_visibility = buma3d::SHADER_VISIBILITY_ALL_GRAPHICS_COMPUTE)
+    { static_samplers.emplace_back(buma3d::STATIC_SAMPLER{ _shader_register, _register_space, _shader_visibility, _sampler }); }
+
+    void SetRegisterShift(buma3d::SHADER_REGISTER_SHIFT&&      _shift) { register_shifts.emplace_back(std::move(_shift)); }
+    void SetRegisterShift(const buma3d::SHADER_REGISTER_SHIFT& _shift) { register_shifts.emplace_back(_shift); }
+    void SetRegisterShift(buma3d::SHADER_REGISTER_TYPE _type, uint32_t _register_shift, uint32_t _register_space)
+    { register_shifts.emplace_back(buma3d::SHADER_REGISTER_SHIFT{ _type, _register_shift,_register_space }); }
+
+    const buma3d::ROOT_SIGNATURE_DESC& Get(buma3d::ROOT_SIGNATURE_FLAGS _flags, buma3d::RAY_TRACING_SHADER_VISIBILITY_FLAGS _raytracing_shader_visibilities = buma3d::RAY_TRACING_SHADER_VISIBILITY_FLAG_NONE)
+    {
+        b3d_parameters.resize(parameters.size());
+        size_t cnt = 0;
+        for (auto& i : parameters)
+            b3d_parameters.data()[cnt++] = i.Get();
+
+        desc.flags                          = _flags;
+        desc.raytracing_shader_visibilities = _raytracing_shader_visibilities;
+        desc.num_parameters                 = (uint32_t)b3d_parameters.size();
+        desc.parameters                     =           b3d_parameters.data();
+        desc.num_static_samplers            = (uint32_t)static_samplers.size();
+        desc.static_samplers                =           static_samplers.data();
+        desc.num_register_shifts            = (uint32_t)register_shifts.size();
+        desc.register_shifts                =           register_shifts.data();
+        return desc;
+    }
+
+private:
+    buma3d::ROOT_SIGNATURE_DESC                 desc;
+    std::vector<RootParameter>                  parameters;
+    std::vector<buma3d::ROOT_PARAMETER>         b3d_parameters;
+    std::vector<buma3d::STATIC_SAMPLER>         static_samplers;
+    std::vector<buma3d::SHADER_REGISTER_SHIFT>  register_shifts;
+
+};
+
+
+class WriteDescriptorRange
+{
+public:
+    WriteDescriptorRange()
+        : range     {}
+        , src_views {}
+    {
+        src_views = std::make_shared<std::vector<buma3d::IView*>>();
+    }
+
+    ~WriteDescriptorRange()
+    {
+    }
+
+    WriteDescriptorRange& SetDstRange(uint32_t _dst_range_index, uint32_t _dst_first_array_element, uint32_t _num_descriptors)
+    {
+        range.dst_range_index           = _dst_range_index;
+        range.dst_first_array_element   = _dst_first_array_element;
+        range.num_descriptors           = _num_descriptors;
+        src_views->resize(_num_descriptors);
+        return *this;
+    }
+
+    template<typename T>
+    WriteDescriptorRange& SetSrcView(uint32_t _index, T* _view)
+    {
+        return SetSrcView(_index, static_cast<buma3d::IView*>(_view));
+    }
+    template<>
+    WriteDescriptorRange& SetSrcView(uint32_t _index, buma3d::IView* _view)
+    {
+        src_views->at(_index) = _view;
+        return *this;
+    }
+    WriteDescriptorRange& SetSrcViews(uint32_t _offset, const std::initializer_list<buma3d::IView*>& _views)
+    {
+        size_t idx = _offset;
+        for (auto& i : _views)
+            src_views->at(idx) = i;
+
+        return *this;
+    }
+
+    const buma3d::WRITE_DESCRIPTOR_RANGE& Get()
+    {
+        range.num_descriptors   = (uint32_t)src_views->size();
+        range.src_views         =           src_views->data();
+        return range;
+    }
+
+private:
+    buma3d::WRITE_DESCRIPTOR_RANGE                  range;
+    std::shared_ptr<std::vector<buma3d::IView*>>    src_views;
+
+};
+
+class WriteDescriptorTable
+{
+public:
+    WriteDescriptorTable()
+        : tables        {}
+        , ranges        {}
+        , b3d_ranges    {}
+    {
+        ranges = std::make_shared<std::vector<WriteDescriptorRange>>();
+        b3d_ranges = std::make_shared<std::vector<buma3d::WRITE_DESCRIPTOR_RANGE>>();
+    }
+
+    ~WriteDescriptorTable()
+    {
+    }
+
+    WriteDescriptorRange& AddNewWriteDescriptorRange()
+    {
+        return ranges->emplace_back();
+    }
+
+    void Finalize(uint32_t _dst_root_parameter_index)
+    {
+        tables.dst_root_parameter_index = _dst_root_parameter_index;
+        b3d_ranges->resize(ranges->size());
+        size_t cnt = 0;
+        for (auto& i : *ranges)
+            b3d_ranges->data()[cnt++] = i.Get();
+    }
+    const buma3d::WRITE_DESCRIPTOR_TABLE& Get()
+    {
+        tables.num_ranges   = (uint32_t)b3d_ranges->size();
+        tables.ranges       =           b3d_ranges->data();
+        return tables;
+    }
+
+private:
+    buma3d::WRITE_DESCRIPTOR_TABLE                                  tables;
+    std::shared_ptr<std::vector<WriteDescriptorRange>>              ranges;
+    std::shared_ptr<std::vector<buma3d::WRITE_DESCRIPTOR_RANGE>>    b3d_ranges;
+
+};
+
+class WriteDescriptorSet
+{
+public:
+    WriteDescriptorSet()
+        : write_set             {}
+        , tables                {}
+        , b3d_tables            {}
+        , dynamic_descriptors   {}
+    {
+        tables              = std::make_shared<std::vector<WriteDescriptorTable>>();
+        b3d_tables          = std::make_shared<std::vector<buma3d::WRITE_DESCRIPTOR_TABLE>>();
+        dynamic_descriptors = std::make_shared<std::vector<buma3d::WRITE_DYNAMIC_DESCRIPTOR>>();
+    }
+
+    ~WriteDescriptorSet()
+    {
+    }
+
+    WriteDescriptorTable& AddNewWriteDescriptorTable()
+    {
+        return tables->emplace_back();
+    }
+    WriteDescriptorSet& AddWriteDynamicDescriptor(  uint32_t          _dst_root_parameter_index
+                                                  , buma3d::IView*    _src_view
+                                                  , uint64_t          _src_view_buffer_offset)
+    {
+        dynamic_descriptors->emplace_back(buma3d::WRITE_DYNAMIC_DESCRIPTOR{ _dst_root_parameter_index, _src_view, _src_view_buffer_offset });
+        return *this;
+    }
+
+    void Finalize(buma3d::IDescriptorSet* _dst_set)
+    {
+        write_set.dst_set = _dst_set;
+
+        b3d_tables->resize(tables->size());
+        size_t cnt = 0;
+        for (auto& i : *tables)
+            b3d_tables->data()[cnt++] = i.Get();
+    }
+    const buma3d::WRITE_DESCRIPTOR_SET& Get()
+    {
+        write_set.num_descriptor_tables   = (uint32_t)b3d_tables->size();
+        write_set.descriptor_tables       =           b3d_tables->data();
+        write_set.num_dynamic_descriptors = (uint32_t)dynamic_descriptors->size();
+        write_set.dynamic_descriptors     =           dynamic_descriptors->data();
+        return write_set;
+    }
+
+private:
+    buma3d::WRITE_DESCRIPTOR_SET                                    write_set;
+    std::shared_ptr<std::vector<WriteDescriptorTable>>              tables;
+    std::shared_ptr<std::vector<buma3d::WRITE_DESCRIPTOR_TABLE>>    b3d_tables;
+    std::shared_ptr<std::vector<buma3d::WRITE_DYNAMIC_DESCRIPTOR>>  dynamic_descriptors;
+
+};
+
+class CopyDescriptorTable
+{
+public:
+    CopyDescriptorTable()
+        : table             {}
+        , src_ranges        {}
+        , dst_ranges        {}
+        , num_descriptors   {}
+    {
+        src_ranges      = std::make_shared<std::vector<buma3d::COPY_DESCRIPTOR_RANGE>>();
+        dst_ranges      = std::make_shared<std::vector<buma3d::COPY_DESCRIPTOR_RANGE>>();
+        num_descriptors = std::make_shared<std::vector<uint32_t>                     >();
+    }
+
+    ~CopyDescriptorTable()
+    {
+    }
+
+    CopyDescriptorTable& SetRootParameterIndex(uint32_t _src_root_parameter_index, uint32_t _dst_root_parameter_index)
+    {
+        table.src_root_parameter_index = _src_root_parameter_index;
+        table.dst_root_parameter_index = _dst_root_parameter_index;
+        return *this;
+    }
+    CopyDescriptorTable& AddRange(  const buma3d::COPY_DESCRIPTOR_RANGE& _src_ranges
+                                  , const buma3d::COPY_DESCRIPTOR_RANGE& _dst_ranges
+                                  , uint32_t                             _num_descriptors)
+    {
+        src_ranges      ->emplace_back(_src_ranges);
+        dst_ranges      ->emplace_back(_dst_ranges);
+        num_descriptors ->emplace_back(_num_descriptors);
+        return *this;
+    }
+    CopyDescriptorTable& AddRange(  uint32_t _src_range_index, uint32_t _src_first_array_element
+                                  , uint32_t _dst_range_index, uint32_t _dst_first_array_element
+                                  , uint32_t _num_descriptors)
+    {
+        src_ranges      ->emplace_back(buma3d::COPY_DESCRIPTOR_RANGE{ _src_range_index, _src_first_array_element });
+        dst_ranges      ->emplace_back(buma3d::COPY_DESCRIPTOR_RANGE{ _dst_range_index, _dst_first_array_element });
+        num_descriptors ->emplace_back(_num_descriptors);
+        return *this;
+    }
+    const buma3d::COPY_DESCRIPTOR_TABLE& Get()
+    {
+        table.num_ranges        = (uint32_t)src_ranges->size();
+        table.src_ranges        = src_ranges->data();
+        table.dst_ranges        = dst_ranges->data();
+        table.num_descriptors   = num_descriptors->data();
+        return table;
+    }
+
+private:
+    buma3d::COPY_DESCRIPTOR_TABLE                                table;
+    std::shared_ptr<std::vector<buma3d::COPY_DESCRIPTOR_RANGE>>  src_ranges;
+    std::shared_ptr<std::vector<buma3d::COPY_DESCRIPTOR_RANGE>>  dst_ranges;
+    std::shared_ptr<std::vector<uint32_t>>                       num_descriptors;
+
+};
+
+class CopyDescriptorSet
+{
+public:
+    CopyDescriptorSet()
+        : copy_set              {}
+        , tables                {}
+        , b3d_tables            {}
+        , dynamic_descriptors   {}
+    {
+        tables                = std::make_shared<std::vector<CopyDescriptorTable>              >();
+        b3d_tables            = std::make_shared<std::vector<buma3d::COPY_DESCRIPTOR_TABLE>    >();
+        dynamic_descriptors   = std::make_shared<std::vector<buma3d::COPY_DYNAMIC_DESCRIPTOR>  >();
+    }
+
+    ~CopyDescriptorSet()
+    {
+    }
+
+    CopyDescriptorTable& AddNewCopyTable()
+    {
+        return tables->emplace_back();
+    }
+    CopyDescriptorSet& AddCopyDynamicDescriptor(uint32_t _src_root_parameter_index, uint32_t _dst_root_parameter_index)
+    {
+        dynamic_descriptors->emplace_back(buma3d::COPY_DYNAMIC_DESCRIPTOR{ _src_root_parameter_index, _dst_root_parameter_index });
+        return *this;
+    }
+    void Finalize(buma3d::IDescriptorSet* _src_set, buma3d::IDescriptorSet* _dst_set)
+    {
+        b3d_tables->resize(tables->size());
+        size_t cnt = 0;
+        for (auto& i : *tables)
+            b3d_tables->data()[cnt++] = i.Get();
+
+        copy_set.src_set = _src_set;
+        copy_set.dst_set = _dst_set;
+    }
+    const buma3d::COPY_DESCRIPTOR_SET& Get()
+    {
+        copy_set.num_descriptor_tables   = (uint32_t)b3d_tables->size();
+        copy_set.descriptor_tables       =           b3d_tables->data();
+        copy_set.num_dynamic_descriptors = (uint32_t)dynamic_descriptors->size();
+        copy_set.dynamic_descriptors     =           dynamic_descriptors->data();
+        return copy_set;
+    }
+
+private:
+    buma3d::COPY_DESCRIPTOR_SET                                     copy_set;
+    std::shared_ptr<std::vector<CopyDescriptorTable>>               tables;
+    std::shared_ptr<std::vector<buma3d::COPY_DESCRIPTOR_TABLE>>     b3d_tables;
+    std::shared_ptr<std::vector<buma3d::COPY_DYNAMIC_DESCRIPTOR>>   dynamic_descriptors;
+
+};
+
+class UpdateDescriptorSetDesc
+{
+public:
+    UpdateDescriptorSetDesc()
+        : update_desc               {}
+        , write_descriptor_sets     {}
+        , copy_descriptor_sets      {}
+        , b3d_write_descriptor_sets {}
+        , b3d_copy_descriptor_sets  {}
+    {
+        write_descriptor_sets     = std::make_shared<std::vector<WriteDescriptorSet>>();
+        copy_descriptor_sets      = std::make_shared<std::vector<CopyDescriptorSet>>();
+        b3d_write_descriptor_sets = std::make_shared<std::vector<buma3d::WRITE_DESCRIPTOR_SET>>();
+        b3d_copy_descriptor_sets  = std::make_shared<std::vector<buma3d::COPY_DESCRIPTOR_SET>>();
+    }
+
+    ~UpdateDescriptorSetDesc()
+    {
+    }
+
+    WriteDescriptorSet& AddNewWriteDescriptorSets()
+    {
+        return write_descriptor_sets->emplace_back();
+    }
+    CopyDescriptorSet& AddNewCopyDescriptorSets()
+    {
+        return copy_descriptor_sets->emplace_back();
+    }
+
+    void Finalize()
+    {
+        b3d_write_descriptor_sets->resize(write_descriptor_sets->size());
+        b3d_copy_descriptor_sets->resize(copy_descriptor_sets->size());
+
+        size_t cnt = 0;
+        for (auto& i : *write_descriptor_sets)
+            b3d_write_descriptor_sets->data()[cnt++] = i.Get();
+
+        cnt = 0;
+        for (auto& i : *copy_descriptor_sets)
+            b3d_copy_descriptor_sets->data()[cnt++] = i.Get();
+    }
+
+    const buma3d::UPDATE_DESCRIPTOR_SET_DESC& Get()
+    {
+        update_desc.num_write_descriptor_sets   = (uint32_t)b3d_write_descriptor_sets->size();
+        update_desc.write_descriptor_sets       =           b3d_write_descriptor_sets->data();
+        update_desc.num_copy_descriptor_sets    = (uint32_t)b3d_copy_descriptor_sets->size();
+        update_desc.copy_descriptor_sets        =           b3d_copy_descriptor_sets->data();
+        return update_desc;
+    }
+
+private:
+    buma3d::UPDATE_DESCRIPTOR_SET_DESC                          update_desc;
+    std::shared_ptr<std::vector<WriteDescriptorSet>>            write_descriptor_sets;
+    std::shared_ptr<std::vector<CopyDescriptorSet>>             copy_descriptor_sets;
+    std::shared_ptr<std::vector<buma3d::WRITE_DESCRIPTOR_SET>>  b3d_write_descriptor_sets;
+    std::shared_ptr<std::vector<buma3d::COPY_DESCRIPTOR_SET>>   b3d_copy_descriptor_sets;
 
 };
 

@@ -67,10 +67,6 @@ void ShaderLoader::LoadShaderFromHLSL(INTERNAL_API_TYPE _type, const LOAD_SHADER
         opt.optimizationLevel           = (int)_desc.options.optimizationLevel;
         opt.shaderModel.major_ver       = _desc.options.shaderModel.major_ver;
         opt.shaderModel.minor_ver       = _desc.options.shaderModel.minor_ver;
-        opt.shiftAllTexturesBindings    = (int)_desc.options.shiftAllTexturesBindings;
-        opt.shiftAllSamplersBindings    = (int)_desc.options.shiftAllSamplersBindings;
-        opt.shiftAllCBuffersBindings    = (int)_desc.options.shiftAllCBuffersBindings;
-        opt.shiftAllUABuffersBindings   = (int)_desc.options.shiftAllUABuffersBindings;
     }
 
 
@@ -85,6 +81,11 @@ void ShaderLoader::LoadShaderFromHLSL(INTERNAL_API_TYPE _type, const LOAD_SHADER
     case buma::INTERNAL_API_TYPE_VULKAN:
     {
         tgt.language = SC::ShadingLanguage::SpirV;
+        opt.shiftAllTexturesBindings    = (int)_desc.options.shiftAllTexturesBindings;
+        opt.shiftAllSamplersBindings    = (int)_desc.options.shiftAllSamplersBindings;
+        opt.shiftAllCBuffersBindings    = (int)_desc.options.shiftAllCBuffersBindings;
+        opt.shiftAllUABuffersBindings   = (int)_desc.options.shiftAllUABuffersBindings;
+
         switch (_desc.stage)
         {
         case buma::shader::SHADER_STAGE_VERTEX:
@@ -118,7 +119,8 @@ void ShaderLoader::LoadShaderFromHLSL(INTERNAL_API_TYPE _type, const LOAD_SHADER
     auto result = ShaderConductor::Compiler::Compile(src, opt, tgt);
     if (result.hasError)
     {
-        std::cout << (const char*)result.errorWarningMsg.Data() << std::endl;
+        auto msg = (const char*)result.errorWarningMsg.Data();
+        std::cout << msg << std::endl;
         return;
     }
 

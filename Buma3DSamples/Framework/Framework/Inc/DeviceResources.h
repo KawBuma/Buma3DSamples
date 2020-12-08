@@ -18,8 +18,15 @@ namespace shader
 class ShaderLoader;
 }
 
+namespace res
+{
+class ResourceCreate;
+}
+
 class ResourceHeapProperties;
 class ResourceHeapsAllocator;
+
+
 
 enum INTERNAL_API_TYPE
 {
@@ -50,6 +57,7 @@ public:
     const buma3d::util::Ptr<buma3d::IDevice>&                       GetDevice()                                     const { return device; }
     const std::vector<buma3d::util::Ptr<buma3d::ICommandQueue>>&    GetCommandQueues(buma3d::COMMAND_TYPE _type)    const { return cmd_queues[_type]; }
     ResourceHeapsAllocator*                                         GetResourceHeapsAllocator()                     const { return resource_heaps_allocator.get(); }
+    res::ResourceCreate*                                            GetResourceCreate()                             const { return resource_create.get(); }
 
     const std::unique_ptr<shader::ShaderLoader>&                    GetShaderLoader()                                         { return shader_laoder; }
     const buma3d::DEVICE_ADAPTER_LIMITS&                            GetDeviceAdapterLimits()                            const { return limits; }
@@ -80,10 +88,12 @@ private:
     //std::shared_ptr<buma::MyImGui>                        my_imugi;
     std::unique_ptr<shader::ShaderLoader>                   shader_laoder;
     std::unique_ptr<ResourceHeapsAllocator>                 resource_heaps_allocator;
+    std::unique_ptr<res::ResourceCreate>                    resource_create;
 
     buma3d::DEVICE_ADAPTER_LIMITS                           limits;
     std::shared_ptr<ResourceHeapProperties>                 resource_heap_props;
     std::vector<buma3d::COMMAND_QUEUE_PROPERTIES>           queue_props;
+
 
 };
 

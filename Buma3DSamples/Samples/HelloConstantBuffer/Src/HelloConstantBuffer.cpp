@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "HelloConstantBuffer.h"
+#include "External/Camera.h"
 
 #include <cassert>
 
@@ -8,14 +9,15 @@
 
 std::vector<float>* g_fpss = nullptr;
 bool g_first = true;
-constexpr bool USE_HOST_WRITABLE_HEAP = true;
+constexpr bool USE_HOST_WRITABLE_HEAP = false;
+
+Camera g_cam{};
 
 namespace init = buma3d::hlp::init;
 
 namespace buma
 {
 
-Camera g_cam{};
 
 namespace b = buma3d;
 
@@ -29,7 +31,6 @@ public:
     ResizeEvent(HelloConstantBuffer& _owner) : owner{ _owner } {}
     virtual ~ResizeEvent() {}
     void Execute(IEventArgs* _args) override { owner.OnResize(static_cast<ResizeEventArgs*>(_args)); }
-    static std::shared_ptr<ResizeEvent> Create(HelloConstantBuffer& _owner) { return std::make_shared<ResizeEvent>(_owner); }
 private:
     HelloConstantBuffer& owner;
 };
@@ -40,7 +41,6 @@ public:
     BufferResizedEvent(HelloConstantBuffer& _owner) : owner{ _owner } {}
     virtual ~BufferResizedEvent() {}
     void Execute(IEventArgs* _args) override { owner.OnResized(static_cast<BufferResizedEventArgs*>(_args)); }
-    static std::shared_ptr<BufferResizedEvent> Create(HelloConstantBuffer& _owner) { return std::make_shared<BufferResizedEvent>(_owner); }
 private:
     HelloConstantBuffer& owner;
 };
@@ -102,7 +102,7 @@ HelloConstantBuffer::HelloConstantBuffer()
 	g_cam.setRotationSpeed(0.5f);
     g_cam.setPerspective(60.0f, (float)1280 / (float)720, 1.0f, 256.0f);
 
-    g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;    
+    g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
 }
 
 HelloConstantBuffer::~HelloConstantBuffer()
@@ -147,8 +147,8 @@ void HelloConstantBuffer::PrepareSubmitInfo()
 void HelloConstantBuffer::CreateEvents()
 {
     // イベントを登録
-    on_resize = ResizeEvent::Create(*this);
-    on_resized = BufferResizedEvent::Create(*this);
+    on_resize = IEvent::Create<ResizeEvent>(*this);
+    on_resized = IEvent::Create<BufferResizedEvent>(*this);
     window->AddResizeEvent(on_resize);
     window->AddBufferResizedEvent(on_resized);
 }
@@ -1041,8 +1041,8 @@ bool HelloConstantBuffer::CreateConstantBuffer()
         {
             i.mapped_data[0] = (uint8_t*)(data)+(cb_heap.aligned_offset + res_alloc_infos[cnt++].heap_offset);
             i.mapped_data[1] = (uint8_t*)(i.mapped_data[0]) + util::AlignUp(sizeof(CB_MODEL), cbv_alignment);
-            memcpy(i.mapped_data[0], &cb_scene, sizeof(CB_SCENE));
-            memcpy(i.mapped_data[1], &cb_model, sizeof(CB_MODEL));
+            memcpy(i.mapped_data[0], &cb_model, sizeof(CB_MODEL));
+            memcpy(i.mapped_data[1], &cb_scene, sizeof(CB_SCENE));
         }
     }
     else
@@ -1068,16 +1068,16 @@ bool HelloConstantBuffer::CreateConstantBuffer()
 }
 bool HelloConstantBuffer::CreateConstantBufferView()
 {
+    auto cbv_alignment = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
+    b::CONSTANT_BUFFER_VIEW_DESC cbv_desc{};
     for (auto& i : frame_cbs)
     {
-        auto cbv_alignment = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
-        b::CONSTANT_BUFFER_VIEW_DESC cbv_desc{};
         cbv_desc.buffer_offset = 0;
         cbv_desc.size_in_bytes = util::AlignUp(sizeof(CB_MODEL), cbv_alignment);
         auto bmr = device->CreateConstantBufferView(i.constant_buffer.Get(), cbv_desc, &i.model_cbv);
         BMR_RET_IF_FAILED(bmr);
 
-        cbv_desc.buffer_offset = util::AlignUp(sizeof(CB_MODEL), dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment);
+        cbv_desc.buffer_offset = util::AlignUp(sizeof(CB_MODEL), cbv_alignment);
         cbv_desc.size_in_bytes = util::AlignUp(sizeof(CB_SCENE), cbv_alignment);
         bmr = device->CreateConstantBufferView(i.constant_buffer.Get(), cbv_desc, &i.scene_cbv);
         BMR_RET_IF_FAILED(bmr);
@@ -1248,7 +1248,7 @@ void HelloConstantBuffer::Update()
             cb_scene.view_proj = g_cam.matrices.perspective * g_cam.matrices.view;
             if constexpr (USE_HOST_WRITABLE_HEAP)
             {
-                memcpy(frame_cbs[back_buffer_index].mapped_data[0], &cb_scene, sizeof(CB_SCENE));
+                memcpy(frame_cbs[back_buffer_index].mapped_data[1], &cb_scene, sizeof(CB_SCENE));
             }
             else
             {
@@ -1284,9 +1284,6 @@ void HelloConstantBuffer::Render()
     auto cmd_lists_data  = cmd_lists.data();
     auto cmd_fences_data = cmd_fences.data();
     b::BMRESULT bmr{};
-
-    //if (timer.IsOneSecElapsed())
-    //    SetWindowTextA(hwnd, std::string("FPS: " + std::to_string(timer.GetFramesPerSecond())).c_str());
 
     // コマンドリストとフェンスを送信
     {

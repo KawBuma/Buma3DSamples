@@ -57,7 +57,7 @@ void BufferPage::Reset()
 
 bool BufferPage::CheckFreeSpace()
 {
-    if (page_size - offset < owner.owner.dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment)
+    if (page_size - offset < owner.owner.limits.min_constant_buffer_offset_alignment)
         is_full = true;
 
     return is_full;
@@ -82,8 +82,6 @@ BUFFER_ALLOCATION_PART BufferPage::Allocate(size_t _size_in_bytes, size_t _align
     //auto aligned_size = util::AlignUp(_size_in_bytes, _alignment);
     auto aligned_offset = util::AlignUp(offset, _alignment);
 
-    BUFFER_ALLOCATION_PART alloc_part = {};
-
     std::lock_guard<std::mutex> allocate_guard(allocate_mutex);
 
     // サイズを超える場合nulptrを返す
@@ -91,23 +89,25 @@ BUFFER_ALLOCATION_PART BufferPage::Allocate(size_t _size_in_bytes, size_t _align
     {
         offset = aligned_offset + _aligned_size_in_bytes;
 
-        alloc_part.parent_resouce   = resource.Get();
-        alloc_part.map_data_part    = static_cast<unsigned char*>(map_data_base_ptr) + aligned_offset;
-        alloc_part.gpu_address      = gpu_virtual_address_base                       + aligned_offset;
-        alloc_part.data_offset      = aligned_offset;
-        alloc_part.size_in_bytes    = _size_in_bytes;
-        return alloc_part;
+        return BUFFER_ALLOCATION_PART{
+              resource.Get()                                                 
+            , static_cast<unsigned char*>(map_data_base_ptr) + aligned_offset
+            , gpu_virtual_address_base                       + aligned_offset
+            , aligned_offset                                                 
+            , _size_in_bytes                                                 
+        };
     }
     else
     {
-        // 空き容量を確認する
         CheckFreeSpace();
-        alloc_part.parent_resouce   = resource.Get();
-        alloc_part.map_data_part    = nullptr;
-        alloc_part.gpu_address      = 0;
-        alloc_part.data_offset      = 0;
-        alloc_part.size_in_bytes    = 0;
-        return alloc_part;
+
+        return BUFFER_ALLOCATION_PART{
+              resource.Get()
+            , nullptr
+            , 0
+            , 0
+            , 0
+        };
     }
 }
 
@@ -119,26 +119,33 @@ BUFFER_ALLOCATION_PART BufferPage::AllocateUnsafe(size_t _size_in_bytes, size_t 
     std::lock_guard<std::mutex> allocate_guard(allocate_mutex);
 
     offset = aligned_offset + _aligned_size_in_bytes;
-    BUFFER_ALLOCATION_PART alloc_part = {
+    return BUFFER_ALLOCATION_PART{
           resource.Get()
         , static_cast<unsigned char*>(map_data_base_ptr) + aligned_offset
         , gpu_virtual_address_base                       + aligned_offset
         , aligned_offset
         , _size_in_bytes
     };
-    return alloc_part;
 }
 
 void BufferPage::Flush()
 {
     if (offset != 0)
-        resource->GetHeap()->FlushMappedRanges();
+    {
+        buma3d::MAPPED_RANGE range{ 0, offset };
+        auto bmr = resource->GetHeap()->FlushMappedRanges(1, &range);
+        BMR_ASSERT_IF_FAILED(bmr);
+    }
 }
 
 void BufferPage::Invalidate()
 {
     if (offset != 0)
-        resource->GetHeap()->InvalidateMappedRanges();
+    {
+        buma3d::MAPPED_RANGE range{ 0, offset };
+        auto bmr = resource->GetHeap()->InvalidateMappedRanges(1, &range);
+        BMR_ASSERT_IF_FAILED(bmr);
+    }
 }
 
 #pragma endregion BufferPage

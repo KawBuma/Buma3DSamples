@@ -152,7 +152,8 @@ VariableSizeAllocationsManager::Free(ALLOCATION& _allocation)
             free_blocks_by_offset.erase(it_prev_block);
         }
     }
-    else if (it_next_block != free_blocks_by_offset.end())
+
+    if (it_next_block != free_blocks_by_offset.end())
     {
         auto&& next_block = *it_next_block;
         if (_allocation.offset + _allocation.size == next_block.first)

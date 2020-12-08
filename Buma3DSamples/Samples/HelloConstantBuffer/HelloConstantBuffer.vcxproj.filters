@@ -30,6 +30,8 @@
     <None Include="Shader\ShaderHeader.hlsli">
       <Filter>Shader</Filter>
     </None>
+    <None Include="Shader\PixelShader.hlsl" />
+    <None Include="Shader\VertexShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
@@ -38,13 +40,5 @@
     <ClCompile Include="Src\HelloConstantBuffer.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="Shader\PixelShader.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
-    <FxCompile Include="Shader\VertexShader.hlsl">
-      <Filter>Shader</Filter>
-    </FxCompile>
   </ItemGroup>
 </Project>

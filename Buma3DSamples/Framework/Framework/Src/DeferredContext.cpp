@@ -90,6 +90,9 @@ const buma3d::util::Ptr<buma3d::IFence>& DeferredContext::End(const buma3d::util
     auto bmr = list->EndRecord();
     BMR_ASSERT_IF_FAILED(bmr);
 
+    // コマンド送信前に、ホストの書き込みを確定させます。
+    upload_buffer->MakeVisible();
+
     submit_info.wait_fence.num_fences   = _wait_fence_to_gpu ? 1 : 0;
     submit_info.wait_fence.fences       = _wait_fence_to_gpu.GetAddressOf();
     bmr = queue->Submit(submit);
@@ -101,7 +104,6 @@ const buma3d::util::Ptr<buma3d::IFence>& DeferredContext::End(const buma3d::util
 
 buma3d::BMRESULT DeferredContext::Signal(const buma3d::util::Ptr<buma3d::IFence>& _fence_to_gpu)
 {
-    uint64_t dummy = 0;
     buma3d::SUBMIT_SIGNAL_DESC signal{};
     signal.signal_fence.num_fences      = 1;
     signal.signal_fence.fences          = _fence_to_gpu.GetAddressOf();
@@ -111,7 +113,6 @@ buma3d::BMRESULT DeferredContext::Signal(const buma3d::util::Ptr<buma3d::IFence>
 
 buma3d::BMRESULT DeferredContext::Wait(const buma3d::util::Ptr<buma3d::IFence>& _fence_to_gpu)
 {
-    uint64_t dummy = 0;
     buma3d::SUBMIT_WAIT_DESC wait{};
     wait.wait_fence.num_fences      = 1;
     wait.wait_fence.fences          = _fence_to_gpu.GetAddressOf();
@@ -128,7 +129,6 @@ buma3d::BMRESULT DeferredContext::WaitOnCpu()
 
 void DeferredContext::MakeVisible()
 {
-    upload_buffer->MakeVisible();
     readback_buffer->MakeVisible();
 }
 

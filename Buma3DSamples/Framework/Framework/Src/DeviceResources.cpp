@@ -63,6 +63,7 @@ DeviceResources::DeviceResources()
     //, my_imugi                                          {}
     , shader_laoder                                     {}
     , resource_heaps_allocator                          {}
+    , resource_create                                   {}
     , limits                                            {}
     , resource_heap_props                               {}
     , queue_props                                       {}
@@ -73,6 +74,7 @@ DeviceResources::DeviceResources()
 DeviceResources::~DeviceResources()
 {
     WaitForGpu();
+    resource_create          .reset();
     resource_heaps_allocator .reset();
     resource_heap_props      .reset();
     shader_laoder            .reset();
@@ -91,6 +93,7 @@ bool DeviceResources::Init(const DEVICE_RESOURCE_DESC& _desc)
     resource_heap_props      = std::make_shared<ResourceHeapProperties>(device.Get());
     shader_laoder            = std::make_unique<shader::ShaderLoader>(desc.type);
     resource_heaps_allocator = std::make_unique<ResourceHeapsAllocator>(adapter.Get(), device.Get());
+    resource_create          = std::make_unique<res::ResourceCreate>(shared_from_this());
 
     return true;
 }
@@ -295,7 +298,10 @@ void DeviceResources::UninitB3D()
 
 bool DeviceResources::WaitForGpu()
 {
-    return device->WaitIdle() == buma3d::BMRESULT_SUCCEED;
+    if (device)
+        return device->WaitIdle() == buma3d::BMRESULT_SUCCEED;
+
+    return true;
 }
 
 

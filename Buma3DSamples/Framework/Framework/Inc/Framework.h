@@ -38,11 +38,18 @@
 #include "VariableSizeAllocationsManager.h"
 #include "ResourceHeapAllocator.h"
 
+#include "TextureLoads.h"
+
 #include "DeviceResources.h"
 #include "SwapChain.h"
 #include "Platform.h"
 #include "Window.h"
 #include "Application.h"
+
+#include "Resource.h"
+#include "ResourceBuffer.h"
+#include "ResourceTexture.h"
+#include "ResourceCreate.h"
 
 #include "ShaderLoader.h"
 

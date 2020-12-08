@@ -88,7 +88,9 @@ struct TEXTURE_CREATE_DESC
         : filename{ _filename }, mip_count{ _mip_count } {}
 
     const char*    filename;
-    size_t         mip_count;   // set 0 to generate all mips
+    size_t         mip_count;               // set 0 to generate all mips
+    size_t         row_pitch_alignment;     // set 0 to follows the texture resolution
+    size_t         slice_pitch_alignment;   // set 0 to follows the texture resolution
 };
 std::unique_ptr<ITextures> CreateTexturesFromFile(const TEXTURE_CREATE_DESC& _desc);
 

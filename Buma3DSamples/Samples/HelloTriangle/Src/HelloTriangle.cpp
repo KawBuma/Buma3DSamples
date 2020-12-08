@@ -6,7 +6,7 @@
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
 #define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
 
-std::vector<float> g_fpss;
+std::vector<float>* g_fpss;
 bool g_first = true;
 
 namespace init = buma3d::hlp::init;
@@ -46,7 +46,6 @@ public:
     ResizeEvent(HelloTriangle& _owner) : owner{ _owner } {}
     virtual ~ResizeEvent() {}
     void Execute(IEventArgs* _args) override { owner.OnResize(static_cast<ResizeEventArgs*>(_args)); }
-    static std::shared_ptr<ResizeEvent> Create(HelloTriangle& _owner) { return std::make_shared<ResizeEvent>(_owner); }
 private:
     HelloTriangle& owner;
 };
@@ -57,7 +56,6 @@ public:
     BufferResizedEvent(HelloTriangle& _owner) : owner{ _owner } {}
     virtual ~BufferResizedEvent() {}
     void Execute(IEventArgs* _args) override { owner.OnResized(static_cast<BufferResizedEventArgs*>(_args)); }
-    static std::shared_ptr<BufferResizedEvent> Create(HelloTriangle& _owner) { return std::make_shared<BufferResizedEvent>(_owner); }
 private:
     HelloTriangle& owner;
 };
@@ -106,11 +104,13 @@ HelloTriangle::HelloTriangle()
     , on_resized            {}
 {    
      
+    g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
 }
 
 HelloTriangle::~HelloTriangle()
 {
-    //Term();
+    delete g_fpss;
+    g_fpss = nullptr;
 }
 
 HelloTriangle* HelloTriangle::Create()
@@ -148,8 +148,8 @@ void HelloTriangle::PrepareSubmitInfo()
 void HelloTriangle::CreateEvents()
 {
     // イベントを登録
-    on_resize = ResizeEvent::Create(*this);
-    on_resized = BufferResizedEvent::Create(*this);
+    on_resize = IEvent::Create<ResizeEvent>(*this);
+    on_resized = IEvent::Create<BufferResizedEvent>(*this);
     window->AddResizeEvent(on_resize);
     window->AddBufferResizedEvent(on_resized);
 }
@@ -955,7 +955,7 @@ void HelloTriangle::Tick()
     if (timer.IsOneSecElapsed())
     {
         if (!g_first)
-            g_fpss.emplace_back(timer.GetFramesPerSecond());
+            g_fpss->emplace_back(timer.GetFramesPerSecond());
         g_first = false;
 
         platform->GetLogger()->LogInfo(("fps: " + std::to_string(timer.GetFramesPerSecond())).c_str());
@@ -997,7 +997,7 @@ void HelloTriangle::Render()
     // コマンドリストとフェンスを送信
     {
         cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
-        PrepareFrame(back_buffer_index);
+        //PrepareFrame(back_buffer_index);
 
         // 待機フェンス
         wait_fence_desc.Reset();
@@ -1059,8 +1059,8 @@ void HelloTriangle::Term()
     // result
     {
         float res = 0.f;
-        float size = static_cast<float>(g_fpss.size());
-        for (auto& i : g_fpss)
+        float size = static_cast<float>(g_fpss->size());
+        for (auto& i : *g_fpss)
             res += i;
         std::stringstream ss;
         ss << "\nprof result: average fps";

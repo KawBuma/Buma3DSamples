@@ -15,7 +15,10 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
     {
         auto platform = buma::CreatePlatform();
         {
-            auto app = std::shared_ptr<buma::HelloConstantBuffer>(buma::HelloConstantBuffer::Create());
+            //auto app = std::shared_ptr<buma::SampleAppBase>(buma::SampleAppBase::Create());
+            //auto app = std::shared_ptr<buma::HelloTriangle>(buma::HelloTriangle::Create());
+            //auto app = std::shared_ptr<buma::HelloConstantBuffer>(buma::HelloConstantBuffer::Create());
+            auto app = std::shared_ptr<buma::HelloTexture>(buma::HelloTexture::Create());
             platform->AttachApplication(app);
         }
 
@@ -25,7 +28,7 @@ int APIENTRY wWinMain(_In_     HINSTANCE hInstance,
         {
             code = platform->MainLoop();
             platform->Term();
-        }        
+        }
         buma::DestroyPlatform(platform);
         platform = nullptr;
     }

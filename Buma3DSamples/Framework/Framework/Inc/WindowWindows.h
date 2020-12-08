@@ -51,8 +51,8 @@ public:
     bool CreateSwapChain(const buma3d::SWAP_CHAIN_DESC& _desc, std::shared_ptr<buma::SwapChain>* _dst) override;
     const std::vector<buma3d::SURFACE_FORMAT>& GetSupportedFormats() const override;
 
-    void AddResizeEvent(std::weak_ptr<IEvent> _event) const override;
-    void AddBufferResizedEvent(std::weak_ptr<IEvent> _event) const override;
+    void AddResizeEvent(const EventPtr& _event) override;
+    void AddBufferResizedEvent(const EventPtr& _event) override;
 
 protected:
     bool Init(PlatformBase&             _platform,
@@ -82,8 +82,8 @@ private:
     std::shared_ptr<SwapChain>              swapchain;
     buma3d::SWAP_CHAIN_FLAGS                swapchain_flags;
 
-    std::shared_ptr<IDelegate>              delegate_on_resize;
-    std::shared_ptr<IDelegate>              delegate_on_buffer_resized;
+    LazyDelegate<>                          delegate_on_resize;
+    LazyDelegate<>                          delegate_on_buffer_resized;
 
 };
 

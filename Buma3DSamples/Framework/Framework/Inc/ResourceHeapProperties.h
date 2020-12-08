@@ -138,6 +138,17 @@ public:
         }
     }
 
+    uint32_t/*heap_type_bits*/ FindCompatibleHeaps(buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _flags, buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _deny_flags)
+    {
+        uint32_t result = 0;
+        for (auto& i : heap_properties)
+        {
+            if (!(i.flags & _deny_flags) && i.flags & _flags)
+                result |= 1 << i.heap_index;
+        }
+        return result;
+    }
+
 private:
     std::vector<buma3d::RESOURCE_HEAP_PROPERTIES> heap_properties;
     CompatibleResourceHeapProperties device_local_heaps;

@@ -1,6 +1,19 @@
 #include "pch.h"
 #include "TextureLoads.h"
 
+#ifndef STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
+#endif
+
+#ifndef STB_IMAGE_RESIZE_IMPLEMENTATION
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include <stb_image_resize.h>
+
+#endif
+
+
 namespace buma
 {
 namespace tex
@@ -19,11 +32,16 @@ inline size_t CalcMipLevels(const EXTENT3D& _extent)
     return 1ull + static_cast<size_t>(floorf(log2f(static_cast<float>((std::max)({ _extent.w, _extent.h, _extent.d })))));
 }
 
-inline EXTENT3D CalcMipExtents(size_t _mip_slice, const const TEXTURE_DESC& _extent_mip0)
+inline EXTENT3D CalcMipExtents(size_t _mip_slice, const TEXTURE_DESC& _extent_mip0)
 {
     return EXTENT3D{ (std::max)(_extent_mip0.width  >> _mip_slice, 1ull)
                    , (std::max)(_extent_mip0.height >> _mip_slice, 1ull)
                    , (std::max)(_extent_mip0.depth  >> _mip_slice, 1ull) };
+}
+
+inline size_t AlignUp(size_t _val, size_t _alignment)
+{
+    return (_val + (_alignment - 1)) & ~(_alignment - 1);
 }
 
 class RawData
@@ -188,18 +206,26 @@ bool Textures::LoadFromFile(const TEXTURE_CREATE_DESC& _desc, void** _stbi_data)
     int             y               {};
     int             chs_in_file     {};
     int             component_size  {};
+    int             req_comp        = STBI_default;
+
 
     // load
     {
+        if (stbi_info(_desc.filename, &x, &y, &req_comp) == 0)
+            return false;
+
+        if (req_comp == STBI_rgb)
+            req_comp = STBI_rgb_alpha;
+
         if (stbi_is_hdr(_desc.filename))
         {
-            *_stbi_data     = stbi_loadf("test.png", &x, &y, &chs_in_file, STBI_default);
+            *_stbi_data     = stbi_loadf(_desc.filename, &x, &y, &chs_in_file, req_comp);
             component_size  = sizeof(float);
             format          = TEXTURE_FORMAT_SFLOAT;
         }
         else
         {
-            *_stbi_data     = stbi_load("test.png", &x, &y, &chs_in_file, STBI_default);
+            *_stbi_data     = stbi_load(_desc.filename, &x, &y, &chs_in_file, req_comp);
             component_size  = sizeof(stbi_uc);
             format          = TEXTURE_FORMAT_UINT;
         }
@@ -216,7 +242,7 @@ bool Textures::LoadFromFile(const TEXTURE_CREATE_DESC& _desc, void** _stbi_data)
         desc.num_mips        = _desc.mip_count == 0 ? CalcMipLevels(desc.width, desc.height, desc.depth) : _desc.mip_count;
         desc.format          = format;
         desc.component_size  = component_size;
-        desc.component_count = static_cast<size_t>(chs_in_file);
+        desc.component_count = static_cast<size_t>(req_comp == STBI_default ? chs_in_file : req_comp);
     }
 
     return true;
@@ -227,15 +253,24 @@ bool Textures::CreateData(const TEXTURE_CREATE_DESC& _desc, void* _stbi_data)
     textures_data.resize(desc.num_mips);
     auto tds = textures_data.data();
     auto rds = raw_data     .data();
+
     for (size_t i = 0; i < desc.num_mips; i++)
     {
         auto&& td = tds[i];
         td.extent = CalcMipExtents(i, desc);
 
         auto&& l = td.layout;
-        l.texel_size    = desc.component_count * desc.component_size;
-        l.row_pitch     = l.texel_size * td.extent.w;
-        l.slice_pitch   = l.row_pitch  * td.extent.h;
+        l.texel_size = desc.component_count * desc.component_size;
+
+        auto row_pitch = l.texel_size * td.extent.w;
+
+        l.row_pitch = row_pitch;
+        if (_desc.row_pitch_alignment != 0)
+            l.row_pitch = AlignUp(l.row_pitch, _desc.row_pitch_alignment);
+
+        l.slice_pitch = l.row_pitch * td.extent.h;
+        if (_desc.slice_pitch_alignment != 0)
+            l.slice_pitch = AlignUp(l.slice_pitch, _desc.slice_pitch_alignment);
 
         auto&& r = rds[i];
         r.Allocate(l.slice_pitch * td.extent.d);
@@ -244,24 +279,28 @@ bool Textures::CreateData(const TEXTURE_CREATE_DESC& _desc, void* _stbi_data)
 
         if (i == 0)
         {
-            memcpy(r.memory, _stbi_data, r.size_in_bytes);
+            for (size_t y = 0; y < td.extent.h; y++)
+            {
+                memcpy(r.memory + (td.layout.row_pitch * y), (uint8_t*)(_stbi_data)+(row_pitch * y), row_pitch);
+            }
         }
         else
         {
             int result = 0;
             auto&& prev_td = tds[i-1];
             if (desc.format == TEXTURE_FORMAT_SFLOAT)
-                result = stbir_resize_float(  rds[i-1].flt, static_cast<int>(prev_td.extent.w), static_cast<int>(prev_td.extent.h), prev_td.layout.row_pitch
-                                            , rds[i]  .flt, static_cast<int>(td.extent.w)     , static_cast<int>(td.extent.h)     , td     .layout.row_pitch
+                result = stbir_resize_float(  rds[i-1].flt, static_cast<int>(prev_td.extent.w), static_cast<int>(prev_td.extent.h), static_cast<int>(prev_td.layout.row_pitch)
+                                            , rds[i]  .flt, static_cast<int>(td.extent.w)     , static_cast<int>(td.extent.h)     , static_cast<int>(td.layout.row_pitch)
                                             , static_cast<int>(desc.component_count));
             else
-                result = stbir_resize_uint8(  rds[i-1].ui8, static_cast<int>(prev_td.extent.w), static_cast<int>(prev_td.extent.h), prev_td.layout.row_pitch
-                                            , rds[i]  .ui8, static_cast<int>(td.extent.w)     , static_cast<int>(td.extent.h)     , td     .layout.row_pitch
+                result = stbir_resize_uint8(  rds[i-1].ui8, static_cast<int>(prev_td.extent.w), static_cast<int>(prev_td.extent.h), static_cast<int>(prev_td.layout.row_pitch)
+                                            , rds[i]  .ui8, static_cast<int>(td.extent.w)     , static_cast<int>(td.extent.h)     , static_cast<int>(td.layout.row_pitch)
                                             , static_cast<int>(desc.component_count));
 
             if (result == 0)
                 return false;
         }
+
     }
 
     return true;

@@ -18,6 +18,9 @@
     <Filter Include="Sources\Resource">
       <UniqueIdentifier>{e8856fcf-f294-40ff-ae08-a264c327f6c8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Headers\External">
+      <UniqueIdentifier>{93bad8fd-e3e4-41bd-a903-0b4c209e1ea2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -82,6 +85,18 @@
     </ClCompile>
     <ClCompile Include="Src\FormatUtils.cpp">
       <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\ResourceCreate.cpp">
+      <Filter>Sources\Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\Resource.cpp">
+      <Filter>Sources\Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\ResourceTextureImpl.cpp">
+      <Filter>Sources\Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\ResourceBufferImpl.cpp">
+      <Filter>Sources\Resource</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -153,6 +168,30 @@
     </ClInclude>
     <ClInclude Include="Inc\VariableSizeAllocationsManager.h">
       <Filter>Headers\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\ResourceCreate.h">
+      <Filter>Headers\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\Resource.h">
+      <Filter>Headers\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\ResourceBuffer.h">
+      <Filter>Headers\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\ResourceTexture.h">
+      <Filter>Headers\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\ResourceImpl.h">
+      <Filter>Sources\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\ResourceBufferImpl.h">
+      <Filter>Sources\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\ResourceTextureImpl.h">
+      <Filter>Sources\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\External\Camera.h">
+      <Filter>Headers\External</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

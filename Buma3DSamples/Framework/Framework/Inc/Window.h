@@ -45,8 +45,8 @@ public:
     virtual bool CreateSwapChain(const buma3d::SWAP_CHAIN_DESC& _desc, std::shared_ptr<buma::SwapChain>* _dst) = 0;
     virtual const std::vector<buma3d::SURFACE_FORMAT>& GetSupportedFormats() const = 0;
 
-    virtual void AddResizeEvent(std::weak_ptr<IEvent> _event) const = 0;
-    virtual void AddBufferResizedEvent(std::weak_ptr<IEvent> _event) const = 0;
+    virtual void AddResizeEvent(const EventPtr& _event) = 0;
+    virtual void AddBufferResizedEvent(const EventPtr& _event) = 0;
 
     virtual WINDOW_STATE_FLAGS      GetWindowStateFlags()   const = 0;
     virtual float                   GetAspectRatio()        const = 0;

@@ -38,6 +38,11 @@
 
 #include "Framework.h"
 
+#include "Resource.h"
+#include "ResourceImpl.h"
+#include "ResourceBufferImpl.h"
+#include "ResourceTextureImpl.h"
+
 #include "GamepadInputs.h"
 #include "MouseInput.h"
 #include "KeyboardInput.h"

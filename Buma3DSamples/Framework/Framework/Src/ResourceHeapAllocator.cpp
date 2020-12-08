@@ -65,7 +65,6 @@ void ResourceHeapAllocationPage::Free(RESOURCE_HEAP_ALLOCATION& _allocation)
 {
     BUMA_ASSERT(_allocation == true);
     allocation_manager->Free(_allocation.allocation);
-    _allocation = {};
 }
 
 void ResourceHeapAllocationPage::Reset()
@@ -120,9 +119,9 @@ bool ResourceHeapAllocator::Allocate(size_t _size, size_t _alignment, RESOURCE_H
 void ResourceHeapAllocator::Free(RESOURCE_HEAP_ALLOCATION& _allocation)
 {
     BUMA_ASSERT(_allocation == true);
-    reinterpret_cast<ResourceHeapAllocationPage*>(_allocation.parent_page)->Free(_allocation);
     if (current_page != _allocation.parent_page)        
         available_pages.emplace(static_cast<ResourceHeapAllocationPage*>(_allocation.parent_page));
+    reinterpret_cast<ResourceHeapAllocationPage*>(_allocation.parent_page)->Free(_allocation);
 }
 
 void ResourceHeapAllocator::Reset()

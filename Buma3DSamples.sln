@@ -31,6 +31,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloConstantBuffer", "Buma
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TextureLoads", "Buma3DSamples\Framework\TextureLoads\TextureLoads.vcxproj", "{C0283DFA-C2BE-4A33-BC85-4B0F03706855}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloTexture", "Buma3DSamples\Samples\HelloTexture\HelloTexture.vcxproj", "{839DBE1B-7A38-40E9-BEC9-89D0C110169C}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		Buma3DSamples\External\Buma3D\Project\SharedInc\v16\Buma3DSharedInc.vcxitems*{26e803ba-793b-4c45-bd7b-a0b8498a0f98}*SharedItemsImports = 4
@@ -82,6 +84,10 @@ Global
 		{C0283DFA-C2BE-4A33-BC85-4B0F03706855}.Debug|x64.Build.0 = Debug|x64
 		{C0283DFA-C2BE-4A33-BC85-4B0F03706855}.Release|x64.ActiveCfg = Release|x64
 		{C0283DFA-C2BE-4A33-BC85-4B0F03706855}.Release|x64.Build.0 = Release|x64
+		{839DBE1B-7A38-40E9-BEC9-89D0C110169C}.Debug|x64.ActiveCfg = Debug|x64
+		{839DBE1B-7A38-40E9-BEC9-89D0C110169C}.Debug|x64.Build.0 = Debug|x64
+		{839DBE1B-7A38-40E9-BEC9-89D0C110169C}.Release|x64.ActiveCfg = Release|x64
+		{839DBE1B-7A38-40E9-BEC9-89D0C110169C}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -97,6 +103,7 @@ Global
 		{DCE42634-12C0-41FC-93A7-367D6BC5DB5E} = {81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}
 		{3C4E75D1-BFAE-422F-B76D-BEE2C7D633C8} = {BBF7681E-1ACD-4E1B-A8F6-3CAE92BCEFBB}
 		{C0283DFA-C2BE-4A33-BC85-4B0F03706855} = {81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}
+		{839DBE1B-7A38-40E9-BEC9-89D0C110169C} = {BBF7681E-1ACD-4E1B-A8F6-3CAE92BCEFBB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B61617D9-7ECD-40F0-B8B1-1087FB9F2216}

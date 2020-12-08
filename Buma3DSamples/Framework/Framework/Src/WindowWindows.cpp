@@ -129,21 +129,18 @@ const std::vector<buma3d::SURFACE_FORMAT>& WindowWindows::GetSupportedFormats() 
     return supported_formats;
 }
 
-void WindowWindows::AddResizeEvent(std::weak_ptr<IEvent> _event) const
+void WindowWindows::AddResizeEvent(const EventPtr& _event)
 {
-    (*delegate_on_resize) += _event;
+    delegate_on_resize += _event;
 }
 
-void WindowWindows::AddBufferResizedEvent(std::weak_ptr<IEvent> _event) const
+void WindowWindows::AddBufferResizedEvent(const EventPtr& _event)
 {
-    (*delegate_on_buffer_resized) += _event;
+    delegate_on_buffer_resized += _event;
 }
 
 bool WindowWindows::Init(PlatformBase& _platform, const buma3d::EXTENT2D& _size, const char* _window_name)
 {
-    delegate_on_resize         = IDelegate::CreateDefaultDelegate();
-    delegate_on_buffer_resized = IDelegate::CreateDefaultDelegate();
-
     if (!CreateWnd(_size.width, _size.height))  return false;
     if (!SetWindowTitle(_window_name))          return false;
     if (!CreateSurface())                       return false;
@@ -208,10 +205,10 @@ bool WindowWindows::OnResize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_F
     if (swapchain)
     {
         auto args = ResizeEventArgs{ size, swapchain_flags };
-        (*delegate_on_resize)(&args);
+        delegate_on_resize(&args);
         result = ResizeBuffers(_size, _swapchain_flags);
         if (result)
-            (*delegate_on_buffer_resized)(&args);
+            delegate_on_buffer_resized(&args);
     }
 
     return result;

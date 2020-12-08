@@ -57,9 +57,10 @@
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)External\Buma3D\Inc;$(ProjectDir)Framework\Inputs\inc;$(ProjectDir)Framework\Framework\Inc;$(ProjectDir)Samples\SampleBase\Inc;$(ProjectDir)Samples\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)External\Buma3D\Inc;$(ProjectDir)Framework\TextureLoads\Inc;$(ProjectDir)Framework\Inputs\inc;$(ProjectDir)Framework\Framework\Inc;$(ProjectDir)Samples\SampleBase\Inc;$(ProjectDir)Samples\</AdditionalIncludeDirectories>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <SupportJustMyCode>false</SupportJustMyCode>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -75,7 +76,7 @@
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)External\Buma3D\Inc;$(ProjectDir)Framework\Inputs\inc;$(ProjectDir)Framework\Framework\Inc;$(ProjectDir)Samples\SampleBase\Inc;$(ProjectDir)Samples\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)External\Buma3D\Inc;$(ProjectDir)Framework\TextureLoads\Inc;$(ProjectDir)Framework\Inputs\inc;$(ProjectDir)Framework\Framework\Inc;$(ProjectDir)Samples\SampleBase\Inc;$(ProjectDir)Samples\</AdditionalIncludeDirectories>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -101,8 +102,14 @@
     <ProjectReference Include="Framework\Inputs\Inputs.vcxproj">
       <Project>{e4c6b317-111c-4f33-bc19-32a2cadc0c07}</Project>
     </ProjectReference>
+    <ProjectReference Include="Framework\TextureLoads\TextureLoads.vcxproj">
+      <Project>{c0283dfa-c2be-4a33-bc85-4b0f03706855}</Project>
+    </ProjectReference>
     <ProjectReference Include="Samples\HelloConstantBuffer\HelloConstantBuffer.vcxproj">
       <Project>{3c4e75d1-bfae-422f-b76d-bee2c7d633c8}</Project>
+    </ProjectReference>
+    <ProjectReference Include="Samples\HelloTexture\HelloTexture.vcxproj">
+      <Project>{839dbe1b-7a38-40e9-bec9-89d0c110169c}</Project>
     </ProjectReference>
     <ProjectReference Include="Samples\HelloTriangle\HelloTriangle.vcxproj">
       <Project>{c17b89b9-0bb8-49af-903b-5e11ec9d38dd}</Project>
