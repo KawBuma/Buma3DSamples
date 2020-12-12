@@ -6,14 +6,17 @@ namespace buma
 namespace input
 {
 
-KeyboardInput::KeyboardInput() : key_press_data{}
+KeyboardInput::KeyboardInput()
+    : keys              {}
+    , key_press_data    {}
 {
-	keys = std::make_unique<DirectX::Keyboard>();
+    keys = new DirectX::Keyboard;
 }
 
 KeyboardInput::~KeyboardInput()
 {
-	keys.reset();
+    delete keys;
+    keys = nullptr;
 }
 
 void KeyboardInput::ProcessMessage(UINT _message, WPARAM _wparam, LPARAM _lparam)

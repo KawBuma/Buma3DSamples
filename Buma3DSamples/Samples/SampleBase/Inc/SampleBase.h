@@ -26,5 +26,7 @@ private:
 
 };
 
+BUMA_DLL_API ApplicationBase* CreateApplication() { return SampleAppBase::Create(); }
+
 
 }// namespace buma

@@ -5,8 +5,6 @@
 #include <memory>
 #include <map>
 
-#pragma comment(lib, "ShaderConductor.lib")
-
 namespace buma
 {
 namespace shader

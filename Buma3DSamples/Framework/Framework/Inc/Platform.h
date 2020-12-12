@@ -21,6 +21,7 @@ struct PLATFORM_DATA_WINDOWS
 
 struct WINDOW_DESC
 {
+    bool        need_window;
     uint32_t    width;
     uint32_t    height;
     const char* name;
@@ -30,7 +31,6 @@ struct PLATFORM_DESC
 {
     PLATFORM_TYPE   type;
     const void*     data;
-    WINDOW_DESC     window_desc;
 };
 
 class PlatformBase
@@ -50,16 +50,18 @@ public:
     virtual const StepTimer*                            GetStepTimer()       const { return &timer; }
     bool                                                IsPrepared()         const { return is_prepared; }
 
-    virtual bool Init(const PLATFORM_DESC& _desc) = 0;
+    virtual bool Prepare(const PLATFORM_DESC& _desc) = 0;
+    virtual bool Init() = 0;
     virtual bool Term() = 0;
 
     virtual debug::ILogger* GetLogger() = 0;
+    virtual input::PCInputs* GetInputs() = 0;
 
 
 protected:
     virtual bool ParseCommandLines(const PLATFORM_DESC& _desc) = 0;
     virtual bool PrepareDeviceResources() = 0;
-    virtual bool PrepareWindow(const WINDOW_DESC& _desc) = 0;
+    virtual bool PrepareWindow() = 0;
 
 protected:
     std::vector<std::unique_ptr<std::string>>   cmd_lines;
@@ -68,6 +70,7 @@ protected:
     std::shared_ptr<WindowBase>                 window;
     StepTimer                                   timer;
     bool                                        is_prepared;
+
 
 };
 

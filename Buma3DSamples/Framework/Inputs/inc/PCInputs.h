@@ -10,9 +10,20 @@ namespace buma
 namespace input
 {
 
-const KEY_PRESS_DATA& GetKey();
-const MOUSE_DATA& GetMouse();
-const GAMEPAD_DATA& GetGpad(int _player = 0);
+class PCInputs
+{
+public:
+    PCInputs() {}
+    virtual ~PCInputs() {}
+
+    virtual const KEY_PRESS_DATA&   GetKey() = 0;
+    virtual const MOUSE_DATA&       GetMouse() = 0;
+    virtual const GAMEPAD_DATA&     GetGpad(int _player = 0) = 0;
+
+private:
+
+};
+
 
 }// namespace input
 }// namespace buma

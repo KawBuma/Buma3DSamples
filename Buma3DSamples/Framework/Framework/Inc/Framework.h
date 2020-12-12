@@ -8,12 +8,10 @@
 #include <mutex>
 #include <utility>
 #include <algorithm>
-
 #include <map> 
 #include <set> 
 #include <unordered_map> 
 #include <unordered_set> 
-
 #include <iomanip> 
 #include <cstdio>
 #include <cstdlib>
@@ -22,6 +20,7 @@
 #include <iostream>
 #include <fstream>
 
+#include "PCInputs.h"
 
 #include "LazyDelegate.h"
 #include "StepTimer.h"
@@ -63,4 +62,3 @@ PlatformBase* CreatePlatform();
 void          DestroyPlatform(PlatformBase* _platform);
 }
 
-#include "PCInputs.h"

@@ -115,13 +115,6 @@ HelloTexture::HelloTexture()
     , on_resize             {}
     , on_resized            {}
 {    
-    //g_cam.type = Camera::CameraType::firstperson;
-    g_cam.type = Camera::CameraType::lookat;
-    g_cam.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
-    g_cam.setRotation(glm::vec3(0.0f));
-    g_cam.setRotationSpeed(0.5f);
-    g_cam.setPerspective(60.0f, (float)1280 / (float)720, 1.0f, 256.0f);
-
     g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
 }
 
@@ -143,14 +136,15 @@ bool HelloTexture::Prepare(PlatformBase& _platform)
     dr       = platform->GetDeviceResources();
     device   = dr->GetDevice();
 
-    spwindow = platform->GetWindow();
-    window   = spwindow.get();
-    window->SetWindowTitle("Buma3DSamples - HelloTexture");
+    if (!PrepareSettings()) return false;
+    settings.window_desc.need_window    = true;
+    settings.window_desc.name           = "Buma3DSamples - HelloTexture";
 
-    if (!PrepareSwapChain()) return false;
+    spwindow = platform->GetWindow();
+    window = spwindow.get();
+
     PrepareSubmitInfo();
     CreateEvents();
-    if (!Init()) return false;
 
     return true;
 }
@@ -173,17 +167,45 @@ void HelloTexture::CreateEvents()
     window->AddBufferResizedEvent(on_resized);
 }
 
-bool HelloTexture::PrepareSwapChain()
+bool HelloTexture::Init()
+{
+    if (!InitSwapChain()) return false;
+    auto&& resolution = swapchain->GetSwapChain()->GetDesc().buffer;
+    vpiewport       = {   0, 0  ,  (float)resolution.width, (float)resolution.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
+    scissor_rect    = { { 0, 0 },        {resolution.width,        resolution.height} };
+
+    //g_cam.type = Camera::CameraType::firstperson;
+    g_cam.type = Camera::CameraType::lookat;
+	g_cam.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
+	g_cam.setRotation(glm::vec3(0.0f));
+	g_cam.setRotationSpeed(0.5f);
+    g_cam.setPerspective(60.0f, (float)settings.window_desc.width / (float)settings.window_desc.height, 1.0f, 256.0f);
+
+    CBV_ALIGNMENT = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
+
+    command_queue = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
+    auto&& copy_ques = dr->GetCommandQueues(b::COMMAND_TYPE_COPY_ONLY);
+    if (!ctx.Init(dr, command_queue))                                           return false;
+    if (!copy_ctx.Init(dr, copy_ques.empty() ? command_queue : copy_ques[0]))   return false;
+    if (!LoadAssets())                                                          return false;
+
+    return true;
+}
+
+bool HelloTexture::InitSwapChain()
 {
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
                                                  init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
-    scd.flags = b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT | b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC;
-    window->ResizeWindow({ 1280,720 }, scd.flags);
+    scd.flags |= b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT;
+    scd.flags |= settings.is_disabled_vsync     ? b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC : 0;
+    scd.flags |= settings.is_enabled_fullscreen ? b::SWAP_CHAIN_FLAG_FULLSCREEN_EXCLUSIVE : 0;
+
+    window->ResizeWindow({ settings.window_desc.width, settings.window_desc.height }, scd.flags);
     if (!(window->CreateSwapChain(scd, &swapchain)))
         return false;
 
-    back_buffers = &swapchain->GetBuffers();
+    back_buffers     = &swapchain->GetBuffers();
     swapchain_fences = &swapchain->GetPresentCompleteFences();
 
     present_info.num_present_regions = 0;
@@ -191,24 +213,6 @@ bool HelloTexture::PrepareSwapChain()
     present_region = { { 0, 0 }, scissor_rect.extent };
 
     return true;
-}
-
-bool HelloTexture::Init()
-{
-    auto&& resolution = swapchain->GetSwapChain()->GetDesc().buffer;
-    vpiewport       = {   0, 0  ,  (float)resolution.width, (float)resolution.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
-    scissor_rect    = { { 0, 0 },        {resolution.width,        resolution.height} };
-    command_queue   = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
-
-    CBV_ALIGNMENT = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
-
-    auto&& copy_que = dr->GetCommandQueues(b::COMMAND_TYPE_COPY_ONLY)[0];
-    copy_ctx.Init(dr, copy_que ? copy_que : command_queue);
-    ctx.Init(dr, command_queue);
-
-    if (!LoadAssets()) return false;
-
-    return command_queue;
 }
 
 bool HelloTexture::LoadAssets()
@@ -366,17 +370,17 @@ bool HelloTexture::CreateRenderPass()
     dependencies[0].src_stage_mask              = b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE;
     dependencies[0].dst_stage_mask              = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
     dependencies[0].src_access                  = b::RESOURCE_ACCESS_FLAG_NONE;
-    dependencies[0].dst_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_READ | b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
-    dependencies[0].dependency_flags            = b::DEPENDENCY_FLAG_NONE;
+    dependencies[0].dst_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
+    dependencies[0].dependency_flags            = b::DEPENDENCY_FLAG_BY_REGION;
     dependencies[0].view_offset                 = 0;
 
     dependencies[1].src_subpass                 = 0;
     dependencies[1].dst_subpass                 = b::B3D_SUBPASS_EXTERNAL;
     dependencies[1].src_stage_mask              = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
     dependencies[1].dst_stage_mask              = b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE;
-    dependencies[1].src_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_READ | b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
+    dependencies[1].src_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
     dependencies[1].dst_access                  = b::RESOURCE_ACCESS_FLAG_NONE;
-    dependencies[1].dependency_flags            = b::DEPENDENCY_FLAG_NONE;
+    dependencies[1].dependency_flags            = b::DEPENDENCY_FLAG_BY_REGION;
     dependencies[1].view_offset                 = 0;
 
     render_pass_desc.flags                      = b::RENDER_PASS_FLAG_NONE;
@@ -431,8 +435,9 @@ bool HelloTexture::CreateShaderModules()
     auto&& loader = dr->GetShaderLoader();
     // vs
     {
+        auto path = AssetPath("Shader/VertexShader.hlsl");
         desc.entry_point    = "main";
-        desc.filename       = "./Samples/HelloTexture/Shader/VertexShader.hlsl";
+        desc.filename       = path.c_str();
         desc.defines        = {};
         desc.stage          = { shader::SHADER_STAGE_VERTEX };
         std::vector<uint8_t> bytecode;
@@ -449,8 +454,9 @@ bool HelloTexture::CreateShaderModules()
 
     // ps
     {
+        auto path = AssetPath("Shader/PixelShader.hlsl");
         desc.entry_point    = "main";
-        desc.filename       = "./Samples/HelloTexture/Shader/PixelShader.hlsl";
+        desc.filename       = path.c_str();
         desc.defines        = {};
         desc.stage          = { shader::SHADER_STAGE_PIXEL };
         std::vector<uint8_t> bytecode;
@@ -845,7 +851,8 @@ bool HelloTexture::CreateConstantBufferView()
 bool HelloTexture::LoadTextureData()
 {
     tex::TEXTURE_CREATE_DESC texdesc{};
-    texdesc.filename    = "./Samples/HelloTexture/Data/UV_Grid_Sm.jpg";
+    auto path = AssetPath("UV_Grid_Sm.jpg");
+    texdesc.filename    = path.c_str();
     texdesc.mip_count   = 0;
     texdesc.row_pitch_alignment   = dr->GetDeviceAdapterLimits().buffer_copy_row_pitch_alignment;
     texdesc.slice_pitch_alignment = dr->GetDeviceAdapterLimits().buffer_copy_offset_alignment;
@@ -886,27 +893,38 @@ bool HelloTexture::CopyDataToTexture()
                                        , tex_data->total_size, tex_data->data);
         }
 
-        // 所有権をコピーキューから開放します。
         bd.Reset();
-        bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
-                             , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
-        copy_ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE));
+        if (copy_ctx.GetCommandType() == b::COMMAND_TYPE_COPY_ONLY)
+        {
+            // 所有権をコピーキューから開放します。
+            bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
+                                 , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
+            copy_ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE));
+        }
+        else
+        {
+            bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ);
+            copy_ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS));
+        }
     }
     copy_ctx.End(copy_ctx.GetGpuWaitFence());
     BMR_RET_IF_FAILED(copy_ctx.WaitOnCpu());
 
     // コピーキューから開放された所有権をグラフィックキューで取得します。
-    ctx.Begin();
+    if (copy_ctx.GetCommandType() == b::COMMAND_TYPE_COPY_ONLY)
     {
-        util::PipelineBarrierDesc bd{};
-        util::TextureBarrierRange tex{};
-        tex.AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels);
-        bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
-                             , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
-        ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS));
+        ctx.Begin();
+        {
+            util::PipelineBarrierDesc bd{};
+            util::TextureBarrierRange tex{};
+            tex.AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels);
+            bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
+                                 , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
+            ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS));
+        }
+        ctx.End(ctx.GetGpuWaitFence());
+        BMR_RET_IF_FAILED(ctx.WaitOnCpu());
     }
-    ctx.End(ctx.GetGpuWaitFence());
-    BMR_RET_IF_FAILED(ctx.WaitOnCpu());
 
     return true;
 }
@@ -1107,13 +1125,13 @@ void HelloTexture::Update()
     MoveToNextFrame();
 
     {
-        auto&& key = input::GetKey();
+        auto&& key = platform->GetInputs()->GetKey();
         g_cam.keys.up       = key.W.press_count;
         g_cam.keys.down     = key.S.press_count;
         g_cam.keys.left     = key.A.press_count;
         g_cam.keys.right    = key.D.press_count;
 
-        auto&& mouse = input::GetMouse();
+        auto&& mouse = platform->GetInputs()->GetMouse();
         auto dx = (float)mouse.x.delta;
         auto dy = (float)mouse.y.delta;
         if (mouse.buttons.left.press_count)

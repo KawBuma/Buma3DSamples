@@ -15,11 +15,11 @@ public:
     static HelloTriangle* Create();
 
     bool Prepare(PlatformBase& _platform) override;
-    bool PrepareSwapChain();
     void PrepareSubmitInfo();
     void CreateEvents();
 
     bool Init() override;
+    bool InitSwapChain();
     bool LoadAssets();
     bool CreateRootSignature();
     bool CreateRenderPass();
@@ -122,6 +122,8 @@ private:
     std::shared_ptr<BufferResizedEvent>                         on_resized;
 
 };
+
+BUMA_DLL_API ApplicationBase* CreateApplication() { return HelloTriangle::Create(); }
 
 
 }// namespace buma

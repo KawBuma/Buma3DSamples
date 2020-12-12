@@ -19,9 +19,5 @@ PS_IN main(VS_IN _in)
     result.pos = mul(cb_scene.view_proj, mul(cb_model.model, _in.pos));
     result.uv  = _in.uv;
 
-#ifdef VK_INV_Y
-result.pos.y *= -1.f;
-#endif
-
     return result;
 }

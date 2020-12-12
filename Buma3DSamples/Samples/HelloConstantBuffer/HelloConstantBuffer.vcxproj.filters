@@ -30,8 +30,12 @@
     <None Include="Shader\ShaderHeader.hlsli">
       <Filter>Shader</Filter>
     </None>
-    <None Include="Shader\PixelShader.hlsl" />
-    <None Include="Shader\VertexShader.hlsl" />
+    <None Include="Shader\PixelShader.hlsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Shader\VertexShader.hlsl">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">

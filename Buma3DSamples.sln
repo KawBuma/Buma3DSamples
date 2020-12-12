@@ -8,6 +8,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Frameworks", "Frameworks", "{81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Imgui", "Buma3DSamples\Framework\Imgui\Imgui.vcxproj", "{2647224D-0083-43DF-9DD7-CC74F286BBEA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{DCE42634-12C0-41FC-93A7-367D6BC5DB5E} = {DCE42634-12C0-41FC-93A7-367D6BC5DB5E}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Inputs", "Buma3DSamples\Framework\Inputs\Inputs.vcxproj", "{E4C6B317-111C-4F33-BC19-32A2CADC0C07}"
 EndProject
@@ -26,6 +29,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Buma3DSharedInc", "Buma3DSamples\External\Buma3D\Project\SharedInc\v16\Buma3DSharedInc.vcxitems", "{9552BD49-305E-4198-B23B-09A629FE1BBF}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Framework", "Buma3DSamples\Framework\Framework\Framework.vcxproj", "{DCE42634-12C0-41FC-93A7-367D6BC5DB5E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E4C6B317-111C-4F33-BC19-32A2CADC0C07} = {E4C6B317-111C-4F33-BC19-32A2CADC0C07}
+		{C0283DFA-C2BE-4A33-BC85-4B0F03706855} = {C0283DFA-C2BE-4A33-BC85-4B0F03706855}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloConstantBuffer", "Buma3DSamples\Samples\HelloConstantBuffer\HelloConstantBuffer.vcxproj", "{3C4E75D1-BFAE-422F-B76D-BEE2C7D633C8}"
 EndProject

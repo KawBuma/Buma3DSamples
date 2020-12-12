@@ -363,6 +363,7 @@ MigrationBackup/
 /Buma3DSamples/External/Buma3D
 /Buma3DSamples/External/cereal
 /Buma3DSamples/External/stb
+/Buma3DSamples/External/rapidjson
 
 #Buma3DSample Log
 /Buma3DSamples/log.txt

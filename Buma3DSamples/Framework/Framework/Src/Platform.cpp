@@ -13,7 +13,6 @@ PlatformBase::PlatformBase()
     , is_prepared       {}
 {
     
-
 }
 
 PlatformBase::~PlatformBase()

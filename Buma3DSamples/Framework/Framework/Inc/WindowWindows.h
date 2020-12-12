@@ -29,11 +29,13 @@ class WindowWindows : public WindowBase
 {
 public:
     WindowWindows(PlatformWindows&      _platform,
-                  WNDCLASSEXW&          _wnd_class,
-                  const WINDOW_DESC&    _desc);
+                  WNDCLASSEXW&          _wnd_class);
 
     WindowWindows(const WindowWindows&) = delete;
     virtual ~WindowWindows();
+
+    bool Init(PlatformBase& _platform, const WINDOW_DESC& _desc) override;
+    bool HasWindow() const override;
     
     static LRESULT CALLBACK WndProc(HWND _hwnd, UINT _message, WPARAM _wparam, LPARAM _lparam);
     bool OffsetWindow(const buma3d::OFFSET2D& _offset) override;
@@ -54,11 +56,6 @@ public:
     void AddResizeEvent(const EventPtr& _event) override;
     void AddBufferResizedEvent(const EventPtr& _event) override;
 
-protected:
-    bool Init(PlatformBase&             _platform,
-              const buma3d::EXTENT2D&   _size,
-              const char*               _window_name) override;
-
 private:
     bool CreateWnd(uint32_t _width, uint32_t _height);
     bool CreateSurface();
@@ -70,6 +67,7 @@ private:
     const WNDCLASSEXW&                      wnd_class;
     HWND                                    hwnd;
     std::string                             wnd_name;
+    bool                                    has_window;
     WINDOW_STATE_FLAGS                      window_state_flags;
     WINDOW_PROCESS_FLAGS                    window_process_flags;
     buma3d::EXTENT2D                        windowed_size;

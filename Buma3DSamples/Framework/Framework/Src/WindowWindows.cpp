@@ -23,18 +23,18 @@ inline buma3d::EXTENT2D ConvertToWindowSize(HWND _hwnd, const buma3d::EXTENT2D& 
 
 
 WindowWindows::WindowWindows(PlatformWindows&   _platform,
-                             WNDCLASSEXW&       _wnd_class,
-                             const WINDOW_DESC& _desc)
+                             WNDCLASSEXW&       _wnd_class)
     : WindowBase                    ()
     , platform                      { _platform }
     , wnd_class                     { _wnd_class }
     , hwnd                          {}
-    , wnd_name                      { _desc.name ? _desc.name : "" }
+    , wnd_name                      {}
+    , has_window                    {}
     , window_state_flags            {}
     , window_process_flags          {}
-    , windowed_size                 { _desc.width, _desc.height }
+    , windowed_size                 {}
     , windowed_offset               {}
-    , aspect_ratio                  { float(_desc.width) / float(_desc.height) }
+    , aspect_ratio                  {}
     , msg                           {}
     , surface                       {}
     , supported_formats             {}
@@ -44,7 +44,6 @@ WindowWindows::WindowWindows(PlatformWindows&   _platform,
     , delegate_on_buffer_resized    {}
 
 {
-    Init(_platform, windowed_size, wnd_name.c_str());
 }
 
 WindowWindows::~WindowWindows()
@@ -91,9 +90,11 @@ bool WindowWindows::ProcessMessage()
         DispatchMessage(&msg);
     }
 
-    input::KeyboardInput::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
-    input::MouseInput::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
-    //input::GamePadInputs::GetIns().Update(platform.GetStepTimer()->GetElapsedSecondsF());
+    auto&& i = *platform.GetInputsImpl();
+    auto dt = platform.GetStepTimer()->GetElapsedSecondsF();
+    i.GetKeyboardInput().Update(dt);
+    i.GetMouseInput().Update(dt);
+    //i.GetGamePadInputs().Update(dt);
 
     return true;
 }
@@ -107,6 +108,7 @@ bool WindowWindows::Exit()
 
 bool WindowWindows::CreateSwapChain(const buma3d::SWAP_CHAIN_DESC& _desc, std::shared_ptr<buma::SwapChain>* _dst)
 {
+    swapchain.reset();
     auto&& dr = platform.GetDeviceResources();
 
     buma3d::util::Ptr<buma3d::ISwapChain> ptr;
@@ -139,13 +141,26 @@ void WindowWindows::AddBufferResizedEvent(const EventPtr& _event)
     delegate_on_buffer_resized += _event;
 }
 
-bool WindowWindows::Init(PlatformBase& _platform, const buma3d::EXTENT2D& _size, const char* _window_name)
+bool WindowWindows::Init(PlatformBase& _platform, const WINDOW_DESC& _desc)
 {
-    if (!CreateWnd(_size.width, _size.height))  return false;
-    if (!SetWindowTitle(_window_name))          return false;
+    has_window = _desc.need_window;
+    if (!_desc.need_window)
+        return true;
+
+    wnd_name        = _desc.name ? _desc.name : "";
+    windowed_size   = { _desc.width, _desc.height };
+    aspect_ratio    = float(_desc.width) / float(_desc.height);
+
+    if (!CreateWnd(_desc.width, _desc.height))  return false;
+    if (!SetWindowTitle(_desc.name))            return false;
     if (!CreateSurface())                       return false;
 
     return true;
+}
+
+bool WindowWindows::HasWindow() const 
+{
+    return has_window;
 }
 
 bool WindowWindows::CreateWnd(uint32_t _width, uint32_t _height)
@@ -172,7 +187,7 @@ bool WindowWindows::CreateWnd(uint32_t _width, uint32_t _height)
     windowed_offset.x = rc.left;
     windowed_offset.y = rc.top;
 
-    input::MouseInput::GetIns().SetWindow(hwnd);
+    platform.GetInputsImpl()->GetMouseInput().SetWindow(hwnd);
 
     return true;
 }
@@ -590,8 +605,10 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     }
     case WM_ACTIVATE:
     {
-        input::MouseInput::GetIns().ProcessMessage(_message, _wparam, _lparam);
-        input::KeyboardInput::GetIns().ProcessMessage(_message, _wparam, _lparam);
+        auto&& i = fw->platform.GetInputsImpl();
+        i->GetKeyboardInput().ProcessMessage(_message, _wparam, _lparam);
+        i->GetMouseInput().ProcessMessage(_message, _wparam, _lparam);
+        //i->GetGamePadInputs();
         switch (_wparam)
         {
         case WA_ACTIVE:
@@ -659,7 +676,7 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     case WM_KEYUP:
     case WM_SYSKEYUP:
     {
-        input::KeyboardInput::ProcessMessage(_message, _wparam, _lparam);
+        fw->platform.GetInputsImpl()->GetKeyboardInput().ProcessMessage(_message, _wparam, _lparam);
 
         if (_wparam == VK_RETURN && (_lparam & 0x60000000) == 0x20000000)
         {
@@ -703,7 +720,7 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     case WM_XBUTTONUP:
     case WM_MOUSEHOVER:
     {
-        input::MouseInput::ProcessMessage(_message, _wparam, _lparam);
+        fw->platform.GetInputsImpl()->GetMouseInput().ProcessMessage(_message, _wparam, _lparam);
         break;
     }
 

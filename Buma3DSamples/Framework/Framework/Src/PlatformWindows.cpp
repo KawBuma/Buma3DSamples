@@ -2,7 +2,6 @@
 #include "PlatformWindows.h"
 
 #include <shellapi.h>
-
 #include <memory>
 
 namespace buma
@@ -123,13 +122,16 @@ PlatformWindows::PlatformWindows()
     , execution_path    {}
     , console_session   {}
     , logger            {}
+    , inputs            {}
 {
+    inputs = std::make_unique<input::PCInputsWindows>();
 }
 
 PlatformWindows::~PlatformWindows()
 {
     console_session.reset();
     logger.reset();
+    inputs.reset();
 }
 
 int PlatformWindows::MainLoop()
@@ -150,7 +152,7 @@ void PlatformWindows::ProcessMain()
     app->Tick();
 }
 
-bool PlatformWindows::Init(const PLATFORM_DESC& _desc)
+bool PlatformWindows::Prepare(const PLATFORM_DESC& _desc)
 {
     if (_desc.type != PLATFORM_TYPE_WINDOWS) return false;
     if (!ParseCommandLines(_desc))           return false;
@@ -165,11 +167,19 @@ bool PlatformWindows::Init(const PLATFORM_DESC& _desc)
     if (!PrepareLog())                      return false;
     if (!RegisterWndClass())                return false;
     if (!PrepareDeviceResources())          return false;
-    if (!PrepareWindow(_desc.window_desc))  return false;
-
-    app->Prepare(*this);
+    if (!PrepareWindow())                   return false;
+    if (!app->Prepare(*this))               return false;
 
     is_prepared = true;
+    return true;
+}
+
+bool PlatformWindows::Init()
+{
+    auto&& wd = app->GetSettings().window_desc;
+    if (!window_windows->Init(*this, wd))    return false;
+    if (!app->Init())                        return false;
+
     return true;
 }
 
@@ -191,8 +201,6 @@ bool PlatformWindows::Term()
 
 bool PlatformWindows::ParseCommandLines(const PLATFORM_DESC& _desc)
 {
-    auto dat = reinterpret_cast<const PLATFORM_DATA_WINDOWS*>(_desc.data);
-
 	int  argc{};
 	auto argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (argc != 0)
@@ -206,9 +214,15 @@ bool PlatformWindows::ParseCommandLines(const PLATFORM_DESC& _desc)
                 std::make_unique<std::string>(
                     std::move(util::ConvertWideToAnsi(argv[i]))));
         }
-    }
 
+        LocalFree(argv);
+    }
     return true;
+}
+
+std::vector<std::unique_ptr<std::string>>::iterator PlatformWindows::FindArgument(const char* _find_str)
+{
+    return std::find_if(cmd_lines.begin(), cmd_lines.end(), [_find_str](const std::unique_ptr<std::string>& _str) { return (*_str) == _find_str; });
 }
 
 bool PlatformWindows::PrepareDeviceResources()
@@ -216,8 +230,7 @@ bool PlatformWindows::PrepareDeviceResources()
     device_resources = std::make_shared<DeviceResources>();
 
     INTERNAL_API_TYPE type = INTERNAL_API_TYPE_D3D12;
-    auto&& api_type = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return (*_str) == "--internal-api-type"; });
-    if (api_type != cmd_lines.end())
+    if (auto api_type = FindArgument("--internal-api-type"); api_type != cmd_lines.end())
     {
         auto&& next = (**(api_type + 1));
         if (next == "vulkan")
@@ -227,17 +240,14 @@ bool PlatformWindows::PrepareDeviceResources()
             type = INTERNAL_API_TYPE_D3D12;
     }
 
-    auto&& dll_dir = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return (*_str) == "--library-dir"; });
     const char* dir = nullptr;
-    if (dll_dir != cmd_lines.end())
+    if (auto dll_dir = FindArgument("--library-dir"); dll_dir != cmd_lines.end())
         dir = (**(dll_dir + 1)).c_str();
-
-    auto&& enable_debug = std::find_if(cmd_lines.begin(), cmd_lines.end(), [](const std::unique_ptr<std::string>& _str) { return (*_str) == "--enable-b3d-debug"; });
 
     DEVICE_RESOURCE_DESC drd{};
     drd.type                    = type;
     drd.library_dir             = dir ? dir : "";
-    drd.is_enabled_debug        = enable_debug != cmd_lines.end();
+    drd.is_enabled_debug        = FindArgument("--enable-b3d-debug") != cmd_lines.end();
     drd.message_logger          = logger;
     drd.DebugMessageCallback    = B3DMessageCallback;
     if (!device_resources->Init(drd)) return false;
@@ -245,9 +255,9 @@ bool PlatformWindows::PrepareDeviceResources()
     return true;
 }
 
-bool PlatformWindows::PrepareWindow(const WINDOW_DESC& _desc)
+bool PlatformWindows::PrepareWindow()
 {
-    window_windows = std::make_shared<WindowWindows>(*this, wnd_class, _desc);
+    window_windows = std::make_shared<WindowWindows>(*this, wnd_class);
     window = window_windows;
 
     return true;

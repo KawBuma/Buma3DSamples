@@ -35,6 +35,9 @@ public:
     WindowBase(const WindowBase&) = delete;
     virtual ~WindowBase();
 
+    virtual bool Init(PlatformBase& _platform, const WINDOW_DESC& _desc) = 0;
+    virtual bool HasWindow() const = 0;
+
     virtual bool OffsetWindow(const buma3d::OFFSET2D& _offset) = 0;
     virtual bool ResizeWindow(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags) = 0;
     virtual bool SetWindowTitle(const char* _text) = 0;
@@ -52,11 +55,6 @@ public:
     virtual float                   GetAspectRatio()        const = 0;
     virtual const buma3d::EXTENT2D& GetWindowedSize()       const = 0;
     virtual const buma3d::OFFSET2D& GetWindowedOffset()     const = 0;
-
-protected:
-    virtual bool Init(PlatformBase&             _platform,
-                      const buma3d::EXTENT2D&   _size,
-                      const char*               _window_name) = 0;
 
 };
 

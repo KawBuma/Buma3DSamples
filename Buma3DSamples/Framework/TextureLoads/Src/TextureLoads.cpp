@@ -208,7 +208,6 @@ bool Textures::LoadFromFile(const TEXTURE_CREATE_DESC& _desc, void** _stbi_data)
     int             component_size  {};
     int             req_comp        = STBI_default;
 
-
     // load
     {
         if (stbi_info(_desc.filename, &x, &y, &req_comp) == 0)

@@ -46,7 +46,6 @@
 #include "GamepadInputs.h"
 #include "MouseInput.h"
 #include "KeyboardInput.h"
-#pragma comment(lib, "Inputs.lib")
 
 #include "GLTFSDK/GLTF.h"
 

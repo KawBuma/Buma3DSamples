@@ -15,11 +15,11 @@ public:
     static HelloTexture* Create();
 
     bool Prepare(PlatformBase& _platform) override;
-    bool PrepareSwapChain();
     void PrepareSubmitInfo();
     void CreateEvents();
 
     bool Init() override;
+    bool InitSwapChain();
     bool LoadAssets();
     bool CreateRootSignature();
     bool CreateDescriptorPool();
@@ -161,6 +161,8 @@ private:
     DeferredContext                                             ctx;
 
 };
+
+BUMA_DLL_API ApplicationBase* CreateApplication() { return HelloTexture::Create(); }
 
 
 }// namespace buma

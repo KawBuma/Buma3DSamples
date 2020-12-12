@@ -1,0 +1,9 @@
+{
+  "Sample" : {
+    "ASSET_PATH"          : "./Samples/HelloTexture/Data/"
+  , "WIDTH"               : 1280
+  , "HEIGHT"              : 720
+  , "DISABLE_VSYNC"       : true
+  , "ENABLE_FULLSCREEN"   : false
+  }
+}

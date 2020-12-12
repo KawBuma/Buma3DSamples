@@ -102,8 +102,7 @@ HelloTriangle::HelloTriangle()
     , present_region        {}
     , on_resize             {}
     , on_resized            {}
-{    
-     
+{
     g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
 }
 
@@ -124,14 +123,15 @@ bool HelloTriangle::Prepare(PlatformBase& _platform)
     dr       = platform->GetDeviceResources();
     device   = dr->GetDevice();
 
-    spwindow = platform->GetWindow();
-    window   = spwindow.get();
-    window->SetWindowTitle("Buma3DSamples - HelloTriangle");
+    if (!PrepareSettings()) return false;
+    settings.window_desc.need_window    = true;
+    settings.window_desc.name           = "Buma3DSamples - HelloTriangle";
 
-    if (!PrepareSwapChain()) return false;
+    spwindow = platform->GetWindow();
+    window = spwindow.get();
+
     PrepareSubmitInfo();
     CreateEvents();
-    if (!Init()) return false;
 
     return true;
 }
@@ -154,17 +154,32 @@ void HelloTriangle::CreateEvents()
     window->AddBufferResizedEvent(on_resized);
 }
 
-bool HelloTriangle::PrepareSwapChain()
+bool HelloTriangle::Init()
+{
+    if (!InitSwapChain()) return false;
+    auto&& resolution = swapchain->GetSwapChain()->GetDesc().buffer;
+    vpiewport       = {   0, 0  ,  (float)resolution.width, (float)resolution.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
+    scissor_rect    = { { 0, 0 },        {resolution.width,        resolution.height} };
+    command_queue   = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
+    if (!LoadAssets()) return false;
+
+    return true;
+}
+
+bool HelloTriangle::InitSwapChain()
 {
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
                                                  init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
-    scd.flags = b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT | b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC;
-    window->ResizeWindow({ 1280,720 }, scd.flags);
+    scd.flags |= b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT;
+    scd.flags |= settings.is_disabled_vsync     ? b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC : 0;
+    scd.flags |= settings.is_enabled_fullscreen ? b::SWAP_CHAIN_FLAG_FULLSCREEN_EXCLUSIVE : 0;
+
+    window->ResizeWindow({ settings.window_desc.width, settings.window_desc.height }, scd.flags);
     if (!(window->CreateSwapChain(scd, &swapchain)))
         return false;
 
-    back_buffers = &swapchain->GetBuffers();
+    back_buffers     = &swapchain->GetBuffers();
     swapchain_fences = &swapchain->GetPresentCompleteFences();
 
     present_info.num_present_regions = 0;
@@ -172,18 +187,6 @@ bool HelloTriangle::PrepareSwapChain()
     present_region = { { 0, 0 }, scissor_rect.extent };
 
     return true;
-}
-
-bool HelloTriangle::Init()
-{
-    auto&& resolution = swapchain->GetSwapChain()->GetDesc().buffer;
-    vpiewport       = {   0, 0  ,  (float)resolution.width, (float)resolution.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
-    scissor_rect    = { { 0, 0 },        {resolution.width,        resolution.height} };
-    command_queue   = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
-
-    if (!LoadAssets()) return false;
-
-    return command_queue;
 }
 
 bool HelloTriangle::LoadAssets()
@@ -207,7 +210,7 @@ bool HelloTriangle::LoadAssets()
 
     b::RESOURCE_HEAP_ALLOCATION_INFO         heap_alloc_info{};
     std::vector<b::RESOURCE_ALLOCATION_INFO> alloc_infos;
-    if (!CreateBuffers())           return false;
+    if (!CreateBuffers())                                   return false;
     if (!CreateHeaps(&heap_alloc_info, &alloc_infos))       return false;
     if (!BindResourceHeaps(&heap_alloc_info, &alloc_infos)) return false;
     if (!CreateBuffersForCopy())                            return false;
@@ -339,8 +342,9 @@ bool HelloTriangle::CreateShaderModules()
     auto&& loader = dr->GetShaderLoader();
     // vs
     {
+        auto path = AssetPath("./Shader/VertexShader.hlsl");
         desc.entry_point    = "main";
-        desc.filename       = "./VertexShader.hlsl";
+        desc.filename       = path.c_str();
         desc.defines        = {};
         desc.stage          = { shader::SHADER_STAGE_VERTEX };
         std::vector<uint8_t> bytecode;
@@ -357,8 +361,9 @@ bool HelloTriangle::CreateShaderModules()
 
     // ps
     {
+        auto path = AssetPath("./Shader/PixelShader.hlsl");
         desc.entry_point    = "main";
-        desc.filename       = "./PixelShader.hlsl";
+        desc.filename       = path.c_str();
         desc.defines        = {};
         desc.stage          = { shader::SHADER_STAGE_PIXEL };
         std::vector<uint8_t> bytecode;

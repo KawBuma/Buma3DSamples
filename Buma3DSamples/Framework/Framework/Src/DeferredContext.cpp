@@ -39,6 +39,8 @@ bool DeferredContext::Init(std::shared_ptr<DeviceResources> _dr, buma3d::util::P
     if (util::IsFailed(d->AllocateCommandList(buma3d::hlp::init::CommandListDesc(allocator.Get(), buma3d::B3D_DEFAULT_NODE_MASK), &list)))
         return false;
 
+    type = queue->GetDesc().type;
+
     allocator->SetName("DeferredContext::allocator");
     list->SetName("DeferredContext::list");
     fence_to_cpu->SetName("DeferredContext::fence_to_cpu");

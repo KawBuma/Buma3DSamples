@@ -10,27 +10,20 @@ namespace input
 
 class KeyboardInput
 {
-private:
+public:
 	KeyboardInput();
 	~KeyboardInput();
 
-public:
-
-	static KeyboardInput& GetIns()
-	{
-		static KeyboardInput ins;
-		return ins;
-	}
-	
-	static void ProcessMessage(UINT _message, WPARAM _wparam, LPARAM _lparam);
+public:	
+	void ProcessMessage(UINT _message, WPARAM _wparam, LPARAM _lparam);
 
 	void Update(float _delta_time);
 
 	KEY_PRESS_DATA& KeyPressData() { return key_press_data; }
 
 private:
-	std::unique_ptr<DirectX::Keyboard> keys;
-	KEY_PRESS_DATA key_press_data;
+	DirectX::Keyboard*  keys;
+	KEY_PRESS_DATA      key_press_data;
 
 	static constexpr int keys_map_val_for_enum[eKeys_NumKeys] =
 	{

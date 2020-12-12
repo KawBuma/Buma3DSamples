@@ -38,11 +38,11 @@ protected:
         if (util::IsFailed(bmr))
             return false;
 
-        uint32_t bits = dr->GetResourceHeapProperties()->FindCompatibleHeaps(_heap_flags, _deny_heap_flags);
-        if ((bits & heap_info.heap_type_bits) == 0x0)
+        uint32_t compatible_heap_bits = dr->GetResourceHeapProperties()->FindCompatibleHeaps(_heap_flags, _deny_heap_flags);
+        if ((compatible_heap_bits & heap_info.heap_type_bits) == 0x0)
             return false;
 
-        heap_allocation = dr->GetResourceHeapsAllocator()->Allocate(heap_info.total_size_in_bytes, heap_info.required_alignment, (uint32_t)util::GetFirstBitIndex(bits));
+        heap_allocation = dr->GetResourceHeapsAllocator()->Allocate(heap_info.total_size_in_bytes, heap_info.required_alignment, (uint32_t)util::GetFirstBitIndex(compatible_heap_bits & heap_info.heap_type_bits));
         return heap_allocation;
     }
 

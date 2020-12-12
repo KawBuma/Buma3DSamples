@@ -11,6 +11,8 @@ public:
 
     bool Init(std::shared_ptr<DeviceResources> _dr, buma3d::util::Ptr<buma3d::ICommandQueue> _que);
 
+    buma3d::COMMAND_TYPE GetCommandType() const { return type; }
+
     void Reset();
     void Begin();
 
@@ -39,6 +41,7 @@ public:
 
 private:
     std::shared_ptr<DeviceResources>                dr;
+    buma3d::COMMAND_TYPE                            type;
     buma3d::util::Ptr<buma3d::IFence>               fence_to_cpu;
     buma3d::util::Ptr<buma3d::IFence>               fence_to_gpu;
     buma3d::util::Ptr<buma3d::ICommandQueue>        queue;
