@@ -28,19 +28,23 @@ void ShaderLoader::LoadShaderFromBinary(const char* _filename, std::vector<uint8
 
 void ShaderLoader::LoadShaderFromHLSL(const LOAD_SHADER_DESC& _desc, std::vector<uint8_t>* _dst)
 {
-    LoadShaderFromHLSL(type, _desc, _dst);
-}
-
-void ShaderLoader::LoadShaderFromHLSL(INTERNAL_API_TYPE _type, const LOAD_SHADER_DESC& _desc, std::vector<uint8_t>* _dst)
-{
-    namespace SC = ShaderConductor;
-    using SCC = ShaderConductor::Compiler;
-
     std::string source;
     {
         std::ifstream file(_desc.filename, std::ios::in);
         source = std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
     }
+    LoadShaderFromHLSL(type, _desc, source.c_str(), _dst);
+}
+
+void ShaderLoader::LoadShaderFromHLSLString(const LOAD_SHADER_DESC& _desc, const char* _src, std::vector<uint8_t>* _dst)
+{
+    LoadShaderFromHLSL(type, _desc, _src, _dst);
+}
+
+void ShaderLoader::LoadShaderFromHLSL(INTERNAL_API_TYPE _type, const LOAD_SHADER_DESC& _desc, const char* _src, std::vector<uint8_t>* _dst)
+{
+    namespace SC = ShaderConductor;
+    using SCC = ShaderConductor::Compiler;
     
     std::vector<SC::MacroDefine> defines(_desc.defines.size());
     {
@@ -105,7 +109,7 @@ void ShaderLoader::LoadShaderFromHLSL(INTERNAL_API_TYPE _type, const LOAD_SHADER
 
     SCC::SourceDesc src{};
     {
-        src.source              = source.data();
+        src.source              = _src;
         src.fileName            = _desc.filename;
         src.entryPoint          = _desc.entry_point;
         src.stage               = static_cast<SC::ShaderStage>(_desc.stage);

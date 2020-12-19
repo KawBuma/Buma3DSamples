@@ -169,7 +169,7 @@ bool HelloTriangle::Init()
 bool HelloTriangle::InitSwapChain()
 {
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
-                                                 init::SwapChainBufferDesc(1280, 720, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
+                                                 init::SwapChainBufferDesc(settings.window_desc.width, settings.window_desc.height, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
                                                  dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0].GetAddressOf());
     scd.flags |= b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT;
     scd.flags |= settings.is_disabled_vsync     ? b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC : 0;

@@ -13,19 +13,20 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{2647224d-0083-43df-9dd7-cc74f286bbea}</ProjectGuid>
-    <RootNamespace>Imgui</RootNamespace>
+    <ProjectGuid>{347C4493-03C6-47E7-B708-DB0EE53116D8}</ProjectGuid>
+    <RootNamespace>HelloImGui</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>HelloImGui</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -45,11 +46,9 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(ProjectDir)$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -57,12 +56,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\Inputs\Inc;$(ProjectDir)..\TextureLoads\Inc;$(ProjectDir)..\Framework\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\cereal\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <SupportJustMyCode>false</SupportJustMyCode>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -78,12 +78,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\Src;$(ProjectDir)\Inc;$(ProjectDir)..\Inputs\Inc;$(ProjectDir)..\TextureLoads\Inc;$(ProjectDir)..\Framework\Inc;$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\cereal\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -94,38 +96,56 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\External\imgui\backends\imgui_impl_win32.h" />
-    <ClInclude Include="..\..\External\imgui\imconfig.h" />
-    <ClInclude Include="..\..\External\imgui\imgui.h" />
-    <ClInclude Include="..\..\External\imgui\imgui_internal.h" />
-    <ClInclude Include="..\..\External\imgui\imstb_rectpack.h" />
-    <ClInclude Include="..\..\External\imgui\imstb_textedit.h" />
-    <ClInclude Include="..\..\External\imgui\imstb_truetype.h" />
-    <ClInclude Include="Inc\MyImgui.h" />
-    <ClInclude Include="Src\MyImguiRenderer.h" />
-    <ClInclude Include="Src\Utils.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\External\imgui\backends\imgui_impl_win32.cpp" />
-    <ClCompile Include="..\..\External\imgui\imgui.cpp" />
-    <ClCompile Include="..\..\External\imgui\imgui_demo.cpp" />
-    <ClCompile Include="..\..\External\imgui\imgui_draw.cpp" />
-    <ClCompile Include="..\..\External\imgui\imgui_tables.cpp" />
-    <ClCompile Include="..\..\External\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="Src\MyImgui.cpp" />
-    <ClCompile Include="Src\MyImguiRenderer.cpp" />
+    <ClInclude Include="Inc\HelloImGui.h" />
+    <ClInclude Include="Src\pch.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Shader\ShaderHeader.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Src\HelloImGui.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shader\PixelShader.hlsl">
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Shader\VertexShader.hlsl">
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Framework\Framework\Framework.vcxproj">
+      <Project>{dce42634-12c0-41fc-93a7-367d6bc5db5e}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Framework\Imgui\Imgui.vcxproj">
+      <Project>{2647224d-0083-43df-9dd7-cc74f286bbea}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Framework\TextureLoads\TextureLoads.vcxproj">
+      <Project>{c0283dfa-c2be-4a33-bc85-4b0f03706855}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\..\..\packages\directxtk12_desktop_2017.2020.9.30.1\build\native\directxtk12_desktop_2017.targets" Condition="Exists('..\..\..\packages\directxtk12_desktop_2017.2020.9.30.1\build\native\directxtk12_desktop_2017.targets')" />
     <Import Project="..\..\..\packages\glm.0.9.9.800\build\native\glm.targets" Condition="Exists('..\..\..\packages\glm.0.9.9.800\build\native\glm.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>このプロジェクトは、このコンピューター上にない NuGet パッケージを参照しています。それらのパッケージをダウンロードするには、[NuGet パッケージの復元] を使用します。詳細については、http://go.microsoft.com/fwlink/?LinkID=322105 を参照してください。見つからないファイルは {0} です。</ErrorText>
     </PropertyGroup>
+    <Error Condition="!Exists('..\..\..\packages\directxtk12_desktop_2017.2020.9.30.1\build\native\directxtk12_desktop_2017.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\..\packages\directxtk12_desktop_2017.2020.9.30.1\build\native\directxtk12_desktop_2017.targets'))" />
     <Error Condition="!Exists('..\..\..\packages\glm.0.9.9.800\build\native\glm.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\..\packages\glm.0.9.9.800\build\native\glm.targets'))" />
   </Target>
 </Project>

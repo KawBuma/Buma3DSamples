@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "HelloTexture.h"
+#include "HelloImGui.h"
 #include "External/Camera.h"
 
 #include <cassert>
@@ -46,28 +46,38 @@ template<typename T>
 using Ptr = buma3d::util::Ptr<T>;
 
 
-class HelloTexture::ResizeEvent : public IEvent
+class HelloImGui::ResizeEvent : public IEvent
 {
 public:
-    ResizeEvent(HelloTexture& _owner) : owner{ _owner } {}
+    ResizeEvent(HelloImGui& _owner) : owner{ _owner } {}
     virtual ~ResizeEvent() {}
     void Execute(IEventArgs* _args) override { owner.OnResize(static_cast<ResizeEventArgs*>(_args)); }    
 private:
-    HelloTexture& owner;
+    HelloImGui& owner;
 };
 
-class HelloTexture::BufferResizedEvent : public IEvent
+class HelloImGui::BufferResizedEvent : public IEvent
 {
 public:
-    BufferResizedEvent(HelloTexture& _owner) : owner{ _owner } {}
+    BufferResizedEvent(HelloImGui& _owner) : owner{ _owner } {}
     virtual ~BufferResizedEvent() {}
     void Execute(IEventArgs* _args) override { owner.OnResized(static_cast<BufferResizedEventArgs*>(_args)); }
 private:
-    HelloTexture& owner;
+    HelloImGui& owner;
+};
+
+class HelloImGui::ProcessMessageEvent : public IEvent
+{
+public:
+    ProcessMessageEvent(HelloImGui& _owner) : owner{ _owner } {}
+    virtual ~ProcessMessageEvent() {}
+    void Execute(IEventArgs* _args) override { owner.OnProcessMessage(static_cast<ProcessMessageEventArgs*>(_args)); }
+private:
+    HelloImGui& owner;
 };
 
 
-HelloTexture::HelloTexture()
+HelloImGui::HelloImGui()
     : ApplicationBase       ()
     , platform              {}
     , spwindow              {}
@@ -114,23 +124,27 @@ HelloTexture::HelloTexture()
     , present_region        {}
     , on_resize             {}
     , on_resized            {}
+    , on_process_message    {}
+    , myimgui               {}
+    , myimgui_framebuffers  {}
+    , is_enabled_gui        {}
 {    
     g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
 }
 
-HelloTexture::~HelloTexture()
+HelloImGui::~HelloImGui()
 {
     delete g_fpss;
     g_fpss = nullptr;
     //Term();
 }
 
-HelloTexture* HelloTexture::Create()
+HelloImGui* HelloImGui::Create()
 {
-    return new HelloTexture();
+    return new HelloImGui();
 }
 
-bool HelloTexture::Prepare(PlatformBase& _platform)
+bool HelloImGui::Prepare(PlatformBase& _platform)
 {
     platform = &_platform;
     dr       = platform->GetDeviceResources();
@@ -138,18 +152,19 @@ bool HelloTexture::Prepare(PlatformBase& _platform)
 
     if (!PrepareSettings()) return false;
     settings.window_desc.need_window    = true;
-    settings.window_desc.name           = "Buma3DSamples - HelloTexture";
+    settings.window_desc.name           = "Buma3DSamples - HelloImGui";
 
     spwindow = platform->GetWindow();
     window = spwindow.get();
 
     PrepareSubmitInfo();
     CreateEvents();
+    myimgui = std::make_unique<gui::MyImGui>(dr);
 
     return true;
 }
 
-void HelloTexture::PrepareSubmitInfo()
+void HelloImGui::PrepareSubmitInfo()
 {
     // キューへの送信情報
     submit_info.num_command_lists_to_execute = 1;
@@ -158,16 +173,18 @@ void HelloTexture::PrepareSubmitInfo()
     submit.submit_infos                      = &submit_info;
 }
 
-void HelloTexture::CreateEvents()
+void HelloImGui::CreateEvents()
 {
     // イベントを登録
-    on_resize = IEvent::Create<ResizeEvent>(*this);
-    on_resized = IEvent::Create<BufferResizedEvent>(*this);
+    on_resize          = IEvent::Create<ResizeEvent>(*this);
+    on_resized         = IEvent::Create<BufferResizedEvent>(*this);
+    on_process_message = IEvent::Create<ProcessMessageEvent>(*this);
     window->AddResizeEvent(on_resize);
     window->AddBufferResizedEvent(on_resized);
+    window->AddProcessMessageEvent(on_process_message);
 }
 
-bool HelloTexture::Init()
+bool HelloImGui::Init()
 {
     if (!InitSwapChain()) return false;
     auto&& resolution = swapchain->GetSwapChain()->GetDesc().buffer;
@@ -189,10 +206,12 @@ bool HelloTexture::Init()
     if (!copy_ctx.Init(dr, copy_ques.empty() ? command_queue : copy_ques[0]))   return false;
     if (!LoadAssets())                                                          return false;
 
+    auto result = InitMyImGui();
+    RET_IF_FAILED(result);
+
     return true;
 }
-
-bool HelloTexture::InitSwapChain()
+bool HelloImGui::InitSwapChain()
 {
     b::SWAP_CHAIN_DESC scd = init::SwapChainDesc(nullptr, buma3d::COLOR_SPACE_SRGB_NONLINEAR,
                                                  init::SwapChainBufferDesc(settings.window_desc.width, settings.window_desc.height, BACK_BUFFER_COUNT, { b::RESOURCE_FORMAT_B8G8R8A8_UNORM }, b::SWAP_CHAIN_BUFFER_FLAG_COLOR_ATTACHMENT),
@@ -215,7 +234,7 @@ bool HelloTexture::InitSwapChain()
     return true;
 }
 
-bool HelloTexture::LoadAssets()
+bool HelloImGui::LoadAssets()
 {
     auto aspect_ratio = window->GetAspectRatio();
     quad = {
@@ -256,7 +275,7 @@ bool HelloTexture::LoadAssets()
     return true;
 }
 
-bool HelloTexture::CreateRootSignature()
+bool HelloImGui::CreateRootSignature()
 {
     util::RootSignatureDesc rsdesc{};
 
@@ -293,7 +312,7 @@ bool HelloTexture::CreateRootSignature()
 
     return true;
 }
-bool HelloTexture::CreateDescriptorPool()
+bool HelloImGui::CreateDescriptorPool()
 {
     uint32_t max_num_register_space{};
     std::vector<b::DESCRIPTOR_POOL_SIZE> pool_sizes;
@@ -326,7 +345,7 @@ bool HelloTexture::CreateDescriptorPool()
 
     return true;
 }
-bool HelloTexture::AllocateDescriptorSets()
+bool HelloImGui::AllocateDescriptorSets()
 {
     descriptor_sets.resize(BACK_BUFFER_COUNT);
     for (auto& i : descriptor_sets)
@@ -336,7 +355,7 @@ bool HelloTexture::AllocateDescriptorSets()
     }
     return true;
 }
-bool HelloTexture::CreateRenderPass()
+bool HelloImGui::CreateRenderPass()
 {
     b::RENDER_PASS_DESC render_pass_desc{};
 
@@ -397,7 +416,7 @@ bool HelloTexture::CreateRenderPass()
     assert(bmr == b::BMRESULT_SUCCEED);
     return bmr == b::BMRESULT_SUCCEED;
 }
-bool HelloTexture::CreateFramebuffer()
+bool HelloImGui::CreateFramebuffer()
 {
     framebuffers.resize(BACK_BUFFER_COUNT);
     b::FRAMEBUFFER_DESC fb_desc{};
@@ -414,7 +433,7 @@ bool HelloTexture::CreateFramebuffer()
     }
     return true;
 }
-bool HelloTexture::CreateShaderModules()
+bool HelloImGui::CreateShaderModules()
 {
     b::BMRESULT bmr{};
     shader_modules.resize(2);
@@ -473,7 +492,7 @@ bool HelloTexture::CreateShaderModules()
 
     return true;
 }
-bool HelloTexture::CreateGraphicsPipelines()
+bool HelloImGui::CreateGraphicsPipelines()
 {
     b::BMRESULT bmr{};
     // グラフィックスパイプラインの作成
@@ -641,7 +660,7 @@ bool HelloTexture::CreateGraphicsPipelines()
 
     return true;
 }
-bool HelloTexture::CreateCommandAllocator()
+bool HelloImGui::CreateCommandAllocator()
 {
     cmd_allocator.resize(BACK_BUFFER_COUNT);
     for (auto& i : cmd_allocator)
@@ -657,7 +676,7 @@ bool HelloTexture::CreateCommandAllocator()
 
     return true;
 }
-bool HelloTexture::CreateCommandLists()
+bool HelloImGui::CreateCommandLists()
 {
     cmd_lists.resize(BACK_BUFFER_COUNT);
     b::COMMAND_LIST_DESC cld{};
@@ -675,7 +694,7 @@ bool HelloTexture::CreateCommandLists()
 
     return true;
 }
-bool HelloTexture::CreateFences()
+bool HelloImGui::CreateFences()
 {
     cmd_fences.resize(BACK_BUFFER_COUNT);
     b::FENCE_DESC fd{};
@@ -703,7 +722,7 @@ bool HelloTexture::CreateFences()
 
     return true;
 }
-bool HelloTexture::CreateBuffers()
+bool HelloImGui::CreateBuffers()
 {
     auto&& rc = dr->GetResourceCreate();
 
@@ -724,7 +743,7 @@ bool HelloTexture::CreateBuffers()
 
     return true;
 }
-bool HelloTexture::CopyBuffers()
+bool HelloImGui::CopyBuffers()
 {
     copy_ctx.Begin();
     copy_ctx.CopyDataToBuffer(vertex_buffer->GetB3DBuffer().Get(), 0, sizeof(VERTEX) * quad.size(), quad.data());
@@ -734,7 +753,7 @@ bool HelloTexture::CopyBuffers()
 
     return true;
 }
-bool HelloTexture::CreateBufferViews()
+bool HelloImGui::CreateBufferViews()
 {
     b::BMRESULT bmr{};
     // 頂点バッファビューを作成
@@ -766,7 +785,7 @@ bool HelloTexture::CreateBufferViews()
 
     return true;
 }
-bool HelloTexture::CreateConstantBuffer()
+bool HelloImGui::CreateConstantBuffer()
 {
     // 定数バッファを作成します。
     // コマンドリストがGPUで実行中に参照しているリソースが外部(CPU等)から変更されると表示結果に悪影響を与える可能性があります。 
@@ -830,7 +849,7 @@ bool HelloTexture::CreateConstantBuffer()
 
     return true;
 }
-bool HelloTexture::CreateConstantBufferView()
+bool HelloImGui::CreateConstantBufferView()
 {
     b::CONSTANT_BUFFER_VIEW_DESC cbv_desc{};
     for (auto& i : frame_cbs)
@@ -848,7 +867,7 @@ bool HelloTexture::CreateConstantBufferView()
 
     return true;
 }
-bool HelloTexture::LoadTextureData()
+bool HelloImGui::LoadTextureData()
 {
     tex::TEXTURE_CREATE_DESC texdesc{};
     auto path = AssetPath("UV_Grid_Sm.jpg");
@@ -861,7 +880,7 @@ bool HelloTexture::LoadTextureData()
 
     return true;
 }
-bool HelloTexture::CreateTextureResource()
+bool HelloImGui::CreateTextureResource()
 {
     auto&& data_desc = texture.data->GetDesc();
     texture.texture = dr->GetResourceCreate()->CreateTexture(init::Tex2DResourceDesc({ (uint32_t)data_desc.width, (uint32_t)data_desc.height }
@@ -871,7 +890,7 @@ bool HelloTexture::CreateTextureResource()
 
     return true;
 }
-bool HelloTexture::CopyDataToTexture()
+bool HelloImGui::CopyDataToTexture()
 {
     auto&& data_desc = texture.data->GetDesc();
     copy_ctx.Begin();
@@ -928,7 +947,7 @@ bool HelloTexture::CopyDataToTexture()
 
     return true;
 }
-bool HelloTexture::CreateShaderResourceView()
+bool HelloImGui::CreateShaderResourceView()
 {
     buma3d::SHADER_RESOURCE_VIEW_DESC srvd{};
     srvd.view.type          = b::VIEW_TYPE_SHADER_RESOURCE;
@@ -947,7 +966,7 @@ bool HelloTexture::CreateShaderResourceView()
     
     return true;
 }
-bool HelloTexture::CreateSampler()
+bool HelloImGui::CreateSampler()
 {
     b::SAMPLER_DESC sd{};
     sd.filter.mode            = b::SAMPLER_FILTER_MODE_ANISOTROPHIC;
@@ -970,7 +989,7 @@ bool HelloTexture::CreateSampler()
 
     return true;
 }
-bool HelloTexture::UpdateDescriptorSets()
+bool HelloImGui::UpdateDescriptorSets()
 {
     util::UpdateDescriptorSetDesc update_desc{};
     for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
@@ -1035,8 +1054,38 @@ bool HelloTexture::UpdateDescriptorSets()
 
     return true;
 }
+bool HelloImGui::InitMyImGui()
+{
+    if (!myimgui)
+        return true;
 
-void HelloTexture::PrepareFrame(uint32_t _buffer_index)
+    gui::MYIMGUI_CREATE_DESC gui_cd{};
+
+    auto data_win = static_cast<const b::SURFACE_PLATFORM_DATA_WINDOWS*>(swapchain->GetSurface()->GetDesc().platform_data.data);
+    gui_cd.window_handle = data_win->hwnd;
+
+    gui_cd.config_flags           = ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable | ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableSetMousePos;
+    gui_cd.framebuffer_format     = swapchain->GetBuffers()[0].tex->GetDesc().texture.format_desc.format;
+    auto result = myimgui->Init(gui_cd);
+    RET_IF_FAILED(result);
+
+    result = CreateMyImGuiFramebuffers();
+    RET_IF_FAILED(result);
+
+    return true;
+}
+bool HelloImGui::CreateMyImGuiFramebuffers()
+{
+    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
+    {
+        auto bmr = myimgui->CreateFramebuffer(back_buffers->data()[i].rtv.Get(), &myimgui_framebuffers[i]);
+        BMR_RET_IF_FAILED(bmr);
+    }
+
+    return true;
+}
+
+void HelloImGui::PrepareFrame(uint32_t _buffer_index)
 {
     auto reset_flags = b::COMMAND_ALLOCATOR_RESET_FLAG_NONE;
     cmd_allocator[_buffer_index]->Reset(reset_flags);
@@ -1100,7 +1149,7 @@ void HelloTexture::PrepareFrame(uint32_t _buffer_index)
     assert(bmr == b::BMRESULT_SUCCEED);
 }
 
-void HelloTexture::Tick()
+void HelloImGui::Tick()
 {
     timer.Tick();
     if (timer.IsOneSecElapsed())
@@ -1116,16 +1165,31 @@ void HelloTexture::Tick()
     Render();
 }
 
-void HelloTexture::Update()
+void HelloImGui::Update()
 {
     if (window->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
         return;
+
+    auto&& key = platform->GetInputs()->GetKey();
+    if (key.F3.is_release)
+        is_enabled_gui = !is_enabled_gui;
+
+    if (is_enabled_gui)
+    {
+        myimgui->NewFrame();
+        ImGui::ShowDemoWindow();
+
+        if (ImGui::Begin("Custom image"))
+        {
+            ImGui::Image(texture.srv.Get(), { 512, 512 });
+        }
+        ImGui::End();
+    }
 
     // 次のバックバッファを取得
     MoveToNextFrame();
 
     {
-        auto&& key = platform->GetInputs()->GetKey();
         g_cam.keys.up       = key.W.press_count;
         g_cam.keys.down     = key.S.press_count;
         g_cam.keys.left     = key.A.press_count;
@@ -1170,7 +1234,7 @@ void HelloTexture::Update()
 
 }
 
-void HelloTexture::MoveToNextFrame()
+void HelloImGui::MoveToNextFrame()
 {
     uint32_t next_buffer_index = 0;
     auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index);
@@ -1179,7 +1243,7 @@ void HelloTexture::MoveToNextFrame()
     back_buffer_index = next_buffer_index;
 }
 
-void HelloTexture::Render()
+void HelloImGui::Render()
 {
     if (window->GetWindowStateFlags() & WINDOW_STATE_FLAG_MINIMIZED)
         return;
@@ -1212,6 +1276,20 @@ void HelloTexture::Render()
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
+    if (is_enabled_gui)
+    {
+        ImmediateContext ictx(ctx);
+        util::PipelineBarrierDesc bd{};
+        bd.AddTextureBarrier(back_buffers->data()[back_buffer_index].rtv.Get(), b::RESOURCE_STATE_PRESENT, b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE);
+        ictx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT));
+
+        myimgui->DrawGui(myimgui_framebuffers[back_buffer_index].Get());
+
+        bd.Reset();
+        bd.AddTextureBarrier(back_buffers->data()[back_buffer_index].rtv.Get(), b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE, b::RESOURCE_STATE_PRESENT);
+        ictx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT, b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE));
+    }
+
     // バックバッファをプレゼント
     {
         swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
@@ -1225,14 +1303,17 @@ void HelloTexture::Render()
     fence_values[back_buffer_index]++;
 }
 
-void HelloTexture::OnResize(ResizeEventArgs* _args)
+void HelloImGui::OnResize(ResizeEventArgs* _args)
 {
     command_queue->WaitIdle();
     framebuffers = {};
     back_buffers = {};
+
+    for (auto& i : myimgui_framebuffers)
+        i.Reset();
 }
 
-void HelloTexture::OnResized(BufferResizedEventArgs* _args)
+void HelloImGui::OnResized(BufferResizedEventArgs* _args)
 {
     back_buffers     = &swapchain->GetBuffers();
     swapchain_fences = &swapchain->GetPresentCompleteFences();
@@ -1243,15 +1324,26 @@ void HelloTexture::OnResized(BufferResizedEventArgs* _args)
     if ((_args->size.width > 0.0f) && (_args->size.height > 0.0f))
         g_cam.updateAspectRatio((float)_args->size.width / (float)_args->size.height);
 
-    CreateFramebuffer();
+    auto result = CreateFramebuffer();
+    assert(result);
     for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
         PrepareFrame(i);
+
+    result = CreateMyImGuiFramebuffers();
+    assert(result);
 
     Update();
     Render();
 }
 
-void HelloTexture::Term()
+void HelloImGui::OnProcessMessage(ProcessMessageEventArgs* _args)
+{
+    if (!is_enabled_gui)
+        return;
+    myimgui->OnProcessMessage(_args);
+}
+
+void HelloImGui::Term()
 {
     dr->WaitForGpu();
 
@@ -1266,6 +1358,14 @@ void HelloTexture::Term()
         ss << (res / size) << std::endl;
 
         platform->GetLogger()->LogInfo(ss.str().c_str());
+    }
+
+    if (myimgui)
+    {
+        for (auto& i : myimgui_framebuffers)
+            i.Reset();
+        myimgui->Destroy();
+        myimgui.reset();
     }
 
     // オブジェクトの解放

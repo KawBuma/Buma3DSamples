@@ -1,6 +1,6 @@
 {
   "Sample" : {
-    "ASSET_PATH"          : "./Samples/HelloTexture/Data/"
+    "ASSET_PATH"          : "./Samples/HelloImGui/Data/"
   , "WIDTH"               : 1280
   , "HEIGHT"              : 720
   , "DISABLE_VSYNC"       : true

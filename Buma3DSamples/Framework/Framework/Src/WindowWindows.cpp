@@ -42,7 +42,7 @@ WindowWindows::WindowWindows(PlatformWindows&   _platform,
     , swapchain_flags               {}
     , delegate_on_resize            {}
     , delegate_on_buffer_resized    {}
-
+    , delegate_on_process_message   {}
 {
 }
 
@@ -139,6 +139,11 @@ void WindowWindows::AddResizeEvent(const EventPtr& _event)
 void WindowWindows::AddBufferResizedEvent(const EventPtr& _event)
 {
     delegate_on_buffer_resized += _event;
+}
+
+void WindowWindows::AddProcessMessageEvent(const EventPtr& _event)
+{
+    delegate_on_process_message += _event;
 }
 
 bool WindowWindows::Init(PlatformBase& _platform, const WINDOW_DESC& _desc)
@@ -240,6 +245,13 @@ LRESULT CALLBACK WindowWindows::WndProc(HWND _hwnd, UINT _message, WPARAM _wpara
     auto fw = reinterpret_cast<WindowWindows*>(GetWindowLongPtr(_hwnd, GWLP_USERDATA));
 
     //myimgui->WndProcHandler(_hwnd, _message, _wparam, _lparam);
+
+    if (fw)
+    {
+        auto args_data = ProcessMessageEventArgs::PROCESS_MESSAGE_EVENT_ARGS_WINDOWS{ _hwnd, _message, _wparam, _lparam };
+        ProcessMessageEventArgs args(PLATFORM_TYPE_WINDOWS, &args_data);
+        fw->delegate_on_process_message(&args);
+    }
 
 //#if defined _DEBUG
 #if 0

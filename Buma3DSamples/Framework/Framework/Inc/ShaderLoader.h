@@ -70,7 +70,8 @@ public:
 
     void LoadShaderFromBinary(const char* _filename, std::vector<uint8_t>* _dst);
     void LoadShaderFromHLSL(const LOAD_SHADER_DESC& _desc, std::vector<uint8_t>* _dst);
-    static void LoadShaderFromHLSL(INTERNAL_API_TYPE _type, const LOAD_SHADER_DESC& _desc, std::vector<uint8_t>* _dst);
+    void LoadShaderFromHLSLString(const LOAD_SHADER_DESC& _desc, const char* _src, std::vector<uint8_t>* _dst);
+    static void LoadShaderFromHLSL(INTERNAL_API_TYPE _type, const LOAD_SHADER_DESC& _desc, const char* _src, std::vector<uint8_t>* _dst);
 
 private:
     INTERNAL_API_TYPE type;

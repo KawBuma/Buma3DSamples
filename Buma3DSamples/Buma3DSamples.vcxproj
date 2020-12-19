@@ -101,6 +101,7 @@
     <ClInclude Include="Src\Buma3DSamples.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="b3dsample_settings.json" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -166,7 +166,7 @@ void DeferredContext::CopyDataToTexture(buma3d::ITexture* _dst_texture, uint32_t
     buma3d::BUFFER_TEXTURE_COPY_REGION copy_region{};
     copy_region.buffer_layout.offset            = al.data_offset;
     copy_region.buffer_layout.row_pitch         = _src_row_pitch;
-    copy_region.buffer_layout.texture_height    = _src_texture_height;
+    copy_region.buffer_layout.texture_height    = (uint32_t)_src_texture_height;
 
     copy_region.texture_subresource.offset.aspect      = buma3d::TEXTURE_ASPECT_FLAG_COLOR;
     copy_region.texture_subresource.offset.mip_slice   = _mip_slice;

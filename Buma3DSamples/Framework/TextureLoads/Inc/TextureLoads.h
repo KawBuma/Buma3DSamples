@@ -84,8 +84,8 @@ struct ITextures
 struct TEXTURE_CREATE_DESC
 {
     TEXTURE_CREATE_DESC() = default;
-    TEXTURE_CREATE_DESC(const char* _filename, size_t _mip_count = 1)
-        : filename{ _filename }, mip_count{ _mip_count } {}
+    TEXTURE_CREATE_DESC(const char* _filename, size_t _mip_count = 1, size_t _row_pitch_alignment = 0, size_t _slice_pitch_alignment = 0)
+        : filename{ _filename }, mip_count{ _mip_count }, row_pitch_alignment{ _row_pitch_alignment }, slice_pitch_alignment{} { _slice_pitch_alignment }
 
     const char*    filename;
     size_t         mip_count;               // set 0 to generate all mips

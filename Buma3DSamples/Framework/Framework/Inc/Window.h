@@ -19,6 +19,32 @@ public:
 };
 using BufferResizedEventArgs = ResizeEventArgs;
 
+
+class ProcessMessageEventArgs : public IEventArgs
+{
+public:
+    struct PROCESS_MESSAGE_EVENT_ARGS_WINDOWS
+    {
+        void*               hwnd;
+        uint32_t            message;
+        unsigned long long  wparam;
+        long long           lparam;
+    };
+
+public:
+    ProcessMessageEventArgs(PLATFORM_TYPE _type, void* _data)
+        : type  { _type }
+        , data  { _data }
+    {}
+    virtual ~ProcessMessageEventArgs() {}
+
+public:
+    const PLATFORM_TYPE     type;
+    const void*             data;
+
+};
+
+
 enum WINDOW_STATE_FLAGS
 {
     WINDOW_STATE_FLAG_NONE          = 0x0,
@@ -50,6 +76,7 @@ public:
 
     virtual void AddResizeEvent(const EventPtr& _event) = 0;
     virtual void AddBufferResizedEvent(const EventPtr& _event) = 0;
+    virtual void AddProcessMessageEvent(const EventPtr& _event) = 0;
 
     virtual WINDOW_STATE_FLAGS      GetWindowStateFlags()   const = 0;
     virtual float                   GetAspectRatio()        const = 0;

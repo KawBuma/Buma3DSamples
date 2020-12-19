@@ -54,6 +54,8 @@ void B3D_APIENTRY PlatformWindows::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVE
 {
     if (_category == buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_B3D_DETAILS)
         return;
+    else if (_category == buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_PERFORMANCE)
+        return;
 
     static const char* SEVERITIES[]
     {
@@ -79,6 +81,7 @@ void B3D_APIENTRY PlatformWindows::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVE
      , ", SHADER ] "
      , ", B3D ] "
      , ", B3D_DETAILS ] "
+     , ", PERFORMANCE ] "
     };
 
     debug::ILogger* logger = (debug::ILogger*)(_user_data);

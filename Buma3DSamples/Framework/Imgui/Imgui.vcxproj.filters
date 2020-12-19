@@ -13,26 +13,72 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
+    <Filter Include="Sources\imgui">
+      <UniqueIdentifier>{a6956ee9-2d84-4ffe-bdaf-bb1217ccbe4e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sources\imgui\backends">
+      <UniqueIdentifier>{03f7f3c1-d92a-47cc-85a2-92004d50f84e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\External\imgui\imgui.h">
-      <Filter>Sources</Filter>
-    </ClInclude>
     <ClInclude Include="Inc\MyImgui.h">
       <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Utils.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\MyImguiRenderer.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\External\imgui\backends\imgui_impl_win32.h">
+      <Filter>Sources\imgui\backends</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\External\imgui\imgui.h">
+      <Filter>Sources\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\External\imgui\imconfig.h">
+      <Filter>Sources\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\External\imgui\imgui_internal.h">
+      <Filter>Sources\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\External\imgui\imstb_rectpack.h">
+      <Filter>Sources\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\External\imgui\imstb_textedit.h">
+      <Filter>Sources\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\External\imgui\imstb_truetype.h">
+      <Filter>Sources\imgui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\MyImgui.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="Src\MyImguiRenderer.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\External\imgui\backends\imgui_impl_win32.cpp">
+      <Filter>Sources\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\External\imgui\imgui.cpp">
+      <Filter>Sources\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\External\imgui\imgui_demo.cpp">
+      <Filter>Sources\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\External\imgui\imgui_draw.cpp">
+      <Filter>Sources\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\External\imgui\imgui_tables.cpp">
+      <Filter>Sources\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\External\imgui\imgui_widgets.cpp">
+      <Filter>Sources\imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Src\Imgui_PS.hlsl">
-      <Filter>Sources</Filter>
-    </None>
-    <None Include="Src\Imgui_VS.hlsl">
-      <Filter>Sources</Filter>
-    </None>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

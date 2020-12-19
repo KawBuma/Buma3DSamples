@@ -60,7 +60,6 @@ DeviceResources::DeviceResources()
     , device                                            {}
     , cmd_queues                                        {}         
     //, gpu_timer_pools                                   {}    
-    //, my_imugi                                          {}
     , shader_laoder                                     {}
     , resource_heaps_allocator                          {}
     , resource_create                                   {}
@@ -88,7 +87,6 @@ bool DeviceResources::Init(const DEVICE_RESOURCE_DESC& _desc)
     if (!PickAdapter())                                 return false;
     if (!CreateDevice())                                return false;
     if (!GetCommandQueues())                            return false;
-    if (!CreateMyImGui())                               return false;
 
     resource_heap_props      = std::make_shared<ResourceHeapProperties>(device.Get());
     shader_laoder            = std::make_unique<shader::ShaderLoader>(desc.type);
@@ -101,10 +99,6 @@ bool DeviceResources::Init(const DEVICE_RESOURCE_DESC& _desc)
 bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
 {
     pfn = std::make_unique<B3D_PFN>();
-
-    buma3d::ALLOCATOR_DESC b3d_desc{};
-    b3d_desc.is_enabled_allocator_debug = false;
-    b3d_desc.custom_allocator           = nullptr;
 
     std::string path;
     ConvertBackShashToSlash(GetCurrentDir(&path));
@@ -159,6 +153,10 @@ bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
     pfn->Buma3DCreateDeviceFactory      = (buma3d::PFN_Buma3DCreateDeviceFactory)     GetProcAddress(pfn->b3d_module, "Buma3DCreateDeviceFactory");
     pfn->Buma3DUninitialize             = (buma3d::PFN_Buma3DUninitialize)            GetProcAddress(pfn->b3d_module, "Buma3DUninitialize");
 
+    buma3d::ALLOCATOR_DESC b3d_desc{};
+    b3d_desc.is_enabled_allocator_debug = false;
+    b3d_desc.custom_allocator           = nullptr;
+
     auto bmr = pfn->Buma3DInitialize(b3d_desc);
     assert(bmr == buma3d::BMRESULT_SUCCEED);
     return bmr == buma3d::BMRESULT_SUCCEED;
@@ -181,16 +179,16 @@ bool DeviceResources::PickAdapter()
     for (size_t i = 0; i < buma3d::DEBUG_MESSAGE_SEVERITY_END; i++)
     {
         auto&& debug_desc = descs[i];
-        debug_desc.is_enabled_debug_break = false;// レポート時のブレイク
-        debug_desc.severity = buma3d::DEBUG_MESSAGE_SEVERITY(i);
-        debug_desc.category_flags = buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_ALL;
+        debug_desc.is_enabled_debug_break   = false;// レポート時のブレイク
+        debug_desc.severity                 = buma3d::DEBUG_MESSAGE_SEVERITY(i);
+        debug_desc.category_flags           = buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_ALL & (~buma3d::DEBUG_MESSAGE_CATEGORY_FLAG_PERFORMANCE);
         if (debug_desc.severity == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
             debug_desc.is_enabled_debug_break = false;// レポート時のブレイク
     }
-    fac_desc.debug.num_debug_messages             = ARRAYSIZE(descs);
-    fac_desc.debug.debug_messages                 = descs;
-    fac_desc.debug.gpu_based_validation.is_enabled = false;// GPU検証
-    fac_desc.debug.gpu_based_validation.flags     = buma3d::GPU_BASED_VALIDATION_FLAG_NONE;
+    fac_desc.debug.num_debug_messages               = ARRAYSIZE(descs);
+    fac_desc.debug.debug_messages                   = descs;
+    fac_desc.debug.gpu_based_validation.is_enabled  = false;// GPU検証
+    fac_desc.debug.gpu_based_validation.flags       = buma3d::GPU_BASED_VALIDATION_FLAG_NONE;
 
     // 作成
     auto bmr = pfn->Buma3DCreateDeviceFactory(fac_desc, &factory);
@@ -198,7 +196,7 @@ bool DeviceResources::PickAdapter()
         return false;
 
     // 高パフォーマンスアダプタを取得
-    size_t cnt = 0;
+    uint32_t cnt = 0;
     uint64_t max_vram = 0;
     buma3d::util::Ptr<buma3d::IDeviceAdapter> adapter_tmp{};
     while (factory->EnumAdapters(cnt++, &adapter_tmp) != buma3d::BMRESULT_FAILED_OUT_OF_RANGE)
@@ -267,19 +265,12 @@ bool DeviceResources::GetCommandQueues()
     return true;
 }
 
-bool DeviceResources::CreateMyImGui()
-{
-    // TODO: ImGui
-    return true;
-}
-
 void DeviceResources::UninitB3D()
 {
     if (!pfn || !pfn->b3d_module)
         return;
 
     //gpu_timer_pools.reset();
-    //my_imugi.reset();
 
     for (auto& i_que : cmd_queues)
         for (auto& i : i_que)

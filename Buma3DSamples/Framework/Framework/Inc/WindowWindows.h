@@ -55,6 +55,7 @@ public:
 
     void AddResizeEvent(const EventPtr& _event) override;
     void AddBufferResizedEvent(const EventPtr& _event) override;
+    void AddProcessMessageEvent(const EventPtr& _event) override;
 
 private:
     bool CreateWnd(uint32_t _width, uint32_t _height);
@@ -82,6 +83,7 @@ private:
 
     LazyDelegate<>                          delegate_on_resize;
     LazyDelegate<>                          delegate_on_buffer_resized;
+    LazyDelegate<>                          delegate_on_process_message;
 
 };
 

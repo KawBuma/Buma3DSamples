@@ -25,5 +25,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="b3dsample_settings.json">
+      <Filter>Resources</Filter>
+    </None>
   </ItemGroup>
 </Project>

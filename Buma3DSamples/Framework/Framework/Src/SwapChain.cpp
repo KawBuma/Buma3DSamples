@@ -3,6 +3,18 @@
 
 namespace buma
 {
+SwapChain::SwapChain()
+    : supported_formats         {}
+    , swapchain_desc            {}
+    , surface                   {}
+    , swapchain                 {}
+    , back_buffers              {}
+    , back_buffer_index         {}
+    , acquire_info              {}
+    , present_complete_fences   {}
+{
+
+}
 
 SwapChain::SwapChain(std::shared_ptr<DeviceResources> _device_resources, buma3d::util::Ptr<buma3d::ISurface> _surface, buma3d::util::Ptr<buma3d::ISwapChain> _swapchain, const buma3d::SWAP_CHAIN_DESC& _desc)
     : supported_formats         {}
@@ -76,12 +88,61 @@ bool SwapChain::Recreate(const buma3d::SWAP_CHAIN_DESC& _desc)
     return true;
 }
 
+bool SwapChain::Create(std::shared_ptr<DeviceResources> _device_resources, const buma3d::SURFACE_DESC& _surface_desc, const buma3d::SWAP_CHAIN_DESC& _desc)
+{
+    back_buffers = {};
+    swapchain.Reset();
+    surface.Reset();
+    supported_formats.clear();
+
+    buma3d::util::Ptr<buma3d::ISurface> sf;
+    buma3d::util::Ptr<buma3d::ISwapChain> sc;
+
+    auto bmr = _device_resources->GetAdapter()->CreateSurface(_surface_desc, &sf);
+    BMR_RET_IF_FAILED(bmr);
+
+    supported_formats.resize(sf->GetSupportedSurfaceFormats(nullptr));
+    sf->GetSupportedSurfaceFormats(supported_formats.data());
+
+    // 指定のフォーマットが見つからなければデフォルトのフォーマットを設定
+    buma3d::SWAP_CHAIN_DESC desc = _desc;
+    auto it_find = std::find_if(supported_formats.begin(), supported_formats.end(), [&](const buma3d::SURFACE_FORMAT& _f)
+    { return (_f.format == desc.buffer.format_desc.format && _f.color_space == desc.color_space); });
+    if (it_find == supported_formats.end())
+    {
+        desc.buffer.format_desc.format = supported_formats.back().format;
+        desc.color_space               = supported_formats.back().color_space;// FIXME: supported_formats
+    }
+
+    desc.surface = sf.Get();
+    bmr = _device_resources->GetDevice()->CreateSwapChain(desc, &sc);
+    BMR_RET_IF_FAILED(bmr);
+
+    return Init(_device_resources, sf, sc, desc);
+}
+
+bool SwapChain::SetName(const char* _name)
+{
+    swapchain->SetName((std::string("SwapChain ") + '('+_name+')').c_str());
+    for (uint32_t i = 0, size = (uint32_t)back_buffers.size(); i < size; i++)
+        back_buffers[i].tex->SetName((std::string("SwapChain buffer") + std::to_string(i) + '('+_name+')').c_str());
+
+    return true;
+}
+
 bool SwapChain::Init(std::shared_ptr<DeviceResources> _device_resources, buma3d::util::Ptr<buma3d::ISurface> _surface, buma3d::util::Ptr<buma3d::ISwapChain> _swapchain, const buma3d::SWAP_CHAIN_DESC& _desc)
 {
     device_resources = _device_resources;
     surface          = _surface;
     swapchain        = _swapchain;
     swapchain_desc   = _desc;
+    swapchain_desc.surface = _surface.Get();
+
+    if (supported_formats.empty())
+    {
+        supported_formats.resize(surface->GetSupportedSurfaceFormats(nullptr));
+        surface->GetSupportedSurfaceFormats(supported_formats.data());
+    }
 
     if (!GetBackBuffers())  return false;
     if (!CreateViews())     return false;

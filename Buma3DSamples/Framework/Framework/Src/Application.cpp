@@ -2,8 +2,8 @@
 #include "Application.h"
 
 #undef GetObject
-#include "../rapidjson/include/rapidjson/document.h"
-#include "../rapidjson/include/rapidjson/rapidjson.h"
+#include "../../rapidjson/include/rapidjson/document.h"
+#include "../../rapidjson/include/rapidjson/rapidjson.h"
 
 namespace buma
 {
@@ -20,7 +20,7 @@ ApplicationBase::~ApplicationBase()
 }
 
 bool ApplicationBase::PrepareSettings()
-{    
+{
     std::ifstream ifs("b3dsample_settings.json");
     if (ifs.fail()) return false;
 

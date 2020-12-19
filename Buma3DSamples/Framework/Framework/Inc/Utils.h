@@ -238,6 +238,7 @@ private:
 
 };
 
+
 class TextureBarrierRange
 {
 public:
@@ -337,10 +338,16 @@ public:
         Resize(barrier.num_texture_barriers + 1, barrier.texture_barriers, &texture_barreirs);
         texture_barreirs.data()[barrier.num_texture_barriers++] = { buma3d::TEXTURE_BARRIER_TYPE_BARRIER_RANGE , _barrier_range , _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags };
     }
-    void AddTextureBarrier(const buma3d::TEXTURE_BARRIER_DESC& _texture_barrier)
+    void AddTextureBarrier(  buma3d::IView*                     _view
+                           , buma3d::RESOURCE_STATE             _src_state
+                           , buma3d::RESOURCE_STATE             _dst_state
+                           , buma3d::RESOURCE_BARRIER_FLAG      _barrier_flags = buma3d::RESOURCE_BARRIER_FLAG_NONE
+                           , buma3d::COMMAND_TYPE               _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
+                           , buma3d::COMMAND_TYPE               _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
     {
         Resize(barrier.num_texture_barriers + 1, barrier.texture_barriers, &texture_barreirs);
-        texture_barreirs.data()[barrier.num_texture_barriers++] = _texture_barrier;
+        (texture_barreirs.data()[barrier.num_texture_barriers++] = { buma3d::TEXTURE_BARRIER_TYPE_VIEW , nullptr, _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags })
+            .view = _view;
     }
 
     const buma3d::CMD_PIPELINE_BARRIER& Get(buma3d::PIPELINE_STAGE_FLAGS _src_stages, buma3d::PIPELINE_STAGE_FLAGS _dst_stages, buma3d::DEPENDENCY_FLAGS _dependency_flags = buma3d::DEPENDENCY_FLAG_NONE)
@@ -808,6 +815,15 @@ public:
     CopyDescriptorSet& AddNewCopyDescriptorSets()
     {
         return copy_descriptor_sets->emplace_back();
+    }
+
+    void Reset()
+    {
+        update_desc = {};
+        write_descriptor_sets       ->clear();
+        copy_descriptor_sets        ->clear();
+        b3d_write_descriptor_sets   ->clear();
+        b3d_copy_descriptor_sets    ->clear();
     }
 
     void Finalize()

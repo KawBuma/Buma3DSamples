@@ -19,11 +19,18 @@ public:
     };
 
 public:
+    SwapChain();
     SwapChain(std::shared_ptr<DeviceResources>      _device_resources,
               buma3d::util::Ptr<buma3d::ISurface>   _surface,
               buma3d::util::Ptr<buma3d::ISwapChain> _swapchain,
               const buma3d::SWAP_CHAIN_DESC&        _desc);
     ~SwapChain();
+
+    bool Create(std::shared_ptr<DeviceResources>    _device_resources,
+                const buma3d::SURFACE_DESC&         _surface_desc,
+                const buma3d::SWAP_CHAIN_DESC&      _desc);
+
+    bool SetName(const char* _name);
 
     virtual buma3d::BMRESULT    AcquireNextBuffer(uint32_t _timeout_millisec, uint32_t* _dst_back_buffer_index);
     virtual buma3d::BMRESULT    Present(const buma3d::SWAP_CHAIN_PRESENT_INFO& _info);
