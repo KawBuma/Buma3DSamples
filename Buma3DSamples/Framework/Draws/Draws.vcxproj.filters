@@ -21,6 +21,21 @@
     <ClInclude Include="Src\pch.h">
       <Filter>Sources</Filter>
     </ClInclude>
+    <ClInclude Include="Src\DrawsInstance.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsVertexBuffer.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsIndexBuffer.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsSampler.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsTexture.h">
+      <Filter>Sources</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Draws.cpp">
@@ -29,8 +44,29 @@
     <ClCompile Include="Src\pch.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="Src\DrawsInstance.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsVertexBuffer.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsIndexBuffer.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsSampler.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsTexture.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Src\_drawstmp.h">
+      <Filter>Sources</Filter>
+    </None>
+    <None Include="Src\_drawstmp.cpp">
+      <Filter>Sources</Filter>
+    </None>
   </ItemGroup>
 </Project>

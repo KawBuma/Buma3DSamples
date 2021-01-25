@@ -37,11 +37,6 @@ struct IDrawsBuffer;
 struct IDrawsVertexBuffer;
 struct IDrawsIndexBuffer;
 
- // マテリアルディスクリプタのビルドはマテリアルインスタンスの作成時のみ
- // マテリアル毎にディスクリプタセットを保有
- // マテリアル毎にマテリアル定数のバッファのプールを保有
- // 各マテリアルインスタンスはマテリアル定数のバッファへのインデックスを保有
- // 描画時にプリミティブからマテリアル定数のバッファへのインデックスを摂取
 struct IDrawsMaterialParameters;    // declare parameters value,sampler,texture
 struct IDrawsMaterial;              // represents material 
 struct IDrawsMaterialConstant;      // set parameters value
@@ -103,16 +98,6 @@ enum VERTEX_BUFFER_TYPE
     , VERTEX_BUFFER_TYPE_UINT2
     , VERTEX_BUFFER_TYPE_UINT3
     , VERTEX_BUFFER_TYPE_UINT4
-
-    , VERTEX_BUFFER_TYPE_SSHORT1
-    , VERTEX_BUFFER_TYPE_SSHORT2
-    , VERTEX_BUFFER_TYPE_SSHORT3
-    , VERTEX_BUFFER_TYPE_SSHORT4
-
-    , VERTEX_BUFFER_TYPE_USHORT1
-    , VERTEX_BUFFER_TYPE_USHORT2
-    , VERTEX_BUFFER_TYPE_USHORT3
-    , VERTEX_BUFFER_TYPE_USHORT4
 
     , VERTEX_BUFFER_TYPE_NUM_TYPES
 };
@@ -181,8 +166,17 @@ enum SAMPLER_WRAP_MODE
 {
       SAMPLER_WRAP_MODE_WRAP
     , SAMPLER_WRAP_MODE_CLAMP
-    , SAMPLER_WRAP_MODE_BOARDER_OPAQUE
-    , SAMPLER_WRAP_MODE_BOARDER_TRANSPARENT
+    , SAMPLER_WRAP_MODE_BOARDER
+};
+
+enum SAMPLER_BOARDER_TYPE
+{
+      SAMPLER_BOARDER_TYPE_TRANSPARENT_BLACK_FLOAT
+    , SAMPLER_BOARDER_TYPE_TRANSPARENT_BLACK_INT
+    , SAMPLER_BOARDER_TYPE_OPAQUE_BLACK_FLOAT
+    , SAMPLER_BOARDER_TYPE_OPAQUE_BLACK_INT
+    , SAMPLER_BOARDER_TYPE_OPAQUE_WHITE_FLOAT
+    , SAMPLER_BOARDER_TYPE_OPAQUE_WHITE_INT
 };
 
 enum TEXTURE_FORMAT
@@ -284,9 +278,11 @@ struct PRIMITIVE_PARAMETERS
 
 struct SAMPLER_CREATE_DESC
 {
-    SAMPLER_FILTER_MODE min_filter;
-    SAMPLER_FILTER_MODE mag_filter;
-    SAMPLER_WRAP_MODE   wrap_mode;
+    SAMPLER_FILTER_MODE         min_filter;
+    SAMPLER_FILTER_MODE         mag_filter;
+    SAMPLER_WRAP_MODE           wrap_mode;
+    SAMPLER_BOARDER_TYPE        boarder_type;
+    uint32_t                    max_anisotropy;
 };
 
 struct TEXTURE_CREATE_DESC
@@ -463,17 +459,6 @@ struct VIEW_CREATE_DESC
 
 #pragma region interfaces
 
-struct IDrawsObject
-{
-protected:
-    virtual ~IDrawsObject() {}
-
-public:
-    virtual void     AddRef() = 0;
-    virtual uint32_t Release() = 0;
-
-};
-
 struct IDrawsInstance
 {
 protected:
@@ -499,6 +484,17 @@ public:
 
 IDrawsInstance* CreateDrawsInstance();
 void            DestroyDrawsInstance(IDrawsInstance* _instance);
+
+struct IDrawsObject
+{
+protected:
+    virtual ~IDrawsObject() {}
+
+public:
+    virtual void     AddRef() = 0;
+    virtual uint32_t Release() = 0;
+
+};
 
 struct IDrawsResource : IDrawsObject
 {
