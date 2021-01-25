@@ -1001,12 +1001,12 @@ void HelloTriangle::Render()
 
     // コマンドリストとフェンスを送信
     {
-        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
+        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         //PrepareFrame(back_buffer_index);
 
         // 待機フェンス
         wait_fence_desc.Reset();
-        wait_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait);
+        wait_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait());
         wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
@@ -1015,7 +1015,7 @@ void HelloTriangle::Render()
 
         // シグナルフェンス
         signal_fence_desc.Reset();
-        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal);
+        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal());
         signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
@@ -1029,7 +1029,7 @@ void HelloTriangle::Render()
         swapchain_fences->signal_fence_to_cpu->Reset();
 
         present_info.wait_fence = render_complete_fence.Get();
-        bmr = swapchain->Present(present_info);
+        bmr = swapchain->Present(present_info, true);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 

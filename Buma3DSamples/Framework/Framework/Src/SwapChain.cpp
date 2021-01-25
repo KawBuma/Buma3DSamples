@@ -12,6 +12,7 @@ SwapChain::SwapChain()
     , back_buffer_index         {}
     , acquire_info              {}
     , present_complete_fences   {}
+    , is_signaled_cpu_fence     {}
 {
 
 }
@@ -25,6 +26,7 @@ SwapChain::SwapChain(std::shared_ptr<DeviceResources> _device_resources, buma3d:
     , back_buffer_index         {}
     , acquire_info              {}
     , present_complete_fences   {}
+    , is_signaled_cpu_fence     {}
 {
     Init(_device_resources, _surface, _swapchain, _desc);
 }
@@ -41,11 +43,27 @@ SwapChain::~SwapChain()
     present_complete_fences.signal_fence_to_cpu.Reset();
 }
 
-buma3d::BMRESULT SwapChain::AcquireNextBuffer(uint32_t _timeout_millisec, uint32_t* _dst_back_buffer_index)
+buma3d::BMRESULT SwapChain::AcquireNextBuffer(uint32_t _timeout_millisec, uint32_t* _dst_back_buffer_index, bool _use_custom_fences, const buma3d::SWAP_CHAIN_ACQUIRE_NEXT_BUFFER_INFO* _acquire_info)
 {
-    acquire_info.signal_fence        = present_complete_fences.signal_fence.Get();
-    acquire_info.signal_fence_to_cpu = present_complete_fences.signal_fence_to_cpu.Get();
-    acquire_info.timeout_millisec    = _timeout_millisec;
+    if (_use_custom_fences)
+    {
+        if (_acquire_info)
+            acquire_info = *_acquire_info;
+        else 
+        {
+            // _acquire_infoもnullptrの場合、GPU_TO_GPUフェンスのみを設定します。
+            acquire_info.signal_fence        = present_complete_fences.signal_fence.Get();
+            acquire_info.signal_fence_to_cpu = nullptr;
+        }
+        acquire_info.timeout_millisec = _timeout_millisec;
+    }
+    else
+    {
+        acquire_info.signal_fence        = present_complete_fences.signal_fence.Get();
+        acquire_info.signal_fence_to_cpu = present_complete_fences.signal_fence_to_cpu.Get();
+        acquire_info.timeout_millisec    = _timeout_millisec;
+        is_signaled_cpu_fence = true;
+    }
 
     uint32_t next_buffer_index = 0;
     auto bmr = swapchain->AcquireNextBuffer(acquire_info, &next_buffer_index);
@@ -57,9 +75,32 @@ buma3d::BMRESULT SwapChain::AcquireNextBuffer(uint32_t _timeout_millisec, uint32
     return bmr;
 }
 
-buma3d::BMRESULT SwapChain::Present(const buma3d::SWAP_CHAIN_PRESENT_INFO& _info)
+bool SwapChain::WaitDefaultCpuFence()
 {
-    return swapchain->Present(_info);
+    if (!is_signaled_cpu_fence)
+        return true;
+
+    auto bmr = present_complete_fences.signal_fence_to_cpu->Wait(0, UINT32_MAX);
+    BMR_RET_IF_FAILED(bmr);
+    bmr = present_complete_fences.signal_fence_to_cpu->Reset();
+    BMR_RET_IF_FAILED(bmr);
+
+    is_signaled_cpu_fence = false;
+    return true;
+}
+
+buma3d::BMRESULT SwapChain::Present(const buma3d::SWAP_CHAIN_PRESENT_INFO& _info, bool _use_custom_fences)
+{
+    WaitDefaultCpuFence();
+
+    if (_use_custom_fences)
+        return swapchain->Present(_info);
+    else
+    {
+        buma3d::SWAP_CHAIN_PRESENT_INFO info = _info;
+        info.wait_fence = present_complete_fences.signal_fence.Get();
+        return swapchain->Present(info);
+    }
 }
 
 bool SwapChain::Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags)
@@ -184,6 +225,8 @@ bool SwapChain::CreateViews()
         if (tdesc.texture.usage & buma3d::TEXTURE_USAGE_FLAG_SHADER_RESOURCE)
         {
             buma3d::SHADER_RESOURCE_VIEW_DESC srvdesc = buma3d::hlp::init::ShaderResourceViewDescDescTex2D(tdesc.texture.format_desc.format);
+            if (!(tdesc.texture.usage & buma3d::TEXTURE_USAGE_FLAG_INPUT_ATTACHMENT))
+                srvdesc.flags |= buma3d::SHADER_RESOURCE_VIEW_FLAG_DENY_INPUT_ATTACHMENT;
             auto bmr = device->CreateShaderResourceView(i.tex.Get(), srvdesc, &i.srv);
             if (bmr >= buma3d::BMRESULT_FAILED)
                 return false;

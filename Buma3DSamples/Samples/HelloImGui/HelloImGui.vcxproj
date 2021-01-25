@@ -61,7 +61,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;$(ProjectDir)..\..\Framework\Scenes\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <SupportJustMyCode>false</SupportJustMyCode>
     </ClCompile>
     <Link>
@@ -83,7 +83,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;$(ProjectDir)..\..\Framework\Scenes\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
@@ -100,11 +100,11 @@
     <ClInclude Include="Src\pch.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
-    <None Include="Shader\ShaderHeader.hlsli">
+    <None Include="Data\Shader\ShaderHeader.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">
@@ -114,27 +114,30 @@
     <ClCompile Include="Src\HelloImGui.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shader\PixelShader.hlsl">
-      <FileType>Document</FileType>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </None>
-    <None Include="Shader\VertexShader.hlsl">
-      <FileType>Document</FileType>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\..\Framework\Framework\Framework.vcxproj">
       <Project>{dce42634-12c0-41fc-93a7-367d6bc5db5e}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\Framework\Imgui\Imgui.vcxproj">
       <Project>{2647224d-0083-43df-9dd7-cc74f286bbea}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\..\Framework\Scenes\Scenes.vcxproj">
+      <Project>{b68e67ab-72bc-4a8b-88d2-523e3592aa75}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\Framework\TextureLoads\TextureLoads.vcxproj">
       <Project>{c0283dfa-c2be-4a33-bc85-4b0f03706855}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Data\Shader\PixelShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <None Include="Data\Shader\VertexShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -4,6 +4,8 @@
 
 #include <cassert>
 
+#include "Scenes.h" 
+
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
 #define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
 
@@ -104,7 +106,6 @@ HelloImGui::HelloImGui()
     , util_fence            {}
     , fence_values          {}
     , cmd_fences            {}
-    , render_complete_fence {}
     , signature             {}
     , descriptor_pool       {}
     , descriptor_sets       {}
@@ -130,6 +131,10 @@ HelloImGui::HelloImGui()
     , is_enabled_gui        {}
 {    
     g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
+
+    static const auto x = scne::GetScenesObjectType<scne::INode>();
+    auto scenes = scne::CreateScenes();
+
 }
 
 HelloImGui::~HelloImGui()
@@ -193,9 +198,9 @@ bool HelloImGui::Init()
 
     //g_cam.type = Camera::CameraType::firstperson;
     g_cam.type = Camera::CameraType::lookat;
-	g_cam.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
-	g_cam.setRotation(glm::vec3(0.0f));
-	g_cam.setRotationSpeed(0.5f);
+    g_cam.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
+    g_cam.setRotation(glm::vec3(0.0f));
+    g_cam.setRotationSpeed(0.5f);
     g_cam.setPerspective(60.0f, (float)settings.window_desc.width / (float)settings.window_desc.height, 1.0f, 256.0f);
 
     CBV_ALIGNMENT = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
@@ -239,9 +244,9 @@ bool HelloImGui::LoadAssets()
     auto aspect_ratio = window->GetAspectRatio();
     quad = {
           { { -1.0f , 1.0f, 0.0f, 1.f }, { 0.f, 0.f } }
-        , { {  1.0f,  1.0f, 0.0f, 1.f }, { 1.f, 0.f } }
-        , { { -1.0f, -1.0f, 0.0f, 1.f }, { 0.f, 1.f } }
-        , { {  1.0f, -1.0f, 0.0f, 1.f }, { 1.f, 1.f } }
+        , { {  3.0f,  1.0f, 0.0f, 1.f }, { 2.f, 0.f } }
+        , { { -1.0f, -3.0f, 0.0f, 1.f }, { 0.f, 2.f } }
+        , { {  1.0f, -1.0f, 0.0f, 0.f }, { 1.f, 1.f } }
     };
     //index = { 0,1,2,3 };
 
@@ -327,7 +332,314 @@ bool HelloImGui::CreateDescriptorPool()
         pool_sizes.resize(device->GetDescriptorPoolSizesAllocationInfo(1, signature.GetAddressOf(), &BACK_BUFFER_COUNT, &max_num_register_space, nullptr));
         device->GetDescriptorPoolSizesAllocationInfo(1, signature.GetAddressOf(), &BACK_BUFFER_COUNT, &max_num_register_space, pool_sizes.data());
     }
+    /*
 
+    SceneLoads ( b3d-independent )
+    // SaveScene
+    CreateSceneFromFile
+    Node
+    Component
+        Transform
+        Material
+        Light
+        Mesh
+
+    Draws (b3d-dependent)
+    DrawsInstance
+    CreateMesh
+    CreateMaterial
+
+    Mesh
+    MeshInstance
+    Material
+    MaterialConstant
+    MaterialDescriptorSet
+
+    SceneMeshBatch describes **WHOLE** Mesh, mesh instance num, Material parameters, 
+    MeshBatch      describes per-view  Mesh, mesh instance num, Material parameters, 
+    MeshBatch used-for-send-to:Processor
+
+    GPUScene has primitive-instance structured buffer 
+    MeshBatch has primitive-instance-index buffer
+
+    SceneRenderer
+    SceneResource (per-frame?)
+    SceneView 
+    Scene
+
+    Light
+    Scene.AddLight? AllocateLight?(then FreeLight callback OnLightFreed) 
+
+    SceneView has MeshBatch,each-pass-Processors
+    Processor reqs:Scene,SceneView | gens:RenderingCommand
+    RenderingCommand add-to:Renderer 
+
+    SceneView.CreateMeshBatch?
+
+
+    CreateDrawsInstance
+    DrawsInstance.CreateScene
+    DrawsInstance.CreateLight
+
+    DrawsInstance.CreateMesh
+
+    DrawsInstance.CreateMeshBuffer(MeshBufferLayout)
+    DrawsInstance.CreateMesh(MeshBuffer)
+
+    DrawsInstance.CreateMaterial
+    DrawsInstance.CreateView
+
+    DrawsInstance.CreateDeferredShadingRenderer
+
+    DeferredShadingRenderer.GetMeshBufferLayout
+
+
+    Mesh has Material
+    MeshInstance has MaterialInstance
+    Model has Mesh(es)
+    ModelInstance has MeshInstance(s) and ONE primitive-index buffer
+    MeshInstance must only exist Scene
+    Model.CreateModelInstance(Scene-node,"static")
+    ModelInstance.primitive_buffer = Scene.AllocatePrimitiveBuffer
+    if Instance == "static" : Scene.MeshBatch[foreace Instance.Mesh][Static].add(Instance);
+
+    Scenes
+    Scene Constant buffer
+    Primitive buffer
+
+
+    View
+    Primitive-index buffer
+
+
+    DrawsInstance
+    material descriptor pool
+    MeshBuffer pool
+
+
+    PrimitiveBuffer contains: material-constant-buffer-index
+
+    update queue has update-primitive-index buffer
+
+    Render(&View)
+    DI.UpdateMaterialInstance (in update queue)
+    Scene.UpdateGPUScene (in update queue)
+    Scene.UpdateGPUScene (in update queue)
+    InitView
+    CollectRenderingElements(Scene.GPUScene -> culling,etc. -> View.PrimitivesBufferIndex)
+
+    SetMaterialConstantBuffer
+
+    
+    PROCEDURE
+
+    SceneComponent->SetTransform
+
+View
+    has Screen info (TAA) (See PreVisibilityFrameSetup)
+
+StaticMesh
+    has FStaticMeshLODResources (RHI buffer)
+    Rendering resources needed to render an individual static mesh LOD.
+    This structure is ref counted to allow the LOD streamer to evaluate the number of readers to it (readers that could access the CPU data).
+    Because the stream out clears the CPU readable data, CPU code that samples it must ensure to only reference LODs above CurrentFirstLODIdx.
+    個々の静的メッシュLODをレンダリングするために必要なレンダリングリソース。
+    この構造は、LODストリーマーがそれに対するリーダー（CPUデータにアクセスできるリーダー）の数を評価できるように参照カウントされます。
+    ストリーム出力はCPU読み取り可能データをクリアするため、それをサンプリングするCPUコードは、CurrentFirstLODIdxより上のLODのみを参照するようにする必要があります。
+
+Per-LOD resources. For compatibility reasons, the FStaticMeshLODResources array are not referenced through TRefCountPtr.
+The LODResource still has a ref count of at least 1, see FStaticMeshLODResources() constructor.
+
+StaticMesh
+    has Cpu data and Rhi data (vtx buffer, materials, etc.)
+    instanced -> StaticMeshActor
+
+StaticMeshActor
+    has StaticMeshComponent
+
+StaticMeshComponent
+    inherits MeshComponent inherits PrimitiveCompoonent
+
+PrimitiveComponent
+    has rendering info (is render in depth pass, main pass)
+    has PrimitiveSceneProxy (set user defined proxy)
+    MUST exist in unique Scene
+
+PrimitiveSceneProxy
+    has rendering info (is render in depth pass, main pass)
+    has PrimitiveSceneInfo
+    collects meshes
+    created at FScene::AddPrimitive
+    attached to Scene and PrimitiveComponent.SceneProxy
+
+PrimitiveSceneInfo
+    has MeshBatch instance array
+    created at FScene::AddPrimitive
+
+MeshBatch
+    has rendering data (vtx buffer, material)
+    exists per level-of-detail, per material, ...
+
+FScene
+    has AddedPrimitiveSceneInfos
+    has StaticMeshBatch(from SceneInfo) pointer array
+
+MeshBatch and that Draw Commands
+    collects at begin of Renderer::Render()
+
+MeshElementCollector
+    has MeshBatch array to Draw
+    has Dynamic Mesh Buffer
+Renderer
+    has MeshElementCollector
+
+MeshPassProcessor
+    has MeshBatch to Draw
+    collects on FSceneRenderer::GatherDynamicMeshElements
+FSceneRenderer::GatherDynamicMeshElements
+    calles from FSceneRenderer::ComputeViewVisibility
+FSceneRenderer::ComputeViewVisibility
+    calles from FDeferredShadingSceneRenderer::InitViews
+
+FParallelMeshDrawCommandPass.DispatchPassSetup
+    calles from FSceneRenderer::SetupMeshPass
+FSceneRenderer::SetupMeshPass
+    calles from FSceneRenderer::ComputeViewVisibility
+FSceneRenderer::ComputeViewVisibility
+    calles from FDeferredShadingSceneRenderer::InitViews
+
+Renderer
+    generates Draw Commands
+    required
+        Create PassProcessor(Scene, View, PassType)
+        View.MeshElements
+        View.MeshPass
+        View.etc...
+
+ViewInfo
+    has FParallelMeshDrawCommandPass (caches Mesh Draw Commands)
+
+FSceneRenderer::SetupMeshPass
+    calles below
+    TaskContext set Processor,MeshBatch,Etc
+    FMeshDrawCommandPassSetupTask Task(TaskContext);
+    Task.AnyThreadTask()
+        GenerateDynamicMeshDrawCommands(*Context.View,
+                                        Context.ShadingPath,
+                                        Context.PassType,
+                                        Context.MeshPassProcessor, // Created by FSceneRenderer::SetupMeshPass
+                                        *Context.DynamicMeshElements,
+                                        Context.DynamicMeshElementsPassRelevance,
+                                        Context.NumDynamicMeshElements,
+                                        Context.DynamicMeshCommandBuildRequests,
+                                        Context.NumDynamicMeshCommandBuildRequestElements,
+                                        Context.MeshDrawCommands,
+                                        Context.MeshDrawCommandStorage,
+                                        Context.MinimalPipelineStatePassSet,
+                                        Context.NeedsShaderInitialisation);
+        PassMeshProcessor->AddMeshBatch(*MeshAndRelevance.Mesh, BatchElementMask, MeshAndRelevance.PrimitiveSceneProxy);
+
+
+Render PROCEDURE
+    UpdateAllPrimitiveSceneInfos
+    PrepareViewRectsForRendering
+    SkyAtmosphere
+    WaitOcclusionTests
+
+    InitViews(RHICmdList, BasePassDepthStencilAccess, ILCTaskData);
+        ComputeViewVisibility(RHICmdList, BasePassDepthStencilAccess, ViewCommandsPerView, DynamicIndexBufferForInitViews, DynamicVertexBufferForInitViews, DynamicReadBufferForInitViews);
+            PreVisibilityFrameSetup(RHICmdList);
+                // Setup motion blur parameters (also check for camera movement thresholds)
+                // Setup global dither fade in and fade out uniform buffers.
+            ComputeViewVisibility(RHICmdList, BasePassDepthStencilAccess, ViewCommandsPerView, DynamicIndexBufferForInitViews, DynamicVertexBufferForInitViews, DynamicReadBufferForInitViews);
+                // Allocate the visible light info.
+                    VisibleLightInfos.AddZeroed(Scene->Lights.GetMaxIndex());
+                UpdateReflectionSceneData(Scene);
+                for (TSet<FPrimitiveSceneInfo*>::TIterator It(Scene->PrimitivesNeedingStaticMeshUpdateWithoutVisibilityCheck); It; ++It)
+                    UpdatedSceneInfos.Add(Primitive);
+                FPrimitiveSceneInfo::UpdateStaticMeshes(RHICmdList, Scene, UpdatedSceneInfos);
+                for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex, ViewBit <<= 1)
+                    View.PrimitiveVisibilityMap.Init(false,Scene->Primitives.Num());
+                    View.DirtyIndirectLightingCacheBufferPrimitives.Reserve(Scene->Primitives.Num());
+                    // Most views use standard frustum culling.
+                       if (bNeedsFrustumCulling)
+                           HLODTree.UpdateVisibilityStates(View);
+                           UpdatePrimitiveFading(Scene, View);
+                    TArray<FPrimitiveSceneInfo*> AddedSceneInfos;
+                    AddedSceneInfos.Add(Scene->Primitives[PrimitiveIndex]);
+                    FPrimitiveSceneInfo::UpdateStaticMeshes(RHICmdList, Scene, AddedSceneInfos);
+                // Gather FMeshBatches from scene proxies
+                   |GatherDynamicMeshElements(Views, Scene, ViewFamily, DynamicIndexBuffer, DynamicVertexBuffer, DynamicReadBuffer
+                   |                          , HasDynamicMeshElementsMasks, HasDynamicEditorMeshElementsMasks, MeshCollector);
+                   |Collector.AddViewMeshArrays(&InViews[ViewIndex],
+                   |                            &InViews[ViewIndex].DynamicMeshElements,
+                   |                            &InViews[ViewIndex].SimpleElementCollector,
+                   |                            &InViews[ViewIndex].DynamicPrimitiveShaderData,
+                   |                            InViewFamily.GetFeatureLevel(),
+                   |                            &DynamicIndexBuffer,
+                   |                            &DynamicVertexBuffer,
+                   |                            &DynamicReadBuffer);
+                   |int32 NumPrimitives = InScene->Primitives.Num();
+                   |for (int32 PrimitiveIndex = 0; PrimitiveIndex < NumPrimitives; ++PrimitiveIndex)
+                   |    Collector.SetPrimitive(PrimitiveSceneInfo->Proxy, PrimitiveSceneInfo->DefaultDynamicHitProxyId);
+                   |    InViews[ViewIndex].DynamicMeshEndIndices[PrimitiveIndex] = Collector.GetMeshBatchCount(ViewIndex);
+                   |    ComputeDynamicMeshRelevance(ShadingPath, bAddLightmapDensityCommands, ViewRelevance, MeshBatch, View, PassRelevance, PrimitiveSceneInfo, Bounds);
+                   |MeshCollector.ProcessTasks();
+                for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+                    SetupMeshPass(View, BasePassDepthStencilAccess, ViewCommands);
+                        for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+                            const EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+                            Pass.DispatchPassSetup();
+        CreateIndirectCapsuleShadows();
+        UpdateSkyIrradianceGpuBuffer(RHICmdList);
+        InitSkyAtmosphereForViews(RHICmdList);
+        PostVisibilityFrameSetup(ILCTaskData);
+        // initialize per-view uniform buffer.
+           View.ViewState->UpdatePreExposure(View);
+           View.InitRHIResources();
+        SetupVolumetricFog();
+        OnStartRender();
+            View.ViewState->OnStartRender(View, ViewFamily);
+            SetupLightPropagationVolume(View, ViewFamily);
+            ConditionallyAllocateSceneSoftwareOcclusion(View.GetFeatureLevel());
+
+    UpdateGPUScene
+    VirtualTextureSystem::Get().Update
+    UploadDynamicPrimitiveShaderDataForView
+    PrepareDistanceFieldScene
+    PreRenderDitherFill
+    FXSystem->PreRender
+    GPUSortManager->OnPreRender
+    // Dynamic vertex and index buffers need to be committed before rendering.
+       GEngine->GetPreRenderDelegate().Broadcast();
+       DynamicBuffersForInitViews.Commit();
+
+
+Scene
+UpdateGPUScene PrimitivesToUpdate and Offset = 1 0
+ShaderDrawClear
+PrePass DDM_AllOpaque (Forced by DBuffer)
+ComputeLightGrid
+CullLights 10x8x32 NumLights 0 NumCaptures 3
+BeginOcclusionTests
+BuildHZB(ViewId=0)
+ShadowDepths
+GBufferClear
+BasePass
+ClearRenderTarget(Velocity) 640x480 ClearAction
+VelocityParallel
+LightCompositionTasks_PreLighting
+ClearStencil (SceneDepthZ)
+DiffuseIndirectAndAO
+ClearTranslucentVolumeLighting
+Lights
+FilterTranslucentVolume 64x64x64 Cascades:2
+ScreenSpaceReflections(Quality=2)
+ReflectionEnvironmentAndSky 640x480
+AtmosphericFog
+Translucency
+PostProcessing
+    */
     assert(pool_sizes[0].type == b::DESCRIPTOR_TYPE_CBV);
     assert(pool_sizes[0].num_descriptors == 6);
 
@@ -370,7 +682,7 @@ bool HelloImGui::CreateRenderPass()
 
     b::ATTACHMENT_REFERENCE color_attachment_ref{};
     color_attachment_ref.attachment_index             = 0;
-    color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE;
+    color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_WRITE;
     color_attachment_ref.stencil_state_at_pass        = {};
     color_attachment_ref.input_attachment_aspect_mask = b::TEXTURE_ASPECT_FLAG_COLOR;
 
@@ -616,12 +928,12 @@ bool HelloImGui::CreateGraphicsPipelines()
         b::BLEND_STATE_DESC bs{};
         b::RENDER_TARGET_BLEND_DESC attachments{};
         {
-            attachments.is_enabled_blend    = false;
-            attachments.src_blend           = b::BLEND_FACTOR_ONE;
-            attachments.dst_blend           = b::BLEND_FACTOR_ONE;
+            attachments.is_enabled_blend    = true;
+            attachments.src_blend           = b::BLEND_FACTOR_SRC_ALPHA;
+            attachments.dst_blend           = b::BLEND_FACTOR_SRC_ALPHA_INVERTED;
             attachments.blend_op            = b::BLEND_OP_ADD;
             attachments.src_blend_alpha     = b::BLEND_FACTOR_ONE;
-            attachments.dst_blend_alpha     = b::BLEND_FACTOR_ONE;
+            attachments.dst_blend_alpha     = b::BLEND_FACTOR_ZERO;
             attachments.blend_op_alpha      = b::BLEND_OP_ADD;
             attachments.color_write_mask    = b::COLOR_WRITE_FLAG_ALL;
 
@@ -714,11 +1026,6 @@ bool HelloImGui::CreateFences()
         BMR_RET_IF_FAILED(bmr);
         i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
     }
-
-    fd.type = b::FENCE_TYPE_BINARY_GPU_TO_GPU;
-    bmr = device->CreateFence(fd, &render_complete_fence);
-    BMR_RET_IF_FAILED(bmr);
-    render_complete_fence->SetName("render_complete_fence");
 
     return true;
 }
@@ -973,16 +1280,16 @@ bool HelloImGui::CreateSampler()
     sd.filter.reduction_mode  = b::SAMPLER_FILTER_REDUCTION_MODE_STANDARD;
     sd.filter.max_anisotropy  = (uint32_t)dr->GetDeviceAdapterLimits().max_sampler_anisotropy;
     sd.filter.comparison_func = b::COMPARISON_FUNC_NEVER;
-    sd.texture.address.u  = b::TEXTURE_ADDRESS_MODE_WRAP;
-    sd.texture.address.v  = b::TEXTURE_ADDRESS_MODE_WRAP;
-    sd.texture.address.w  = b::TEXTURE_ADDRESS_MODE_WRAP;
+    sd.texture.address.u  = b::TEXTURE_ADDRESS_MODE_BORDER;
+    sd.texture.address.v  = b::TEXTURE_ADDRESS_MODE_BORDER;
+    sd.texture.address.w  = b::TEXTURE_ADDRESS_MODE_BORDER;
     sd.texture.sample.minification  = b::TEXTURE_SAMPLE_MODE_LINEAR;
     sd.texture.sample.magnification = b::TEXTURE_SAMPLE_MODE_LINEAR;
     sd.texture.sample.mip           = b::TEXTURE_SAMPLE_MODE_LINEAR;
     sd.mip_lod.min    = 0.f;
     sd.mip_lod.max    = FLT_MAX;
     sd.mip_lod.bias   = 0.f;
-    sd.border_color   = b::BORDER_COLOR_OPAQUE_BLACK_FLOAT;
+    sd.border_color   = b::BORDER_COLOR_TRANSPARENT_BLACK_FLOAT;
 
     auto bmr = device->CreateSampler(sd, &sampler);
     BMR_RET_IF_FAILED(bmr);
@@ -1063,6 +1370,7 @@ bool HelloImGui::InitMyImGui()
 
     auto data_win = static_cast<const b::SURFACE_PLATFORM_DATA_WINDOWS*>(swapchain->GetSurface()->GetDesc().platform_data.data);
     gui_cd.window_handle = data_win->hwnd;
+    gui_cd.flags         = gui::MYIMGUI_CREATE_FLAG_DESCRIPTOR_POOL_FEEDING /*| gui::MYIMGUI_CREATE_FLAG_USE_SINGLE_COMMAND_LIST*/;
 
     gui_cd.config_flags           = ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable | ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableSetMousePos;
     gui_cd.framebuffer_format     = swapchain->GetBuffers()[0].tex->GetDesc().texture.format_desc.format;
@@ -1141,7 +1449,7 @@ void HelloImGui::PrepareFrame(uint32_t _buffer_index)
 
             ////             { index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location }
             //l->DrawIndexed({ 4                       , 1             , 0                   , 0                   , 0                       });            
-            l->Draw({ 4, 1, 0, 0 });
+            l->Draw({ 3, 1, 0, 0 });
         }
         l->EndRenderPass({});
     }
@@ -1179,11 +1487,11 @@ void HelloImGui::Update()
         myimgui->NewFrame();
         ImGui::ShowDemoWindow();
 
-        if (ImGui::Begin("Custom image"))
-        {
-            ImGui::Image(texture.srv.Get(), { 512, 512 });
-        }
-        ImGui::End();
+        //if (ImGui::Begin("Custom image"))
+        //{
+        //    ImGui::Image(texture.srv.Get(), { 512, 512 });
+        //}
+        //ImGui::End();
     }
 
     // 次のバックバッファを取得
@@ -1237,7 +1545,7 @@ void HelloImGui::Update()
 void HelloImGui::MoveToNextFrame()
 {
     uint32_t next_buffer_index = 0;
-    auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index);
+    auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index, true);
     assert(bmr == b::BMRESULT_SUCCEED || bmr == b::BMRESULT_SUCCEED_NOT_READY);
 
     back_buffer_index = next_buffer_index;
@@ -1254,12 +1562,11 @@ void HelloImGui::Render()
 
     // コマンドリストとフェンスを送信
     {
-        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
+        // 待機フェンス
+        //cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         //PrepareFrame(back_buffer_index);
 
-        // 待機フェンス
         wait_fence_desc.Reset();
-        wait_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait);
         wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
@@ -1268,35 +1575,25 @@ void HelloImGui::Render()
 
         // シグナルフェンス
         signal_fence_desc.Reset();
-        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal);
-        signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
+        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal());
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
+        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         bmr = command_queue->Submit(submit);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
     if (is_enabled_gui)
     {
-        ImmediateContext ictx(ctx);
-        util::PipelineBarrierDesc bd{};
-        bd.AddTextureBarrier(back_buffers->data()[back_buffer_index].rtv.Get(), b::RESOURCE_STATE_PRESENT, b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE);
-        ictx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT));
-
-        myimgui->DrawGui(myimgui_framebuffers[back_buffer_index].Get());
-
-        bd.Reset();
-        bd.AddTextureBarrier(back_buffers->data()[back_buffer_index].rtv.Get(), b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE, b::RESOURCE_STATE_PRESENT);
-        ictx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT, b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE));
+        myimgui->DrawGui(myimgui_framebuffers[back_buffer_index].Get(), b::RESOURCE_STATE_PRESENT, b::RESOURCE_STATE_PRESENT);
+        myimgui->SubmitCommands();
+        myimgui->PresentViewports();
     }
 
     // バックバッファをプレゼント
     {
-        swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
-        swapchain_fences->signal_fence_to_cpu->Reset();
-
-        present_info.wait_fence = render_complete_fence.Get();
-        bmr = swapchain->Present(present_info);
+        present_info.wait_fence = nullptr;
+        bmr = swapchain->Present(present_info, true);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 

@@ -235,7 +235,8 @@ bool DeviceResources::CreateDevice()
         auto&& qd = queue_descs[i];
         qd.type       = queue_props[i].type;
         qd.flags      = buma3d::COMMAND_QUEUE_FLAG_NONE;
-        qd.num_queues = std::min(std::thread::hardware_concurrency(), queue_props[i].num_max_queues);
+        //qd.num_queues = std::min(std::thread::hardware_concurrency(), queue_props[i].num_max_queues);
+        qd.num_queues = 1;
 
         auto&& qps  = queue_priorities[i];
         auto&& qnms = queue_node_masks[i];
@@ -249,6 +250,7 @@ bool DeviceResources::CreateDevice()
     dd.flags                    = buma3d::DEVICE_FLAG_NONE;
 
     auto bmr = factory->CreateDevice(dd, &device);
+    assert(bmr == buma3d::BMRESULT_SUCCEED);
     return bmr == buma3d::BMRESULT_SUCCEED;
 }
 

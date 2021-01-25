@@ -120,10 +120,24 @@ public:
     RENDER_RESOURCE& GetRenderResource() { return rr; }
 
     void NewFrame();
-    void DrawGui(buma3d::IFramebuffer* _framebuffer);
-
+    void DrawGui(buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after);
+    void RecordGuiCommands(buma3d::ICommandList* _list, buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after);
+    void SubmitCommands();
+    void PresentViewports();
     void Destroy();
 
+    // (Optional) Platform functions (e.g. Win32, GLFW, SDL2)
+    //   N = ImGui::NewFrame()                        ~ beginning of the dear imgui frame: read info from platform/OS windows (latest size/position)
+    //   F = ImGui::Begin(), ImGui::EndFrame()        ~ during the dear imgui frame
+    //   U = ImGui::UpdatePlatformWindows()           ~ after the dear imgui frame: create and update all platform/OS windows
+    //   R = ImGui::RenderPlatformWindowsDefault()    ~ render
+    //   D = ImGui::DestroyPlatformWindows()          ~ shutdown
+    // 一般的な考え方は、NewFrame()が現在のPlatform/OSの状態を読み取り、UpdatePlatformWindows()がそれに書き込むというものです。
+    // 
+    // 関数は、2つのimgui_impl_xxxxファイルを組み合わせることができるように設計されています。1つはプラットフォーム（〜ウィンドウ/入力処理）用、もう1つはレンダラー用です。
+    // カスタムエンジンバックエンドは、多くの場合、プラットフォームインターフェイスとレンダラーインターフェイスの両方を提供するため、すべての機能を使用する必要はありません。
+    // プラットフォーム関数は通常、他の方法で呼び出されるDestroyを除いて、対応するレンダラーの前に呼び出されます。
+    // 
     // CreateWindow  : // . . U . . スワップチェーン、フレームバッファーなどを作成します（Platform_CreateWindowの後に呼び出されます）
     // DestroyWindow : // N . U . D スワップチェーン、フレームバッファなどを破棄します（Platform_DestroyWindowの前に呼び出されます）
     // SetWindowSize : // . . U . . スワップチェーン、フレームバッファーなどのサイズを変更します（Platform_SetWindowSizeの後に呼び出されます）
@@ -211,8 +225,9 @@ bool MyImGui::MyImGuiImpl::Init(const MYIMGUI_CREATE_DESC& _desc)
     RET_IF_FAILED(CreateFontDescriptorPool());
     RET_IF_FAILED(AllocateFontDescriptorSet());
     RET_IF_FAILED(WriteFontSrv());
+    rr.flags = desc.flags;
 
-    renderer = std::make_unique<MyImGuiRenderer>(rr);
+    renderer = std::make_unique<MyImGuiRenderer>(rr, /*viewport*/false, /*primary*/true);
     return true;
 }
 
@@ -695,28 +710,84 @@ buma3d::BMRESULT MyImGui::MyImGuiImpl::CreateFramebuffer(buma3d::IView* _rtv, bu
 
 void MyImGui::MyImGuiImpl::NewFrame()
 {
+    rr.barriers.Reset();
+    rr.submit.Reset();
     ImGui::SetCurrentContext(ctx);
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 }
-void MyImGui::MyImGuiImpl::DrawGui(buma3d::IFramebuffer* _framebuffer)
+void MyImGui::MyImGuiImpl::DrawGui(buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after)
+{
+    renderer->BeginRecord();
+    RecordGuiCommands(renderer->GetCommandList(), _framebuffer, _current_state, _state_after);
+    renderer->EndRecord();
+}
+void MyImGui::MyImGuiImpl::RecordGuiCommands(buma3d::ICommandList* _list, buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after)
 {
     ImGui::Render();
+
+    if (auto draw_data = ImGui::GetDrawData())
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        //if (draw_data->CmdListsCount != 0)
+        {
+            renderer->BeginRecord(_list);
+            renderer->RecordGuiCommands(_framebuffer, _current_state, _state_after, draw_data);
+            renderer->EndRecord(_list);
+        }
+    }
 
     if (desc.config_flags & ImGuiConfigFlags_ViewportsEnable)
     {
         ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
+
+        auto viewport_list = desc.flags & MYIMGUI_CREATE_FLAG_USE_SINGLE_COMMAND_LIST ? _list : nullptr/*renderer固有のコマンドリストが使用されます。*/;
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        for (int i = 1; i < platform_io.Viewports.Size; i++)
+        {
+            ImGuiViewport* viewport = platform_io.Viewports[i];
+            if (viewport->Flags & ImGuiViewportFlags_Minimized)
+                continue;
+            if (platform_io.Platform_RenderWindow) platform_io.Platform_RenderWindow(viewport, nullptr);
+            if (platform_io.Renderer_RenderWindow) platform_io.Renderer_RenderWindow(viewport, viewport_list);
+        }
     }
+}
 
-    ImGuiIO& io = ImGui::GetIO();
-    ImDrawData* draw_data = ImGui::GetDrawData();
+void MyImGui::MyImGuiImpl::SubmitCommands()
+{
+    renderer->AddSubmissionTo(&rr.submit.AddNewSubmitInfo());
 
-    // Check if there is anything to render.
-    if (!draw_data || draw_data->CmdListsCount == 0)
-        return;
+    if (desc.config_flags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        for (int i = 1; i < platform_io.Viewports.Size; i++)
+        {
+            ImGuiViewport* viewport = platform_io.Viewports[i];
+            if (viewport->Flags & ImGuiViewportFlags_Minimized)
+                continue;
+            auto renderer = static_cast<MyImGuiViewportRenderer*>(viewport->RendererUserData);
+            renderer->AddSubmitInfoTo(&rr.submit);
+        }
+    }
+    auto bmr = rr.queue->Submit(rr.submit.Get());
+    assert(util::IsSucceeded(bmr));
+}
 
-    renderer->Draw(_framebuffer, draw_data);
+void MyImGui::MyImGuiImpl::PresentViewports()
+{
+    if (desc.config_flags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        for (int i = 1; i < platform_io.Viewports.Size; i++)
+        {
+            ImGuiViewport* viewport = platform_io.Viewports[i];
+            if (viewport->Flags & ImGuiViewportFlags_Minimized)
+                continue;
+            if (platform_io.Platform_SwapBuffers) platform_io.Platform_SwapBuffers(viewport, nullptr);
+            if (platform_io.Renderer_SwapBuffers) platform_io.Renderer_SwapBuffers(viewport, nullptr);
+        }
+    }
 }
 
 void MyImGui::MyImGuiImpl::Destroy()
@@ -803,9 +874,25 @@ void MyImGui::NewFrame()
     impl->NewFrame();
 }
 
-void MyImGui::DrawGui(buma3d::IFramebuffer* _framebuffer)
+void MyImGui::DrawGui(buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after)
 {
-    impl->DrawGui(_framebuffer);
+    impl->DrawGui(_framebuffer, _current_state, _state_after);
+}
+
+void MyImGui::RecordGuiCommands(buma3d::ICommandList* _list, buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after)
+{
+    assert(impl->desc.flags & MYIMGUI_CREATE_FLAG_DESCRIPTOR_POOL_FEEDING);
+    impl->RecordGuiCommands(_list, _framebuffer, _current_state, _state_after);
+}
+
+void MyImGui::SubmitCommands()
+{
+    impl->SubmitCommands();
+}
+
+void MyImGui::PresentViewports()
+{
+    impl->PresentViewports();
 }
 
 void MyImGui::Destroy()

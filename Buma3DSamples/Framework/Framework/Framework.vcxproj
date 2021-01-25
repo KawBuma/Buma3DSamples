@@ -168,7 +168,6 @@
   <ImportGroup Label="ExtensionTargets">
     <Import Project="..\..\..\packages\spdlog.native.1.0.0\build\native\spdlog.native.targets" Condition="Exists('..\..\..\packages\spdlog.native.1.0.0\build\native\spdlog.native.targets')" />
     <Import Project="..\..\..\packages\rapidjson.temprelease.0.0.2.20\build\native\rapidjson.temprelease.targets" Condition="Exists('..\..\..\packages\rapidjson.temprelease.0.0.2.20\build\native\rapidjson.temprelease.targets')" />
-    <Import Project="..\..\..\packages\Microsoft.glTF.CPP.1.6.3.1\build\native\Microsoft.glTF.CPP.targets" Condition="Exists('..\..\..\packages\Microsoft.glTF.CPP.1.6.3.1\build\native\Microsoft.glTF.CPP.targets')" />
     <Import Project="..\..\..\packages\directxtk_desktop_win10.2020.9.30.1\build\native\directxtk_desktop_win10.targets" Condition="Exists('..\..\..\packages\directxtk_desktop_win10.2020.9.30.1\build\native\directxtk_desktop_win10.targets')" />
     <Import Project="..\..\..\packages\directxmath.2020.8.3.1\build\native\directxmath.targets" Condition="Exists('..\..\..\packages\directxmath.2020.8.3.1\build\native\directxmath.targets')" />
     <Import Project="..\..\..\packages\directxmesh_desktop_win10.2020.8.15.1\build\native\directxmesh_desktop_win10.targets" Condition="Exists('..\..\..\packages\directxmesh_desktop_win10.2020.8.15.1\build\native\directxmesh_desktop_win10.targets')" />
@@ -180,7 +179,6 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\..\..\packages\spdlog.native.1.0.0\build\native\spdlog.native.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\..\packages\spdlog.native.1.0.0\build\native\spdlog.native.targets'))" />
     <Error Condition="!Exists('..\..\..\packages\rapidjson.temprelease.0.0.2.20\build\native\rapidjson.temprelease.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\..\packages\rapidjson.temprelease.0.0.2.20\build\native\rapidjson.temprelease.targets'))" />
-    <Error Condition="!Exists('..\..\..\packages\Microsoft.glTF.CPP.1.6.3.1\build\native\Microsoft.glTF.CPP.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\..\packages\Microsoft.glTF.CPP.1.6.3.1\build\native\Microsoft.glTF.CPP.targets'))" />
     <Error Condition="!Exists('..\..\..\packages\directxtk_desktop_win10.2020.9.30.1\build\native\directxtk_desktop_win10.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\..\packages\directxtk_desktop_win10.2020.9.30.1\build\native\directxtk_desktop_win10.targets'))" />
     <Error Condition="!Exists('..\..\..\packages\directxmath.2020.8.3.1\build\native\directxmath.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\..\packages\directxmath.2020.8.3.1\build\native\directxmath.targets'))" />
     <Error Condition="!Exists('..\..\..\packages\directxmesh_desktop_win10.2020.8.15.1\build\native\directxmesh_desktop_win10.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\..\packages\directxmesh_desktop_win10.2020.8.15.1\build\native\directxmesh_desktop_win10.targets'))" />

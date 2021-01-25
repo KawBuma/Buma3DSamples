@@ -47,8 +47,6 @@
 #include "MouseInput.h"
 #include "KeyboardInput.h"
 
-#include "GLTFSDK/GLTF.h"
-
 #include "DirectXColors.h"
 #include "DirectXCollision.h"
 #include "DirectXMath.h"

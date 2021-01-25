@@ -145,11 +145,13 @@ private:
 
 struct FENCE_VALUES
 {
+    FENCE_VALUES() : value{} {}
+    FENCE_VALUES(uint64_t _val) : value{ _val } {}
     uint64_t value;
     FENCE_VALUES& operator++()    { ++value; return *this; } 
-    FENCE_VALUES  operator++(int) { auto tmp = *this; value++; return tmp; }
-    uint64_t wait  () const { return value; }
-    uint64_t signal() const { return value + 1; }
+    FENCE_VALUES  operator++(int) { return FENCE_VALUES(value++); }
+    inline uint64_t wait  () const { return value; }
+    inline uint64_t signal() const { return value + 1; }
 };
 
 class FenceSubmitDesc
@@ -213,6 +215,11 @@ public:
         return wait_desc;
     }
 
+    const buma3d::FENCE_SUBMISSION& GetAsFenceSubmission()
+    {
+        return GetAsWait().wait_fence;
+    }
+
 private:
     void Resize(uint32_t _num_fences)
     {
@@ -235,6 +242,135 @@ private:
     uint32_t                        num_fences;
     std::vector<buma3d::IFence*>    fences;
     std::vector<uint64_t>           fence_values;
+
+};
+
+
+class SubmitInfo
+{
+public:
+    SubmitInfo()
+        : submit_info               {}
+        , wait_fence                {}
+        , signal_fence              {}
+        , command_lists_to_execute  {}
+    {
+    }
+
+    ~SubmitInfo()
+    {
+    }
+
+    void Reset()
+    {
+        wait_fence.Reset();
+        signal_fence.Reset();
+        submit_info.num_command_lists_to_execute = 0;
+    }
+    SubmitInfo& AddWaitFence(buma3d::IFence* _fence, uint64_t _fence_value = 0)
+    {
+        wait_fence.AddFence(_fence, _fence_value);
+        return *this;
+    }
+    SubmitInfo& AddSignalFence(buma3d::IFence* _fence, uint64_t _fence_value = 0)
+    {
+        signal_fence.AddFence(_fence, _fence_value);
+        return *this;
+    }
+    SubmitInfo& AddCommandList(buma3d::ICommandList* _command_list_to_execute)
+    {
+        Resize(submit_info.num_command_lists_to_execute + 1);
+        command_lists_to_execute.data()[submit_info.num_command_lists_to_execute++] = _command_list_to_execute;
+        return *this;
+    }
+
+    const buma3d::SUBMIT_INFO& Get()
+    {
+        submit_info.wait_fence   = wait_fence.GetAsFenceSubmission();
+        submit_info.signal_fence = signal_fence.GetAsFenceSubmission();
+        return submit_info;
+    }
+
+private:
+    void Resize(uint32_t _num_command_lists_to_execute)
+    {
+        if (_num_command_lists_to_execute > (uint32_t)command_lists_to_execute.size())
+        {
+            command_lists_to_execute.resize(_num_command_lists_to_execute);
+            submit_info.command_lists_to_execute = command_lists_to_execute.data();
+        }
+    }
+
+private:
+    buma3d::SUBMIT_INFO                 submit_info;
+    FenceSubmitDesc                     wait_fence;
+    FenceSubmitDesc                     signal_fence;
+    std::vector<buma3d::ICommandList*>  command_lists_to_execute;
+
+};
+
+class SubmitDesc
+{
+public:
+    SubmitDesc()
+        : desc      {}
+        , infos     {}
+        , b3d_infos {}
+    {
+    }
+
+    ~SubmitDesc()
+    {
+    }
+
+    void Reset()
+    {
+        for (auto& i : infos)
+            i->Reset();
+        desc.num_submit_infos = 0;
+        desc.signal_fence_to_cpu = nullptr;
+    }
+    void SetSignalFenceToCpu(buma3d::IFence* _signal_fence_to_cpu)
+    {
+        desc.signal_fence_to_cpu = _signal_fence_to_cpu;
+    }
+    SubmitInfo& AddNewSubmitInfo()
+    {
+        Resize(desc.num_submit_infos + 1);
+        return (*infos.data()[desc.num_submit_infos++].get());
+    }
+
+    const buma3d::SUBMIT_DESC& Get()
+    {
+        auto id = infos.data();
+        auto bid = b3d_infos.data();
+        for (uint32_t i = 0; i < desc.num_submit_infos; i++)
+            bid[i] = id[i]->Get();
+
+        return desc;
+    }
+
+private:
+    void Resize(uint32_t _num_infos)
+    {
+        if (_num_infos > (uint32_t)infos.size())
+        {
+            infos.resize(_num_infos);
+            b3d_infos.resize(_num_infos);
+            desc.submit_infos = b3d_infos.data();
+
+            for (auto& i : infos)
+            {
+                if (!i)
+                    i = std::make_shared<SubmitInfo>();
+            }
+        }
+    }
+
+private:
+    buma3d::SUBMIT_DESC                         desc;
+    std::vector<std::shared_ptr<SubmitInfo>>    infos;
+    std::vector<buma3d::SUBMIT_INFO>            b3d_infos;
 
 };
 
@@ -262,7 +398,6 @@ public:
         barrier_range.texture                   = nullptr;
         barrier_range.num_subresource_ranges    = 0;
     }
-
     void AddSubresRange(buma3d::TEXTURE_ASPECT_FLAGS _aspect, uint32_t _mip_slice, uint32_t _array_slice, uint32_t _array_size = 1, uint32_t _mip_levels = 1)
     {
         Resize(barrier_range.num_subresource_ranges + 1);
@@ -290,6 +425,7 @@ private:
         }
     }
 
+private:
     buma3d::TEXTURE_BARRIER_RANGE           barrier_range;
     std::vector<buma3d::SUBRESOURCE_RANGE>  subres_ranges;
 
@@ -311,7 +447,6 @@ public:
         barrier.num_texture_barriers = 0;
         barrier.dependency_flags     = buma3d::DEPENDENCY_FLAG_NONE;
     }
-
     void AddBufferBarrier(  buma3d::IBuffer*                _buffer
                           , buma3d::RESOURCE_STATE          _src_state
                           , buma3d::RESOURCE_STATE          _dst_state
@@ -369,6 +504,7 @@ private:
         }
     }
 
+private:
     buma3d::CMD_PIPELINE_BARRIER                    barrier;
     std::vector<buma3d::BUFFER_BARRIER_DESC>        buffer_barreirs;
     std::vector<buma3d::TEXTURE_BARRIER_DESC>       texture_barreirs;

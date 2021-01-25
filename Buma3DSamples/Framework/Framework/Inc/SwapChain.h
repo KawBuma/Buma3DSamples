@@ -32,8 +32,9 @@ public:
 
     bool SetName(const char* _name);
 
-    virtual buma3d::BMRESULT    AcquireNextBuffer(uint32_t _timeout_millisec, uint32_t* _dst_back_buffer_index);
-    virtual buma3d::BMRESULT    Present(const buma3d::SWAP_CHAIN_PRESENT_INFO& _info);
+    virtual buma3d::BMRESULT    AcquireNextBuffer(uint32_t _timeout_millisec, uint32_t* _dst_back_buffer_index, bool _use_custom_fences = false, const buma3d::SWAP_CHAIN_ACQUIRE_NEXT_BUFFER_INFO* _acquire_info = nullptr);
+    virtual bool                WaitDefaultCpuFence();
+    virtual buma3d::BMRESULT    Present(const buma3d::SWAP_CHAIN_PRESENT_INFO& _info, bool _use_custom_fences = false/*falseの場合、_info.wait_fenceを無視します。*/);
     virtual bool                Resize(const buma3d::EXTENT2D& _size, buma3d::SWAP_CHAIN_FLAGS _swapchain_flags);
     virtual bool                Recreate(const buma3d::SWAP_CHAIN_DESC& _desc);
 
@@ -62,6 +63,7 @@ protected:
     uint32_t                                    back_buffer_index;
     buma3d::SWAP_CHAIN_ACQUIRE_NEXT_BUFFER_INFO acquire_info;
     PRESENT_COMPLETE_FENCES                     present_complete_fences;
+    bool                                        is_signaled_cpu_fence;
 
 };
 
