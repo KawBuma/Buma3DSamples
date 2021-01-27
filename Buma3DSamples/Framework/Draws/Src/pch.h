@@ -10,9 +10,9 @@
 #include <vector>
 #include <map>
 #include <set>
-#include <array>
 #include <unordered_map>
 #include <unordered_set>
+#include <array>
 
 // From Framework
 #include "Utils.h"
@@ -31,6 +31,7 @@
 #include "DeferredContext.h"
 #include "ImmediateContext.h"
 
+#define BMR_ASSERT(bmr) if (buma::util::IsFailed(bmr)) { assert(false && #bmr); }
 
 namespace buma
 {
@@ -69,6 +70,14 @@ class DrawsRenderer;
 }// namespace buma
 }// namespace draws
 
+#include "Utils/ScopedRef.h"
+#include "Utils/MaterialParametersLayout.h"
+#include "ParametersSignature.h"
+#include "ParametersSignatureCache.h"
+
+#include "MaterialShader.h"
+#include "MaterialPerPassShader.h"
+//#include "MaterialPerPassPipeline.h"
 
 #include "DrawsInstance.h"
 
@@ -77,14 +86,14 @@ class DrawsRenderer;
 #include "DrawsVertexBuffer.h"
 #include "DrawsIndexBuffer.h"
 
-//#include "DrawsMaterialParameters.h"
-//#include "DrawsMaterial.h"
-//#include "DrawsMaterialConstant.h"
-//#include "DrawsMaterialInstance.h"
-//#include "DrawsMeshData.h"
+#include "DrawsMaterialParameters.h"
+#include "DrawsMaterial.h"
+#include "DrawsMaterialConstant.h"
+#include "DrawsMaterialInstance.h"
+#include "DrawsMeshData.h"
 //#include "DrawsMesh.h"
-//#include "DrawsStaticMesh.h"
-//
+#include "DrawsStaticMesh.h"
+
 //#include "DrawsScene.h"
 //#include "DrawsNodeComponent.h"
 //#include "DrawsPrimitiveComponent.h"

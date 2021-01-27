@@ -13,6 +13,24 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Sources\Material">
+      <UniqueIdentifier>{15420faa-56cc-4629-b9ca-e31bc5ec22e0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sources\Mesh">
+      <UniqueIdentifier>{4912a073-5ac0-459b-9b66-04440e4d4ca6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sources\Resource">
+      <UniqueIdentifier>{43e9931f-4944-4136-a556-f8679893a9c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{b6f5627b-7985-4290-a8ab-7c7fdd9dbab3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sources\Utils">
+      <UniqueIdentifier>{728aef68-21b4-48f6-af98-3bee20604bae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Sources\Scene">
+      <UniqueIdentifier>{e20567a2-fd4e-44b7-8170-14cd1e428de0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inc\Draws.h">
@@ -24,17 +42,53 @@
     <ClInclude Include="Src\DrawsInstance.h">
       <Filter>Sources</Filter>
     </ClInclude>
+    <ClInclude Include="Src\DrawsMaterial.h">
+      <Filter>Sources\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsMaterialConstant.h">
+      <Filter>Sources\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsMaterialInstance.h">
+      <Filter>Sources\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsMeshData.h">
+      <Filter>Sources\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsStaticMesh.h">
+      <Filter>Sources\Mesh</Filter>
+    </ClInclude>
     <ClInclude Include="Src\DrawsVertexBuffer.h">
-      <Filter>Sources</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\DrawsIndexBuffer.h">
-      <Filter>Sources</Filter>
-    </ClInclude>
-    <ClInclude Include="Src\DrawsSampler.h">
-      <Filter>Sources</Filter>
+      <Filter>Sources\Resource</Filter>
     </ClInclude>
     <ClInclude Include="Src\DrawsTexture.h">
-      <Filter>Sources</Filter>
+      <Filter>Sources\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsSampler.h">
+      <Filter>Sources\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsIndexBuffer.h">
+      <Filter>Sources\Resource</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\DrawsMaterialParameters.h">
+      <Filter>Sources\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Utils\MaterialParametersLayout.h">
+      <Filter>Sources\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\ParametersSignature.h">
+      <Filter>Sources\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\ParametersSignatureCache.h">
+      <Filter>Sources\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\Utils\ScopedRef.h">
+      <Filter>Sources\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\MaterialShader.h">
+      <Filter>Sources\Material</Filter>
+    </ClInclude>
+    <ClInclude Include="Src\MaterialPerPassShader.h">
+      <Filter>Sources\Material</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -47,17 +101,47 @@
     <ClCompile Include="Src\DrawsInstance.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
+    <ClCompile Include="Src\DrawsMaterial.cpp">
+      <Filter>Sources\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsMaterialConstant.cpp">
+      <Filter>Sources\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsMaterialInstance.cpp">
+      <Filter>Sources\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsMeshData.cpp">
+      <Filter>Sources\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsStaticMesh.cpp">
+      <Filter>Sources\Mesh</Filter>
+    </ClCompile>
     <ClCompile Include="Src\DrawsVertexBuffer.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\DrawsIndexBuffer.cpp">
-      <Filter>Sources</Filter>
-    </ClCompile>
-    <ClCompile Include="Src\DrawsSampler.cpp">
-      <Filter>Sources</Filter>
+      <Filter>Sources\Resource</Filter>
     </ClCompile>
     <ClCompile Include="Src\DrawsTexture.cpp">
+      <Filter>Sources\Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsSampler.cpp">
+      <Filter>Sources\Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsIndexBuffer.cpp">
+      <Filter>Sources\Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\DrawsMaterialParameters.cpp">
+      <Filter>Sources\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\ParametersSignature.cpp">
+      <Filter>Sources\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\ParametersSignatureCache.cpp">
       <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\MaterialShader.cpp">
+      <Filter>Sources\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\MaterialPerPassShader.cpp">
+      <Filter>Sources\Material</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -68,5 +152,13 @@
     <None Include="Src\_drawstmp.cpp">
       <Filter>Sources</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shaders\DrawsBasePass_PS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DrawsBasePass_VS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

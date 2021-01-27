@@ -32,10 +32,21 @@ public:
     bool CreateView                 (const VIEW_CREATE_DESC&                    _desc, IDrawsView**                 _dst) override;
 
 public:
-    DeviceResources* GetDR() { return dr; }
+    DeviceResources*        GetDR() { return dr; }
+    buma3d::IRenderPass*    GetBaseRenderPass() { return base_render_pass; }
+
+    const buma3d::INPUT_LAYOUT_DESC* GetBaseInputLayoutDesc() { return &base_layout.Get(); }
+    const buma3d::BLEND_STATE_DESC*  GetBaseBlendStateDesc(MATERIAL_BLEND_MODE _blend_mode) { return &base_bs[_blend_mode].Get(); }
+    ParametersSignatureCache& GetParametersSignatureCache() { return signature_cache; }
+    std::string GetShaderPath(const char* _file) const { return _file ? (draws_shader_path + _file) : draws_shader_path; }
 
 private:
-    DeviceResources* dr;
+    DeviceResources*            dr;
+    std::string                 draws_shader_path;
+    buma3d::IRenderPass*        base_render_pass;
+    util::InputLayoutDesc       base_layout;
+    util::BlendStateDesc        base_bs[MATERIAL_BLEND_MODE_NUM_MODES];
+    ParametersSignatureCache    signature_cache;
 
 };
 

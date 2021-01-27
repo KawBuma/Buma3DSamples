@@ -8,12 +8,14 @@ namespace draws
 
 IDrawsInstance* CreateDrawsInstance()
 {
-    //return DrawsInstance::Create();
+    IDrawsInstance* p{};
+    DrawsInstance::Create(&p);
+    return p;
 }
 
 void DestroyDrawsInstance(IDrawsInstance* _instance)
 {
-    //DrawsInstance::Destroy(_instance);
+    DrawsInstance::Destroy(_instance);
 }
 
 }

@@ -97,10 +97,22 @@
     <ClInclude Include="Inc\Draws.h" />
     <ClInclude Include="Src\DrawsIndexBuffer.h" />
     <ClInclude Include="Src\DrawsInstance.h" />
+    <ClInclude Include="Src\DrawsMaterial.h" />
+    <ClInclude Include="Src\DrawsMaterialConstant.h" />
+    <ClInclude Include="Src\DrawsMaterialInstance.h" />
+    <ClInclude Include="Src\DrawsMaterialParameters.h" />
+    <ClInclude Include="Src\DrawsMeshData.h" />
     <ClInclude Include="Src\DrawsSampler.h" />
+    <ClInclude Include="Src\DrawsStaticMesh.h" />
     <ClInclude Include="Src\DrawsTexture.h" />
     <ClInclude Include="Src\DrawsVertexBuffer.h" />
+    <ClInclude Include="Src\MaterialPerPassShader.h" />
+    <ClInclude Include="Src\MaterialShader.h" />
+    <ClInclude Include="Src\ParametersSignature.h" />
+    <ClInclude Include="Src\ParametersSignatureCache.h" />
     <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\Utils\MaterialParametersLayout.h" />
+    <ClInclude Include="Src\Utils\ScopedRef.h" />
     <None Include="Src\_drawstmp.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -110,9 +122,19 @@
     <ClCompile Include="Src\Draws.cpp" />
     <ClCompile Include="Src\DrawsIndexBuffer.cpp" />
     <ClCompile Include="Src\DrawsInstance.cpp" />
+    <ClCompile Include="Src\DrawsMaterial.cpp" />
+    <ClCompile Include="Src\DrawsMaterialConstant.cpp" />
+    <ClCompile Include="Src\DrawsMaterialInstance.cpp" />
+    <ClCompile Include="Src\DrawsMaterialParameters.cpp" />
+    <ClCompile Include="Src\DrawsMeshData.cpp" />
     <ClCompile Include="Src\DrawsSampler.cpp" />
+    <ClCompile Include="Src\DrawsStaticMesh.cpp" />
     <ClCompile Include="Src\DrawsTexture.cpp" />
     <ClCompile Include="Src\DrawsVertexBuffer.cpp" />
+    <ClCompile Include="Src\MaterialPerPassShader.cpp" />
+    <ClCompile Include="Src\MaterialShader.cpp" />
+    <ClCompile Include="Src\ParametersSignature.cpp" />
+    <ClCompile Include="Src\ParametersSignatureCache.cpp" />
     <ClCompile Include="Src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -124,6 +146,16 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shaders\DrawsBasePass_PS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Shaders\DrawsBasePass_VS.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+    </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

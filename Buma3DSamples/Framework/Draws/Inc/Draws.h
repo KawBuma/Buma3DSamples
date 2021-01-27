@@ -20,6 +20,11 @@ namespace draws
 
 #pragma region declaration
 
+inline constexpr uint32_t REGISTER_SPACE_DRAWS_RESERVED     = 0;
+inline constexpr uint32_t REGISTER_SPACE_SAMPLER_PARAMETER  = 1;
+inline constexpr uint32_t REGISTER_SPACE_TEXTURE_PARAMETER  = 2;
+inline constexpr uint32_t REGISTER_SPACE_VALUE_PARAMETER    = 2;
+
 using VertPositionT   = glm::vec4;
 using VertNormatT     = glm::vec4;
 using VertTangentT    = glm::vec4;
@@ -105,7 +110,7 @@ enum VERTEX_BUFFER_TYPE
 enum VERTEX_ELEMENT_TYPE
 {
       VERTEX_ELEMENT_TYPE_POSITION  // VERTEX_BUFFER_TYPE_FLOAT4
-    , VERTEX_ELEMENT_TYPE_NORMAT    // VERTEX_BUFFER_TYPE_FLOAT4
+    , VERTEX_ELEMENT_TYPE_NORMAL    // VERTEX_BUFFER_TYPE_FLOAT4
     , VERTEX_ELEMENT_TYPE_TANGENT   // VERTEX_BUFFER_TYPE_FLOAT4
     , VERTEX_ELEMENT_TYPE_TEXCOORD0 // VERTEX_BUFFER_TYPE_FLOAT2
 
@@ -154,6 +159,8 @@ enum MATERIAL_BLEND_MODE
       MATERIAL_BLEND_MODE_OPAQUE
     , MATERIAL_BLEND_MODE_MASKED
     , MATERIAL_BLEND_MODE_TRANSLUCENT
+
+    , MATERIAL_BLEND_MODE_NUM_MODES
 };
 
 enum SAMPLER_FILTER_MODE
@@ -340,6 +347,12 @@ struct MATERIAL_SHADER
     SHADER_TYPE type;
     const char* shader_hlsl;
 };
+struct MATERIAL_PARAMETERS_LAYOUT
+{
+    IDrawsMaterialParameters* value_parameters;
+    IDrawsMaterialParameters* sampler_parameters;
+    IDrawsMaterialParameters* texture_parameters;
+};
 struct MATERIAL_CREATE_DESC
 {
     bool                        is_wireframe;
@@ -347,11 +360,7 @@ struct MATERIAL_CREATE_DESC
     CULLING_MODE                culling_mode;
     MATERIAL_BLEND_MODE         blend_mode;
     MATERIAL_SHADING_MODEL      shading_model;
-
-    IDrawsMaterialParameters*   value_parameters;
-    IDrawsMaterialParameters*   sampler_parameters;
-    IDrawsMaterialParameters*   texture_parameters;
-
+    MATERIAL_PARAMETERS_LAYOUT  layout;
     uint32_t                    num_shaders;
     MATERIAL_SHADER*            shaders;
 };
