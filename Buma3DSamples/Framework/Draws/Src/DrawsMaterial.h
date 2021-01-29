@@ -16,6 +16,7 @@ protected:
     bool RequestParametersSignature();
     bool CreateShaderModules(uint32_t _num_shaders, const MATERIAL_SHADER* _shaders);
     bool CreateGraphicsPipelines();
+    void PrepareParametersRegisterShifts();
 
 public:
     static bool Create(DrawsInstance* _ins, const MATERIAL_CREATE_DESC& _desc, IDrawsMaterial** _dst);
@@ -28,6 +29,7 @@ public:
     
 public:
     const MATERIAL_PARAMETERS_LAYOUT& GetParametersLayout() const { return layout; }
+    const std::vector<shader::REGISTER_SHIFT>& GetParametersRegisterShift() const { return register_shifts; }
         
 private:
     std::atomic_uint32_t                ref_count;
@@ -39,36 +41,12 @@ private:
     MATERIAL_BLEND_MODE                 blend_mode;
     MATERIAL_SHADING_MODEL              shading_model;
     MATERIAL_PARAMETERS_LAYOUT          layout;
-
-
-    class MaterialShader
-    {
-    public:
-        MaterialShader()
-        {
-        }
-
-        ~MaterialShader()
-        {
-        }
-
-    private:
-        SHADER_TYPE type;
-        std::string shader_code;
-        std::string shader_code;
-
-    };
+    std::vector<shader::REGISTER_SHIFT> register_shifts;
     
-    struct SHADER_INFO {
-        std::string                              shader_code;
-        buma3d::util::Ptr<buma3d::IShaderModule> shader_modules;
-    };
-    std::unordered_map<SHADER_TYPE, SHADER_INFO>    shaders;
     buma3d::GRAPHICS_PIPELINE_STATE_DESC            pso_desc;
 
     std::shared_ptr<ParametersSignature>            signature;
     buma3d::util::Ptr<buma3d::IPipelineState>       pipeline;
-
 
 };
 

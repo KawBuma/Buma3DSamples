@@ -60,21 +60,26 @@ bool MaterialPerPassShader::Init(DrawsMaterial* _material, std::shared_ptr<Mater
 
     b::BMRESULT bmr{};
     shader::LOAD_SHADER_DESC desc{};
-    desc.options.packMatricesInRowMajor     = false;       // Experimental: Decide how a matrix get packed
-    desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
-    desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
-    desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+    desc.options.pack_matrices_in_row_major = false;       // Experimental: Decide how a matrix get packed
+    desc.options.enable16bit_types          = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
+    desc.options.enable_debug_info          = false;       // Embed debug info into the binary
+    desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+    desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
+    desc.options.shader_model               = { 6, 2 };
+    desc.options.register_shifts            = &_material->GetParametersRegisterShift();
 
-    desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
-    desc.options.shaderModel                = { 6, 2 };
-
-    desc.options.shiftAllTexturesBindings   = 1;// register(t0, space0) -> register(t1, space0)
-    desc.options.shiftAllSamplersBindings   = 2;// register(s0, space0) -> register(s2, space0)
-    desc.options.shiftAllCBuffersBindings   = 0;
-    desc.options.shiftAllUABuffersBindings  = 0;
-
+    // マテリアルのライブラリ化
+    {
+        desc.entry_point = nullptr;
+        desc.filename = nullptr;
+        desc.stage = nullptr;
+        GetShaderStageForCompile()
+    }
     auto dr = ins->GetDR();
     auto&& loader = dr->GetShaderLoader();
+    loader->LoadShaderFromHLSL();
+
+
     auto path = ins->GetShaderPath(GetShaderFileName(pass_type, shader->GetType()).c_str());
     desc.entry_point    = "main";
     desc.filename       = path.c_str();

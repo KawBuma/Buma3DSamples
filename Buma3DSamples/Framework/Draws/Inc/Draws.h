@@ -23,7 +23,7 @@ namespace draws
 inline constexpr uint32_t REGISTER_SPACE_DRAWS_RESERVED     = 0;
 inline constexpr uint32_t REGISTER_SPACE_SAMPLER_PARAMETER  = 1;
 inline constexpr uint32_t REGISTER_SPACE_TEXTURE_PARAMETER  = 2;
-inline constexpr uint32_t REGISTER_SPACE_VALUE_PARAMETER    = 2;
+inline constexpr uint32_t REGISTER_SPACE_VALUE_PARAMETER    = 3;
 
 using VertPositionT   = glm::vec4;
 using VertNormatT     = glm::vec4;
@@ -364,6 +364,7 @@ struct MATERIAL_PARAMETERS_CREATE_DESC
 struct MATERIAL_SHADER
 {
     SHADER_TYPE type;
+    const char* name;
     const char* shader_hlsl;
 };
 struct MATERIAL_PARAMETERS_LAYOUT

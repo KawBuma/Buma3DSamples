@@ -36,6 +36,7 @@ inline buma3d::CULL_MODE ConvertCullingMode(CULLING_MODE _mode)
     }
 }
 
+
 }// /*anonymous*/
 
 DrawsMaterial::DrawsMaterial()
@@ -280,6 +281,17 @@ bool DrawsMaterial::CreateGraphicsPipelines()
     }
 
     return true;
+}
+
+void DrawsMaterial::PrepareParametersRegisterShifts()
+{
+    register_shifts = { { REGISTER_SPACE_DRAWS_RESERVED }, { REGISTER_SPACE_TEXTURE_PARAMETER } };
+
+    auto&& s = register_shifts[1];
+    s.shift_tex_bindings;
+    s.shift_cbuf_bindings;
+    s.shift_cbuf_bindings;
+    s.shift_cbuf_bindings;
 }
 
 
