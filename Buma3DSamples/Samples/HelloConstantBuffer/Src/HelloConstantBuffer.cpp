@@ -402,18 +402,19 @@ bool HelloConstantBuffer::CreateShaderModules()
     b::BMRESULT bmr{};
     shader_modules.resize(2);
     shader::LOAD_SHADER_DESC desc{};
-    desc.options.packMatricesInRowMajor     = false;       // Experimental: Decide how a matrix get packed
-    desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
-    desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
-    desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+    desc.options.pack_matrices_in_row_major = false;       // Experimental: Decide how a matrix get packed
+    desc.options.enable16bit_types          = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
+    desc.options.enable_debug_info          = false;       // Embed debug info into the binary
+    desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
 
-    desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
-    desc.options.shaderModel                = { 6, 2 };
+    desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
+    desc.options.shader_model               = { 6, 2 };
 
-    desc.options.shiftAllTexturesBindings   = 0;
-    desc.options.shiftAllSamplersBindings   = 0;
-    desc.options.shiftAllCBuffersBindings   = 0;
-    desc.options.shiftAllUABuffersBindings  = 0;
+    desc.options.shift_all_tex_bindings     = 0;
+    desc.options.shift_all_samp_bindings    = 0;
+    desc.options.shift_all_cbuf_bindings    = 0;
+    desc.options.shift_all_ubuf_bindings    = 0;
+
 
     auto&& loader = dr->GetShaderLoader();
     // vs
