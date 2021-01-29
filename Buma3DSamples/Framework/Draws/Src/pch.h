@@ -32,6 +32,7 @@
 #include "ImmediateContext.h"
 
 #define BMR_ASSERT(bmr) if (buma::util::IsFailed(bmr)) { assert(false && #bmr); }
+#define BMR_RET_IF_FAILED(bmr) if (buma::util::IsFailed(bmr)) { assert(false && #bmr); return false; }
 
 namespace buma
 {

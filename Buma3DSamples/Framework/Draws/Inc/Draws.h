@@ -87,6 +87,26 @@ struct IDrawsCamera;
 struct IDrawsView;
 struct IDrawsRenderer;
 
+#pragma endregion declaration
+
+#pragma region renderer
+
+enum RENDERER_TYPE
+{
+      RENDERER_TYPE_DEFERRED
+    //, RENDERER_TYPE_FORWARD
+};
+
+enum RENDER_PASS_TYPE
+{
+      RENDER_PASS_TYPE_PRE_DEPTH
+    , RENDER_PASS_TYPE_BASE
+    , RENDER_PASS_TYPE_LIGHTING
+    //, RENDER_PASS_TYPE_FORWARD
+};
+
+#pragma endregion renderer
+
 enum VERTEX_BUFFER_TYPE
 {
       VERTEX_BUFFER_TYPE_FLOAT1
@@ -271,7 +291,6 @@ enum MATERIAL_PARAMETER_TYPE
 };
 
 
-#pragma endregion declaration
 
 #pragma region structures
 
