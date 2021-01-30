@@ -35,10 +35,12 @@ public:
     DeviceResources*        GetDR() { return dr; }
     buma3d::IRenderPass*    GetBaseRenderPass() { return base_render_pass; }
 
-    const buma3d::INPUT_LAYOUT_DESC* GetBaseInputLayoutDesc() { return &base_layout.Get(); }
-    const buma3d::BLEND_STATE_DESC*  GetBaseBlendStateDesc(MATERIAL_BLEND_MODE _blend_mode) { return &base_bs[_blend_mode].Get(); }
-    ParametersSignatureCache& GetParametersSignatureCache() { return signature_cache; }
-    std::string GetShaderPath(const char* _file) const { return _file ? (draws_shader_path + _file) : draws_shader_path; }
+    RENDERER_TYPE                       GetRendererType             () const                          { return renderer_type; }
+    const buma3d::INPUT_LAYOUT_DESC*    GetBaseInputLayoutDesc      ()                                { return &base_layout.Get(); }
+    const buma3d::BLEND_STATE_DESC*     GetBaseBlendStateDesc       (MATERIAL_BLEND_MODE _blend_mode) { return &base_bs[_blend_mode].Get(); }
+    ParametersSignatureCache&           GetParametersSignatureCache ()                                { return signature_cache; }
+    std::string                         GetShaderPath               (const char* _file) const         { return _file ? (draws_shader_path + _file) : draws_shader_path; }
+    const shader::MODULE_DESC*          GetBasePassModule           (MATERIAL_BLEND_MODE _blend_mode) { return &base_bs[_blend_mode].Get(); }
 
 private:
     DeviceResources*            dr;
@@ -47,6 +49,7 @@ private:
     util::InputLayoutDesc       base_layout;
     util::BlendStateDesc        base_bs[MATERIAL_BLEND_MODE_NUM_MODES];
     ParametersSignatureCache    signature_cache;
+    RENDERER_TYPE               renderer_type;
 
 };
 

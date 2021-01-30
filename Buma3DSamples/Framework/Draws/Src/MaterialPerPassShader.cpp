@@ -39,11 +39,27 @@ inline std::string GetShaderFileName(RENDER_PASS_TYPE _pass_type, SHADER_TYPE _s
     return std::string(GetShaderNameFromPassType(_pass_type)) + GetShaderTypeName(_shader_type);
 }
 
+inline shader::SHADER_STAGE GetShaderStageForCompile(buma::draws::SHADER_TYPE _type)
+{
+    switch (_type)
+    {
+    case buma::draws::SHADER_TYPE_VS: return shader::SHADER_STAGE_PIXEL;
+    case buma::draws::SHADER_TYPE_PS: return shader::SHADER_STAGE_VERTEX;
+    default:
+        assert(false && __FUNCTION__);
+        return shader::SHADER_STAGE(-1);
+    }
+}
+
 
 }// namespace /*anonymous*/
 
 MaterialPerPassShader::MaterialPerPassShader(DrawsInstance* _ins)
-    : ins{ _ins }
+    : ins           { _ins }
+    , material      {}
+    , shader        {}
+    , pass_type     {}
+    , shader_module {}
 {
 
 }
@@ -58,42 +74,23 @@ bool MaterialPerPassShader::Init(DrawsMaterial* _material, std::shared_ptr<Mater
     shader    = _shader;
     pass_type = _pass_type;
 
-    b::BMRESULT bmr{};
-    shader::LOAD_SHADER_DESC desc{};
+    shader::LIBRARY_LINK_DESC desc{};
     desc.options.pack_matrices_in_row_major = false;       // Experimental: Decide how a matrix get packed
     desc.options.enable16bit_types          = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
     desc.options.enable_debug_info          = false;       // Embed debug info into the binary
     desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
     desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
     desc.options.shader_model               = { 6, 2 };
-    desc.options.register_shifts            = &_material->GetParametersRegisterShift();
+    desc.options.register_shifts            = &material->GetParametersRegisterShift();
 
-    // マテリアルのライブラリ化
-    {
-        desc.entry_point = nullptr;
-        desc.filename = nullptr;
-        desc.stage = nullptr;
-        GetShaderStageForCompile()
-    }
-    auto dr = ins->GetDR();
-    auto&& loader = dr->GetShaderLoader();
-    loader->LoadShaderFromHLSL();
-
-
-    auto path = ins->GetShaderPath(GetShaderFileName(pass_type, shader->GetType()).c_str());
-    desc.entry_point    = "main";
-    desc.filename       = path.c_str();
-
-    shader->GetShaderCode();
-    desc.defines = {};
-
-
-
-    desc.stage          = { shader::SHADER_STAGE_VERTEX };
-
+    desc.link.modules.emplace_back(&ins->GetBaseBlendStateDesc());
+    desc.link.modules.emplace_back(&shader->GetModuleDesc());
+    desc.link.entry_point = "main";
+    desc.link.stage       = GetShaderStageForCompile(shader->GetType());
 
     std::vector<uint8_t> bytecode;
-    loader->LoadShaderFromHLSL(desc, &bytecode);
+    auto dr = ins->GetDR();
+    dr->GetShaderLoader()->LinkLibrary(desc, &bytecode);
     assert(!bytecode.empty());
     if (bytecode.empty())
         return false;
@@ -102,9 +99,8 @@ bool MaterialPerPassShader::Init(DrawsMaterial* _material, std::shared_ptr<Mater
     module_desc.flags                    = b::SHADER_MODULE_FLAG_NONE;
     module_desc.bytecode.bytecode_length = bytecode.size();
     module_desc.bytecode.shader_bytecode = bytecode.data();
-    bmr = dr->GetDevice()->CreateShaderModule(module_desc, &shader_module);
+    auto bmr = dr->GetDevice()->CreateShaderModule(module_desc, &shader_module);
     BMR_RET_IF_FAILED(bmr);
-
 
     return true;
 }

@@ -86,65 +86,29 @@ bool DrawsMaterial::RequestParametersSignature()
 
 bool DrawsMaterial::CreateShaderModules(uint32_t _num_shaders, const MATERIAL_SHADER* _shaders)
 {
+    /*
+    Material
+    MaterialShaders[vs,ps]
+    MaterialPerPassShadersMap[vs,ps].[pre,base]
+    MaterialPerPassPipelines
+    */
+
+    /*
+    pipelines[vs,ps]
+    mat[vs].shaders[pre].module
+    mat[ps].shaders[pre].module
+    mat[vs].shaders[base].module
+    mat[ps].shaders[base].module
+
+    mat[vs].pass[pre].pipeline
+    mat[ps].pass[pre].pipeline
+    mat[vs].pass[base].pipeline
+    mat[ps].pass[base].pipeline
+    */
     auto dr = ins->GetDR();
-
-    // MaterialShader
-    // MaterialPerPassShader
-    // MaterialPerPassPipelines
-
-    b::BMRESULT bmr{};
-    shader_modules.resize(2);
-    shader::LOAD_SHADER_DESC desc{};
-    desc.options.packMatricesInRowMajor     = false;       // Experimental: Decide how a matrix get packed
-    desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
-    desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
-    desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
-
-    desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
-    desc.options.shaderModel                = { 6, 2 };
-
-    desc.options.shiftAllTexturesBindings   = 1;// register(t0, space0) -> register(t1, space0)
-    desc.options.shiftAllSamplersBindings   = 2;// register(s0, space0) -> register(s2, space0)
-    desc.options.shiftAllCBuffersBindings   = 0;
-    desc.options.shiftAllUABuffersBindings  = 0;
-
-    auto&& loader = dr->GetShaderLoader();
-    // vs
+    for (uint32_t i = 0; i < _num_shaders; i++)
     {
-        auto path = ins->GetShaderPath("Shader/VertexShader.hlsl");
-        desc.entry_point    = "main";
-        desc.filename       = path.c_str();
-        desc.defines        = {};
-        desc.stage          = { shader::SHADER_STAGE_VERTEX };
-        std::vector<uint8_t> bytecode;
-        loader->LoadShaderFromHLSL(desc, &bytecode);
-        assert(!bytecode.empty());
-
-        b::SHADER_MODULE_DESC module_desc{};
-        module_desc.flags                    = b::SHADER_MODULE_FLAG_NONE;
-        module_desc.bytecode.bytecode_length = bytecode.size();
-        module_desc.bytecode.shader_bytecode = bytecode.data();
-        bmr = device->CreateShaderModule(module_desc, &shader_modules[0]);
-        BMR_ASSERT(bmr);
-    }
-
-    // ps
-    {
-        auto path = AssetPath("Shader/PixelShader.hlsl");
-        desc.entry_point    = "main";
-        desc.filename       = path.c_str();
-        desc.defines        = {};
-        desc.stage          = { shader::SHADER_STAGE_PIXEL };
-        std::vector<uint8_t> bytecode;
-        loader->LoadShaderFromHLSL(desc, &bytecode);
-        assert(!bytecode.empty());
-
-        b::SHADER_MODULE_DESC module_desc{};
-        module_desc.flags                    = b::SHADER_MODULE_FLAG_NONE;
-        module_desc.bytecode.bytecode_length = bytecode.size();
-        module_desc.bytecode.shader_bytecode = bytecode.data();
-        bmr = device->CreateShaderModule(module_desc, &shader_modules[1]);
-        BMR_ASSERT(bmr);
+        _shaders[i];
     }
 
     return true;
@@ -285,15 +249,8 @@ bool DrawsMaterial::CreateGraphicsPipelines()
 
 void DrawsMaterial::PrepareParametersRegisterShifts()
 {
-    register_shifts = { { REGISTER_SPACE_DRAWS_RESERVED }, { REGISTER_SPACE_TEXTURE_PARAMETER } };
-
-    auto&& s = register_shifts[1];
-    s.shift_tex_bindings;
-    s.shift_cbuf_bindings;
-    s.shift_cbuf_bindings;
-    s.shift_cbuf_bindings;
+    register_shifts = { ins->GetReservedRegisterShift() };
 }
-
 
 bool DrawsMaterial::Create(DrawsInstance* _ins, const MATERIAL_CREATE_DESC& _desc, IDrawsMaterial** _dst)
 {

@@ -28,25 +28,25 @@ public:
     bool CreateMaterialInstance(const MATERIAL_INSTANCE_CREATE_DESC& _desc, IDrawsMaterialInstance** _dst) override;
     
 public:
-    const MATERIAL_PARAMETERS_LAYOUT& GetParametersLayout() const { return layout; }
-    const std::vector<shader::REGISTER_SHIFT>& GetParametersRegisterShift() const { return register_shifts; }
-        
+    const MATERIAL_PARAMETERS_LAYOUT&                          GetParametersLayout()        const { return layout; }
+    const std::vector<shader::REGISTER_SHIFT>&                 GetParametersRegisterShift() const { return register_shifts; }
+    const std::vector<std::shared_ptr<MaterialShader>>&        GetShaders()                 const { return shaders; }
+
 private:
-    std::atomic_uint32_t                ref_count;
-    DrawsInstance*                      ins;
+    std::atomic_uint32_t                                ref_count;
+    DrawsInstance*                                      ins;
 
-    bool                                is_wireframe;
-    PRIMITIVE_TOPOLOGY                  topology;
-    CULLING_MODE                        culling_mode;
-    MATERIAL_BLEND_MODE                 blend_mode;
-    MATERIAL_SHADING_MODEL              shading_model;
-    MATERIAL_PARAMETERS_LAYOUT          layout;
-    std::vector<shader::REGISTER_SHIFT> register_shifts;
+    bool                                                is_wireframe;
+    PRIMITIVE_TOPOLOGY                                  topology;
+    CULLING_MODE                                        culling_mode;
+    MATERIAL_BLEND_MODE                                 blend_mode;
+    MATERIAL_SHADING_MODEL                              shading_model;
+    MATERIAL_PARAMETERS_LAYOUT                          layout;
+    std::vector<shader::REGISTER_SHIFT>                 register_shifts;
+
+    std::vector<std::shared_ptr<MaterialShader>>        shaders;
     
-    buma3d::GRAPHICS_PIPELINE_STATE_DESC            pso_desc;
-
-    std::shared_ptr<ParametersSignature>            signature;
-    buma3d::util::Ptr<buma3d::IPipelineState>       pipeline;
+    std::shared_ptr<ParametersSignature>                signature;
 
 };
 

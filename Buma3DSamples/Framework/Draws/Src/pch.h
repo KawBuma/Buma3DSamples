@@ -78,7 +78,8 @@ class DrawsRenderer;
 
 #include "MaterialShader.h"
 #include "MaterialPerPassShader.h"
-//#include "MaterialPerPassPipeline.h"
+#include "MaterialPerPassShadersMap.h"
+#include "MaterialPerPassPipeline.h"
 
 #include "DrawsInstance.h"
 

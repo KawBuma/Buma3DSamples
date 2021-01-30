@@ -106,7 +106,9 @@
     <ClInclude Include="Src\DrawsStaticMesh.h" />
     <ClInclude Include="Src\DrawsTexture.h" />
     <ClInclude Include="Src\DrawsVertexBuffer.h" />
+    <ClInclude Include="Src\MaterialPerPassPipeline.h" />
     <ClInclude Include="Src\MaterialPerPassShader.h" />
+    <ClInclude Include="Src\MaterialPerPassShadersMap.h" />
     <ClInclude Include="Src\MaterialShader.h" />
     <ClInclude Include="Src\ParametersSignature.h" />
     <ClInclude Include="Src\ParametersSignatureCache.h" />
@@ -131,7 +133,9 @@
     <ClCompile Include="Src\DrawsStaticMesh.cpp" />
     <ClCompile Include="Src\DrawsTexture.cpp" />
     <ClCompile Include="Src\DrawsVertexBuffer.cpp" />
+    <ClCompile Include="Src\MaterialPerPassPipeline.cpp" />
     <ClCompile Include="Src\MaterialPerPassShader.cpp" />
+    <ClCompile Include="Src\MaterialPerPassShadersMap.cpp" />
     <ClCompile Include="Src\MaterialShader.cpp" />
     <ClCompile Include="Src\ParametersSignature.cpp" />
     <ClCompile Include="Src\ParametersSignatureCache.cpp" />

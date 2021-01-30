@@ -11,27 +11,15 @@ namespace draws
 namespace /*anonymous*/
 {
 
-buma3d::SHADER_STAGE_FLAG GetShaderStage(buma::draws::SHADER_TYPE _type)
+buma3d::SHADER_STAGE_FLAG GetShaderStage(buma::draws::SHADER_STAGE _type)
 {
     switch (_type)
     {
-    case buma::draws::SHADER_TYPE_VS: return buma3d::SHADER_STAGE_FLAG_PIXEL;
-    case buma::draws::SHADER_TYPE_PS: return buma3d::SHADER_STAGE_FLAG_VERTEX;
+    case buma::draws::SHADER_STAGE_VS: return buma3d::SHADER_STAGE_FLAG_PIXEL;
+    case buma::draws::SHADER_STAGE_PS: return buma3d::SHADER_STAGE_FLAG_VERTEX;
     default:
         assert(false && __FUNCTION__);
         return buma3d::SHADER_STAGE_FLAG_UNKNOWN;
-    }
-}
-
-shader::SHADER_STAGE GetShaderStageForCompile(buma::draws::SHADER_TYPE _type)
-{
-    switch (_type)
-    {
-    case buma::draws::SHADER_TYPE_VS: return shader::SHADER_STAGE_PIXEL;
-    case buma::draws::SHADER_TYPE_PS: return shader::SHADER_STAGE_VERTEX;
-    default:
-        assert(false && __FUNCTION__);
-        return shader::SHADER_STAGE(-1);
     }
 }
 
@@ -89,6 +77,8 @@ bool MaterialShader::CreateLibrary()
     if (library.empty())
         return false;
 
+    module_desc.library_name = name.c_str();
+    module_desc.target       = &library;
     return true;
 }
 
