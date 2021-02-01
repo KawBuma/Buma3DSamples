@@ -1131,15 +1131,20 @@ public:
             i.Reset();
     }
 
-    InputSlotDesc& SetSlotNumber          (uint32_t                     _slot_number)     { desc.slot_number             = _slot_number;     return *this; }
-    InputSlotDesc& SetStrideInBytes       (uint32_t                     _stride_in_bytes) { desc.stride_in_bytes         = _stride_in_bytes; return *this; }
-    InputSlotDesc& SetClassification      (buma3d::INPUT_CLASSIFICATION _classification)  { desc.classification          = _classification;  return *this; }
-    InputSlotDesc& SetInstanceDataStepRate(uint32_t                     _step_rate)       { desc.instance_data_step_rate = _step_rate;       return *this; }
+    InputSlotDesc& SetSlotNumber          (uint32_t                     _slot_number)                                                   { desc.slot_number             = _slot_number;     return *this; }
+    InputSlotDesc& SetStrideInBytes       (uint32_t                     _stride_in_bytes)                                               { desc.stride_in_bytes         = _stride_in_bytes; return *this; }
+    InputSlotDesc& SetClassification      (buma3d::INPUT_CLASSIFICATION _classification = buma3d::INPUT_CLASSIFICATION_PER_VERTEX_DATA) { desc.classification          = _classification;  return *this; }
+    InputSlotDesc& SetInstanceDataStepRate(uint32_t                     _step_rate = 0)                                                 { desc.instance_data_step_rate = _step_rate;       return *this; }
 
     InputElementDesc& AddNewInputElement()
     {
         Resize(desc.num_elements + 1);
         return elements->data()[desc.num_elements++];
+    }
+    InputSlotDesc& AddNewInputElement(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
+    {
+        AddNewInputElement() = InputElementDesc(_semantic_name, _semantic_index, _format, _aligned_byte_offset);
+        return *this;
     }
     const buma3d::INPUT_SLOT_DESC& Get()
     {

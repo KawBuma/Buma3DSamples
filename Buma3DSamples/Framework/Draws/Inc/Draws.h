@@ -25,8 +25,13 @@ inline constexpr uint32_t REGISTER_SPACE_SAMPLER_PARAMETER  = 1;
 inline constexpr uint32_t REGISTER_SPACE_TEXTURE_PARAMETER  = 2;
 inline constexpr uint32_t REGISTER_SPACE_VALUE_PARAMETER    = 3;
 
+inline constexpr const char* VERTEX_SEMANTIC_NAME_POSITION   = "POSITION" ;
+inline constexpr const char* VERTEX_SEMANTIC_NAME_NORMAL     = "NORMAL"   ;
+inline constexpr const char* VERTEX_SEMANTIC_NAME_TANGENT    = "TANGENT"  ;
+inline constexpr const char* VERTEX_SEMANTIC_NAME_TEXCOORD0  = "TEXCOORD0";
+
 using VertPositionT   = glm::vec4;
-using VertNormatT     = glm::vec4;
+using VertNormalT     = glm::vec4;
 using VertTangentT    = glm::vec4;
 using VertTexcoordT   = glm::vec2;
 
