@@ -37,7 +37,8 @@ inline buma3d::CULL_MODE ConvertCullingMode(CULLING_MODE _mode)
 }
 
 
-}// /*anonymous*/
+}// namespace /*anonymous*/
+
 
 DrawsMaterial::DrawsMaterial()
     : ref_count { 1 }
@@ -58,7 +59,10 @@ bool DrawsMaterial::Init(DrawsInstance* _ins, const MATERIAL_CREATE_DESC& _desc)
     ins = _ins;
 
     CopyDesc(_desc);
+    PrepareParametersRegisterShifts();
+    if (!RequestParametersSignature())                          return false;
     if (!CreateShaderModules(_desc.num_shaders, _desc.shaders)) return false;
+    if (!CreateGraphicsPipelines())                             return false;
 
     return true;
 }
@@ -86,164 +90,139 @@ bool DrawsMaterial::RequestParametersSignature()
 
 bool DrawsMaterial::CreateShaderModules(uint32_t _num_shaders, const MATERIAL_SHADER* _shaders)
 {
-    /*
-    Material
-    MaterialShaders[vs,ps]
-    MaterialPerPassShadersMap[vs,ps].[pre,base]
-    MaterialPerPassPipelines
-    */
-
-    /*
-    pipelines[vs,ps]
-    mat[vs].shaders[pre].module
-    mat[ps].shaders[pre].module
-    mat[vs].shaders[base].module
-    mat[ps].shaders[base].module
-
-    mat[vs].pass[pre].pipeline
-    mat[ps].pass[pre].pipeline
-    mat[vs].pass[base].pipeline
-    mat[ps].pass[base].pipeline
-    */
-    auto dr = ins->GetDR();
+    shaders.reserve(_num_shaders);
     for (uint32_t i = 0; i < _num_shaders; i++)
     {
-        _shaders[i];
+        auto&& s = shaders.emplace_back(std::make_shared<MaterialShader>(ins));
+        if (!s->Init(this, _shaders[i]))
+            return false;
     }
+
+    return true;
+}
+
+bool DrawsMaterial::CreatePerPassShaders()
+{
+    per_pass_shaders_map = std::make_unique<MaterialPerPassShadersMap>(ins);
+    if (!per_pass_shaders_map->Init(this))
+        return false;
+    return true;
+}
+
+bool DrawsMaterial::PrepareGraphicsPipelineDesc()
+{
+    pso_desc.root_signature       = signature->GetSignature().Get();
+    pso_desc.render_pass          = nullptr; // MaterialPerPassPipelineによって設定します。
+    pso_desc.subpass              = 0;
+    pso_desc.node_mask            = b::B3D_DEFAULT_NODE_MASK;
+    pso_desc.flags                = b::PIPELINE_STATE_FLAG_NONE;
+
+    pso_desc.input_assembly_state = &input_assembly;
+    if ((input_assembly.topology = ConvertPrimitiveTopology(topology)) == -1) return false;
+
+    pso_desc.tessellation_state = nullptr;
+
+    pso_desc.rasterization_state = &rasterization_state;
+    rasterization_state.fill_mode                       = is_wireframe ? b::FILL_MODE_WIREFRAME : b::FILL_MODE_SOLID;
+    if ((rasterization_state.cull_mode                  = ConvertCullingMode(culling_mode)) == -1) return false;
+    rasterization_state.is_front_counter_clockwise      = false;
+    rasterization_state.is_enabled_depth_clip           = true;
+    rasterization_state.is_enabled_depth_bias           = false;
+    rasterization_state.depth_bias_scale                = 0;
+    rasterization_state.depth_bias_clamp                = 0.f;
+    rasterization_state.depth_bias_slope_scale          = 0.f;
+    rasterization_state.is_enabled_conservative_raster  = false;
+    rasterization_state.line_rasterization_mode         = b::LINE_RASTERIZATION_MODE_DEFAULT;
+    rasterization_state.line_width                      = 1.f;
+
+    pso_desc.stream_output = nullptr;
+
+    pso_desc.multisample_state = ins->GetMultisampleStateDesc(blend_mode);
+    //ms.is_enabled_alpha_to_coverage     = blend_mode == MATERIAL_BLEND_MODE_MASKED;
+    //ms.is_enabled_sample_rate_shading   = false;
+    //ms.rasterization_samples            = 1;
+    //ms.sample_masks                     = b::B3D_DEFAULT_SAMPLE_MASK;
+    //ms.sample_position_state.is_enabled = false;
+    //ms.sample_position_state.desc       = nullptr;
+
+    // {
+    //     ds.is_enabled_depth_test        = true;
+    //     ds.is_enabled_depth_write       = false;
+    //     ds.depth_comparison_func        = b::COMPARISON_FUNC_GREATER_EQUAL;
+    //     ds.is_enabled_depth_bounds_test = false;
+    //     ds.min_depth_bounds             = 0;
+    //     ds.max_depth_bounds             = 1;
+    // 
+    //     ds.is_enabled_stencil_test            = false;
+    //     ds.stencil_front_face.fail_op         = b::STENCIL_OP_KEEP;
+    //     ds.stencil_front_face.depth_fail_op   = b::STENCIL_OP_KEEP;
+    //     ds.stencil_front_face.pass_op         = b::STENCIL_OP_REPLACE;
+    //     ds.stencil_front_face.comparison_func = b::COMPARISON_FUNC_ALWAYS;
+    //     ds.stencil_front_face.compare_mask    = b::B3D_DEFAULT_STENCIL_COMPARE_MASK;
+    //     ds.stencil_front_face.write_mask      = b::B3D_DEFAULT_STENCIL_WRITE_MASK;
+    //     ds.stencil_front_face.reference       = b::B3D_DEFAULT_STENCIL_REFERENCE;
+    //     
+    //     ds.stencil_back_face.fail_op         = b::STENCIL_OP_KEEP;
+    //     ds.stencil_back_face.depth_fail_op   = b::STENCIL_OP_KEEP;
+    //     ds.stencil_back_face.pass_op         = b::STENCIL_OP_REPLACE;
+    //     ds.stencil_back_face.comparison_func = b::COMPARISON_FUNC_ALWAYS;
+    //     ds.stencil_back_face.compare_mask    = b::B3D_DEFAULT_STENCIL_COMPARE_MASK;
+    //     ds.stencil_back_face.write_mask      = b::B3D_DEFAULT_STENCIL_WRITE_MASK;
+    //     ds.stencil_back_face.reference       = b::B3D_DEFAULT_STENCIL_REFERENCE;
+    //     
+    // }
+
+    pso_desc.blend_state = ins->GetBlendStateDesc(blend_mode);
+
+    //b::VIEWPORT_STATE_DESC vp{};
+    //{
+    //    vp.num_viewports        = 1;
+    //    vp.num_scissor_rects    = 1;
+    //    vp.viewports            = nullptr;
+    //    vp.scissor_rects        = nullptr;
+    //
+    //}
+    //
+    //b::DYNAMIC_STATE_DESC   dynamic_state_desc{};
+    //b::DYNAMIC_STATE        dynamic_states[] = { b::DYNAMIC_STATE_VIEWPORT, b::DYNAMIC_STATE_SCISSOR };
+    //{
+    //    dynamic_state_desc.num_dynamic_states = _countof(dynamic_states);
+    //    dynamic_state_desc.dynamic_states     = dynamic_states;
+    //    pso_desc.dynamic_state                = &dynamic_state_desc;
+    //}
+
+    pso_desc.viewport_state = ins->GetDefaultViewportStateDesc();
+    pso_desc.dynamic_state = ins->GetDefaultDynamicStateDesc();
 
     return true;
 }
 
 bool DrawsMaterial::CreateGraphicsPipelines()
 {
-    auto dr = ins->GetDR();
-
-    b::BMRESULT bmr{};
-    // グラフィックスパイプラインの作成
+    bool result = false;
+    switch (ins->GetRendererType())
     {
-        b::GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
-        b::PIPELINE_SHADER_STAGE_DESC   shader_stages[2]{};
-        b::INPUT_LAYOUT_DESC            input_layout{};
-        b::INPUT_SLOT_DESC              input_slot{};
-        b::INPUT_ELEMENT_DESC           input_elements[4]{};
-        b::INPUT_ASSEMBLY_STATE_DESC    ia{};
-        b::RASTERIZATION_STATE_DESC     rs{};
-        b::MULTISAMPLE_STATE_DESC       ms{};
-        b::DEPTH_STENCIL_STATE_DESC     ds{};
-        b::BLEND_STATE_DESC             bs{};
-        b::RENDER_TARGET_BLEND_DESC     attachments{};
+    case buma::draws::RENDERER_TYPE_DEFERRED:
+        result = CreateForDeferredRenderingPipelines();
+        break;
 
-        pso_desc.root_signature       = signature->GetSignature().Get();
-        pso_desc.render_pass          = ins->GetBaseRenderPass();
-        pso_desc.subpass              = 0;
-        pso_desc.node_mask            = b::B3D_DEFAULT_NODE_MASK;
-        pso_desc.flags                = b::PIPELINE_STATE_FLAG_NONE;
-
-        {
-            shader_stages[0].stage            = b::SHADER_STAGE_FLAG_VERTEX;
-            shader_stages[0].entry_point_name = "main";
-            shader_stages[0].flags            = b::PIPELINE_SHADER_STAGE_FLAG_NONE;
-            shader_stages[0].module           = shader_modules[0].Get();
-
-            shader_stages[1].stage            = b::SHADER_STAGE_FLAG_PIXEL;
-            shader_stages[1].entry_point_name = "main";
-            shader_stages[1].flags            = b::PIPELINE_SHADER_STAGE_FLAG_NONE;
-            shader_stages[1].module           = shader_modules[1].Get();
-
-            pso_desc.num_shader_stages    = 2;
-            pso_desc.shader_stages        = shader_stages;
-        }
-
-        pso_desc.input_layout = ins->GetBaseInputLayoutDesc();
-
-        {
-            if ((ia.topology = ConvertPrimitiveTopology(topology)) == -1) return false;
-            pso_desc.input_assembly_state = &ia;
-        }
-
-        pso_desc.tessellation_state = nullptr;
-
-        {
-            rs.fill_mode                        = is_wireframe ? b::FILL_MODE_WIREFRAME : b::FILL_MODE_SOLID;
-            if ((rs.cull_mode = ConvertCullingMode(culling_mode)) == -1) return false;
-            rs.is_front_counter_clockwise       = false;
-            rs.is_enabled_depth_clip            = true;
-            rs.is_enabled_depth_bias            = false;
-            rs.depth_bias_scale                 = 0;
-            rs.depth_bias_clamp                 = 0.f;
-            rs.depth_bias_slope_scale           = 0.f;
-            rs.is_enabled_conservative_raster   = false;
-            rs.line_rasterization_mode          = b::LINE_RASTERIZATION_MODE_DEFAULT;
-            rs.line_width                       = 1.f;
-            
-            pso_desc.rasterization_state  = &rs;
-        }
-
-        pso_desc.stream_output = nullptr;
-
-        {
-            ms.is_enabled_alpha_to_coverage     = blend_mode == MATERIAL_BLEND_MODE_MASKED;
-            ms.is_enabled_sample_rate_shading   = false;
-            ms.rasterization_samples            = 1;
-            ms.sample_masks                     = b::B3D_DEFAULT_SAMPLE_MASK;
-            ms.sample_position_state.is_enabled = false;
-            ms.sample_position_state.desc       = nullptr;
-
-            pso_desc.multisample_state = &ms;
-        }
-
-        {
-            ds.is_enabled_depth_test        = true;
-            ds.is_enabled_depth_write       = false;
-            ds.depth_comparison_func        = b::COMPARISON_FUNC_GREATER_EQUAL;
-            ds.is_enabled_depth_bounds_test = false;
-            ds.min_depth_bounds             = 0;
-            ds.max_depth_bounds             = 1;
-
-            ds.is_enabled_stencil_test            = false;
-            ds.stencil_front_face.fail_op         = b::STENCIL_OP_KEEP;
-            ds.stencil_front_face.depth_fail_op   = b::STENCIL_OP_KEEP;
-            ds.stencil_front_face.pass_op         = b::STENCIL_OP_REPLACE;
-            ds.stencil_front_face.comparison_func = b::COMPARISON_FUNC_ALWAYS;
-            ds.stencil_front_face.compare_mask    = b::B3D_DEFAULT_STENCIL_COMPARE_MASK;
-            ds.stencil_front_face.write_mask      = b::B3D_DEFAULT_STENCIL_WRITE_MASK;
-            ds.stencil_front_face.reference       = b::B3D_DEFAULT_STENCIL_REFERENCE;
-            
-            ds.stencil_back_face.fail_op         = b::STENCIL_OP_KEEP;
-            ds.stencil_back_face.depth_fail_op   = b::STENCIL_OP_KEEP;
-            ds.stencil_back_face.pass_op         = b::STENCIL_OP_REPLACE;
-            ds.stencil_back_face.comparison_func = b::COMPARISON_FUNC_ALWAYS;
-            ds.stencil_back_face.compare_mask    = b::B3D_DEFAULT_STENCIL_COMPARE_MASK;
-            ds.stencil_back_face.write_mask      = b::B3D_DEFAULT_STENCIL_WRITE_MASK;
-            ds.stencil_back_face.reference       = b::B3D_DEFAULT_STENCIL_REFERENCE;
-            
-            pso_desc.depth_stencil_state = &ds;
-        }
-
-        pso_desc.blend_state = ins->GetBaseBlendStateDesc(blend_mode);
-
-        b::VIEWPORT_STATE_DESC vp{};
-        {
-            vp.num_viewports        = 1;
-            vp.num_scissor_rects    = 1;
-            vp.viewports            = nullptr;
-            vp.scissor_rects        = nullptr;
-
-            pso_desc.viewport_state = &vp;
-        }
-
-        b::DYNAMIC_STATE_DESC   dynamic_state_desc{};
-        b::DYNAMIC_STATE        dynamic_states[] = { b::DYNAMIC_STATE_VIEWPORT, b::DYNAMIC_STATE_SCISSOR };
-        {
-            dynamic_state_desc.num_dynamic_states = _countof(dynamic_states);
-            dynamic_state_desc.dynamic_states     = dynamic_states;
-            pso_desc.dynamic_state                = &dynamic_state_desc;
-        }
-
-        bmr = dr->GetDevice()->CreateGraphicsPipelineState(pso_desc, &pipeline);
-        BMR_ASSERT(bmr);
+    default:
+        break;
     }
+    return result;
+}
 
+bool DrawsMaterial::CreateForDeferredRenderingPipelines()
+{
+    if (blend_mode == buma::draws::MATERIAL_BLEND_MODE_TRANSLUCENT)
+    {
+        if (!(per_pass_pipelines[RENDER_PASS_TYPE_TRANSLUCENT] = std::make_unique<MaterialPerPassPipeline>(ins))->Init(this, RENDER_PASS_TYPE_TRANSLUCENT)) return false;
+    }
+    else
+    {
+        if (!(per_pass_pipelines[RENDER_PASS_TYPE_PRE_DEPTH] = std::make_unique<MaterialPerPassPipeline>(ins))->Init(this, RENDER_PASS_TYPE_PRE_DEPTH)) return false;
+        if (!(per_pass_pipelines[RENDER_PASS_TYPE_BASE]      = std::make_unique<MaterialPerPassPipeline>(ins))->Init(this, RENDER_PASS_TYPE_BASE))      return false;
+    }
     return true;
 }
 

@@ -167,6 +167,16 @@ enum SHADER_STAGE
     , SHADER_STAGE_NUM_STAGES
 };
 
+enum SHADER_VISIBILITY
+{
+    //  SHADER_VISIBILITY_VS
+    //, SHADER_VISIBILITY_PS
+    //, SHADER_VISIBILITY_ALL
+    SHADER_VISIBILITY_ALL
+
+    , SHADER_VISIBILITY_COUNT
+};
+
 enum MATERIAL_SHADING_MODEL
 {
     MATERIAL_SHADING_MODEL_DEFAULT_LIT
@@ -181,9 +191,9 @@ enum CULLING_MODE
 
 enum MATERIAL_BLEND_MODE
 {
-      MATERIAL_BLEND_MODE_OPAQUE
-    , MATERIAL_BLEND_MODE_MASKED
-    , MATERIAL_BLEND_MODE_TRANSLUCENT
+      MATERIAL_BLEND_MODE_OPAQUE        // 
+    , MATERIAL_BLEND_MODE_MASKED        // 事前深度に別途マテリアルが必要です
+    , MATERIAL_BLEND_MODE_TRANSLUCENT   // 
 
     , MATERIAL_BLEND_MODE_NUM_MODES
 };
@@ -343,16 +353,22 @@ struct INDEX_BUFFER_CREATE_DESC
 
 struct MATERIAL_VALUE_PARAMETER
 {
-    const char*     name;
-    uint32_t        size;
+    const char*         name;
+//  SHADER_VISIBILITY   visibility;
+//  uint32_t            array_size;
+    uint32_t            size;
 };
 struct MATERIAL_SAMPLER_PARAMETER
 {
-    const char*     name;
+    const char*         name;
+//  SHADER_VISIBILITY   visibility;
+//  uint32_t            array_size;
 };
 struct MATERIAL_TEXTURE_PARAMETER
 {
-    const char*     name;
+    const char*         name;
+//  SHADER_VISIBILITY   visibility;
+//  uint32_t            array_size;
 };
 struct MATERIAL_PARAMETERS_CREATE_DESC
 {
@@ -366,11 +382,25 @@ struct MATERIAL_PARAMETERS_CREATE_DESC
     } parameters;
 };
 
+struct DESCRIPTOR_SET_LAYOUT_BINDING
+{
+    SHADER_VISIBILITY visibility;
+    // DESCRIPTOR_TYPE type;
+    uint32_t base_shader_register;
+    uint32_t num_descriptors;
+};
+
+struct DESCRIPTOR_SET_LAYOUT
+{
+    // uint32_t register_space;
+
+};
+
 struct MATERIAL_SHADER
 {
-    SHADER_TYPE type;
-    const char* name;
-    const char* shader_hlsl;
+    SHADER_STAGE    stage;
+    const char*     name;
+    const char*     shader_hlsl;
 };
 struct MATERIAL_PARAMETERS_LAYOUT
 {

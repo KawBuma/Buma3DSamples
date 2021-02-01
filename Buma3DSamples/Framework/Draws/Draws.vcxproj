@@ -113,6 +113,7 @@
     <ClInclude Include="Src\ParametersSignature.h" />
     <ClInclude Include="Src\ParametersSignatureCache.h" />
     <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\PipelineDescription.h" />
     <ClInclude Include="Src\Utils\MaterialParametersLayout.h" />
     <ClInclude Include="Src\Utils\ScopedRef.h" />
     <None Include="Src\_drawstmp.h">

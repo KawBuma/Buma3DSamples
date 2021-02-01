@@ -75,6 +75,7 @@ class DrawsRenderer;
 #include "Utils/MaterialParametersLayout.h"
 #include "ParametersSignature.h"
 #include "ParametersSignatureCache.h"
+#include "PipelineDescription.h"
 
 #include "MaterialShader.h"
 #include "MaterialPerPassShader.h"

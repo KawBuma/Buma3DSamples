@@ -45,8 +45,8 @@ MaterialShader::~MaterialShader()
 bool MaterialShader::Init(DrawsMaterial* _material, const MATERIAL_SHADER& _shader)
 {
     material  = _material;
-    type      =  _shader.type;
-    stage     = GetShaderStage(_shader.type);
+    type      =  _shader.stage;
+    stage     = GetShaderStage(_shader.stage);
     name      = _shader.name;
     hlsl_code = _shader.shader_hlsl;
     if (!CreateLibrary())

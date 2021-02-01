@@ -5,21 +5,49 @@ namespace buma
 namespace draws
 {
 
+class MaterialPerPassShadersMap;
+class ShaderPerStages
+{
+    friend class MaterialPerPassShadersMap;
+public:
+    ShaderPerStages()
+        : shaders{}
+    {}
+
+    ~ShaderPerStages() {}
+
+    MaterialPerPassShader* Find(SHADER_STAGE _stage) const 
+    {
+        auto find = std::find_if(shaders.begin(), shaders.end()
+                                 , [_stage](const std::shared_ptr<MaterialPerPassShader>& _shader) { return _shader->GetStage() == _stage; });
+        if (find == shaders.end())
+            return nullptr;
+
+        return find->get();
+    }
+
+    const std::vector<std::shared_ptr<MaterialPerPassShader>>& GetShaders() const { return shaders; }
+
+private:
+    std::vector<std::shared_ptr<MaterialPerPassShader>> shaders;
+
+};
+
 class MaterialPerPassShadersMap
 {
 public:
     MaterialPerPassShadersMap(DrawsInstance* _ins);
+    bool Init(DrawsMaterial* _material);
     ~MaterialPerPassShadersMap();
 
-    bool Init(DrawsMaterial* _material);
-
-    const MaterialPerPassShader* Get(SHADER_STAGE _stage, RENDER_PASS_TYPE _pass) const;
+    const ShaderPerStages* GetPerPass(RENDER_PASS_TYPE _pass_type) const;
 
 private:
-    using ShaderPerStages = std::array<std::shared_ptr<MaterialPerPassShader>, SHADER_STAGE_NUM_STAGES>;
-    using ShaderPerPasses = std::array<ShaderPerStages                       , RENDER_PASS_TYPE_NUM_TYPES>;
-    DrawsInstance*  ins;
-    ShaderPerPasses modules;
+    bool CreateForDeferedRenderingShaders(buma::draws::DrawsMaterial* _material);
+
+private:
+    DrawsInstance*                                      ins;
+    std::map<RENDER_PASS_TYPE, ShaderPerStages>         modules;
 
 };
 

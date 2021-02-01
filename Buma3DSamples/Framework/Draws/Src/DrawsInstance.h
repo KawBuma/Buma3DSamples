@@ -40,7 +40,8 @@ public:
     const buma3d::BLEND_STATE_DESC*     GetBaseBlendStateDesc       (MATERIAL_BLEND_MODE _blend_mode) { return &base_bs[_blend_mode].Get(); }
     ParametersSignatureCache&           GetParametersSignatureCache ()                                { return signature_cache; }
     std::string                         GetShaderPath               (const char* _file) const         { return _file ? (draws_shader_path + _file) : draws_shader_path; }
-    const shader::MODULE_DESC*          GetBasePassModule           (MATERIAL_BLEND_MODE _blend_mode) { return &base_bs[_blend_mode].Get(); }
+    const MaterialPerPassShadersMap&    GetCoreShaderModules        ()                  const         { return *core_shader_modules; }
+    const PipelineDescription&          GetPipelineDescription      ()                  const         { return *pipeline_description; }
 
 private:
     DeviceResources*            dr;
@@ -50,6 +51,8 @@ private:
     util::BlendStateDesc        base_bs[MATERIAL_BLEND_MODE_NUM_MODES];
     ParametersSignatureCache    signature_cache;
     RENDERER_TYPE               renderer_type;
+    std::unique_ptr<MaterialPerPassShadersMap>  core_shader_modules;
+    std::unique_ptr<PipelineDescription>        pipeline_description;
 
 };
 

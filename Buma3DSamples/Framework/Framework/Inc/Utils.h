@@ -600,7 +600,6 @@ public:
     }
     ~RootParameter()
     {
-        Reset();
     }
 
     void Reset()
@@ -673,16 +672,12 @@ public:
     RootSignatureDesc()
         : desc              {}
         , parameters        {}
+        , b3d_parameters    {}
         , static_samplers   {}
         , register_shifts   {}
     {}
     ~RootSignatureDesc()
     {
-        desc            = {};
-        parameters      = {};
-        b3d_parameters  = {};
-        static_samplers = {};
-        register_shifts = {};
     }
 
     void Reset()
