@@ -1347,10 +1347,10 @@ public:
 
     BlendStateDesc&         SetBlendConstants           (const buma3d::COLOR4& _constants) { desc.blend_constants = _constants; return *this; }
     BlendStateDesc&         SetIndependentBlendEnabled  (bool _is_enabled)                 { desc.is_enabled_independent_blend = _is_enabled; desc.is_enabled_logic_op = false; return *this; }
-    BlendStateDesc&         SetNumAttachmemns           (uint32_t _num_attachments)        { desc.num_attachments = _num_attachments; return *this; Resize(_num_attachments); }
+    BlendStateDesc&         SetNumAttachmemns           (uint32_t _num_attachments)        { desc.num_attachments = _num_attachments; Resize(_num_attachments); return *this; }
     RenderTargetBlendDesc&  GetBlendDesc                (uint32_t _index)                  { return blend[_index]; }
 
-    const buma3d::BLEND_STATE_DESC& Get()
+    const buma3d::BLEND_STATE_DESC& Get() const 
     {
         auto b    = blend.data();
         auto b3db = b3d_blend.data();
@@ -1364,6 +1364,8 @@ public:
 private:
     void Resize(uint32_t _num_attachments)
     {
+        if (!desc.is_enabled_independent_blend)
+            _num_attachments = 1;
         if (_num_attachments > desc.num_attachments)
         {
             blend.resize(_num_attachments);
@@ -1373,9 +1375,9 @@ private:
     }
 
 private:
-    buma3d::BLEND_STATE_DESC                        desc;
-    std::vector<RenderTargetBlendDesc>              blend;
-    std::vector<buma3d::RENDER_TARGET_BLEND_DESC>   b3d_blend;
+    buma3d::BLEND_STATE_DESC                                desc;
+    mutable std::vector<RenderTargetBlendDesc>              blend;
+    mutable std::vector<buma3d::RENDER_TARGET_BLEND_DESC>   b3d_blend;
 
 };
 

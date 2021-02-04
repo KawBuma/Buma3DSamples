@@ -97,7 +97,6 @@ bool DrawsMaterial::CreateShaderModules(uint32_t _num_shaders, const MATERIAL_SH
         if (!s->Init(this, _shaders[i]))
             return false;
     }
-
     return true;
 }
 
@@ -111,88 +110,40 @@ bool DrawsMaterial::CreatePerPassShaders()
 
 bool DrawsMaterial::PrepareGraphicsPipelineDesc()
 {
-    pso_desc.root_signature       = signature->GetSignature().Get();
-    pso_desc.render_pass          = nullptr; // MaterialPerPassPipelineによって設定します。
-    pso_desc.subpass              = 0;
-    pso_desc.node_mask            = b::B3D_DEFAULT_NODE_MASK;
-    pso_desc.flags                = b::PIPELINE_STATE_FLAG_NONE;
+    auto&& p = ins->GetPipelineDescription();
 
+    pso_desc.root_signature = signature->GetSignature().Get();
+    pso_desc.render_pass    = nullptr; // MaterialPerPassPipelineによって設定します。
+    pso_desc.subpass        = 0;
+    pso_desc.node_mask      = b::B3D_DEFAULT_NODE_MASK;
+    pso_desc.flags          = b::PIPELINE_STATE_FLAG_NONE;
+
+    // input_assembly_state 
     pso_desc.input_assembly_state = &input_assembly;
     if ((input_assembly.topology = ConvertPrimitiveTopology(topology)) == -1) return false;
 
+    // tessellation_state 
     pso_desc.tessellation_state = nullptr;
 
-    pso_desc.rasterization_state = &rasterization_state;
-    rasterization_state.fill_mode                       = is_wireframe ? b::FILL_MODE_WIREFRAME : b::FILL_MODE_SOLID;
-    if ((rasterization_state.cull_mode                  = ConvertCullingMode(culling_mode)) == -1) return false;
-    rasterization_state.is_front_counter_clockwise      = false;
-    rasterization_state.is_enabled_depth_clip           = true;
-    rasterization_state.is_enabled_depth_bias           = false;
-    rasterization_state.depth_bias_scale                = 0;
-    rasterization_state.depth_bias_clamp                = 0.f;
-    rasterization_state.depth_bias_slope_scale          = 0.f;
-    rasterization_state.is_enabled_conservative_raster  = false;
-    rasterization_state.line_rasterization_mode         = b::LINE_RASTERIZATION_MODE_DEFAULT;
-    rasterization_state.line_width                      = 1.f;
+    // rasterization_state 
+    pso_desc.rasterization_state = &(rasterization_state = *p.GetRasterizationState());
+    rasterization_state.fill_mode       = is_wireframe ? b::FILL_MODE_WIREFRAME : b::FILL_MODE_SOLID;
+    if ((rasterization_state.cull_mode  = ConvertCullingMode(culling_mode)) == -1) return false;
 
+    // stream_output
     pso_desc.stream_output = nullptr;
 
-    pso_desc.multisample_state = ins->GetMultisampleStateDesc(blend_mode);
-    //ms.is_enabled_alpha_to_coverage     = blend_mode == MATERIAL_BLEND_MODE_MASKED;
-    //ms.is_enabled_sample_rate_shading   = false;
-    //ms.rasterization_samples            = 1;
-    //ms.sample_masks                     = b::B3D_DEFAULT_SAMPLE_MASK;
-    //ms.sample_position_state.is_enabled = false;
-    //ms.sample_position_state.desc       = nullptr;
+    // multisample_state
+    pso_desc.multisample_state = p.GetMultisampleState();
 
-    // {
-    //     ds.is_enabled_depth_test        = true;
-    //     ds.is_enabled_depth_write       = false;
-    //     ds.depth_comparison_func        = b::COMPARISON_FUNC_GREATER_EQUAL;
-    //     ds.is_enabled_depth_bounds_test = false;
-    //     ds.min_depth_bounds             = 0;
-    //     ds.max_depth_bounds             = 1;
-    // 
-    //     ds.is_enabled_stencil_test            = false;
-    //     ds.stencil_front_face.fail_op         = b::STENCIL_OP_KEEP;
-    //     ds.stencil_front_face.depth_fail_op   = b::STENCIL_OP_KEEP;
-    //     ds.stencil_front_face.pass_op         = b::STENCIL_OP_REPLACE;
-    //     ds.stencil_front_face.comparison_func = b::COMPARISON_FUNC_ALWAYS;
-    //     ds.stencil_front_face.compare_mask    = b::B3D_DEFAULT_STENCIL_COMPARE_MASK;
-    //     ds.stencil_front_face.write_mask      = b::B3D_DEFAULT_STENCIL_WRITE_MASK;
-    //     ds.stencil_front_face.reference       = b::B3D_DEFAULT_STENCIL_REFERENCE;
-    //     
-    //     ds.stencil_back_face.fail_op         = b::STENCIL_OP_KEEP;
-    //     ds.stencil_back_face.depth_fail_op   = b::STENCIL_OP_KEEP;
-    //     ds.stencil_back_face.pass_op         = b::STENCIL_OP_REPLACE;
-    //     ds.stencil_back_face.comparison_func = b::COMPARISON_FUNC_ALWAYS;
-    //     ds.stencil_back_face.compare_mask    = b::B3D_DEFAULT_STENCIL_COMPARE_MASK;
-    //     ds.stencil_back_face.write_mask      = b::B3D_DEFAULT_STENCIL_WRITE_MASK;
-    //     ds.stencil_back_face.reference       = b::B3D_DEFAULT_STENCIL_REFERENCE;
-    //     
-    // }
+    // blend_state
+    pso_desc.blend_state = p.GetBlendState(blend_mode);
 
-    pso_desc.blend_state = ins->GetBlendStateDesc(blend_mode);
+    // viewoprt_state
+    pso_desc.viewport_state = p.GetViewportState();
 
-    //b::VIEWPORT_STATE_DESC vp{};
-    //{
-    //    vp.num_viewports        = 1;
-    //    vp.num_scissor_rects    = 1;
-    //    vp.viewports            = nullptr;
-    //    vp.scissor_rects        = nullptr;
-    //
-    //}
-    //
-    //b::DYNAMIC_STATE_DESC   dynamic_state_desc{};
-    //b::DYNAMIC_STATE        dynamic_states[] = { b::DYNAMIC_STATE_VIEWPORT, b::DYNAMIC_STATE_SCISSOR };
-    //{
-    //    dynamic_state_desc.num_dynamic_states = _countof(dynamic_states);
-    //    dynamic_state_desc.dynamic_states     = dynamic_states;
-    //    pso_desc.dynamic_state                = &dynamic_state_desc;
-    //}
-
-    pso_desc.viewport_state = ins->GetDefaultViewportStateDesc();
-    pso_desc.dynamic_state = ins->GetDefaultDynamicStateDesc();
+    // dynamic_state
+    pso_desc.dynamic_state = p.GetDynamicState();
 
     return true;
 }

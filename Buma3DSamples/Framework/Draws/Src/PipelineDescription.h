@@ -12,6 +12,14 @@ public:
     void Init();
     ~PipelineDescription();
 
+    const buma3d::INPUT_LAYOUT_DESC*        GetInputLayout(RENDER_PASS_TYPE _type) const;
+    const buma3d::VIEWPORT_STATE_DESC*      GetViewportState() const;
+    const buma3d::RASTERIZATION_STATE_DESC* GetRasterizationState() const;
+    const buma3d::MULTISAMPLE_STATE_DESC*   GetMultisampleState() const;
+    const buma3d::DEPTH_STENCIL_STATE_DESC* GetDepthStencilState(RENDER_PASS_TYPE _type) const;
+    const buma3d::BLEND_STATE_DESC*         GetBlendState(MATERIAL_BLEND_MODE _mode) const;
+    const buma3d::DYNAMIC_STATE_DESC*       GetDynamicState() const;
+
 private:
     void PrepareInputLayout();
     void PrepareTessellationState();
@@ -22,7 +30,6 @@ private:
     void PrepareDepthStencilState();
     void PrepareBlendState();
     void PrepareDynamicState();
-    void PrepareDynamicStates();
 
 private:
     DrawsInstance*                                                                  ins;
@@ -34,7 +41,7 @@ private:
     buma3d::VIEWPORT_STATE_DESC                                                     viewport_state;
     buma3d::RASTERIZATION_STATE_DESC                                                rasterization_state;
     buma3d::STREAM_OUTPUT_DESC                                                      stream_output;
-    std::array<buma3d::MULTISAMPLE_STATE_DESC, MATERIAL_BLEND_MODE_NUM_MODES>       multisample_state;
+    buma3d::MULTISAMPLE_STATE_DESC                                                  multisample_state;
     std::array<buma3d::DEPTH_STENCIL_STATE_DESC, RENDER_PASS_TYPE_NUM_TYPES>        depth_stencil_state;
     std::array<util::BlendStateDesc, MATERIAL_BLEND_MODE_NUM_MODES>                 blend_state;
     buma3d::DYNAMIC_STATE_DESC                                                      dynamic_state;

@@ -71,8 +71,9 @@ bool MaterialPerPassPipeline::Init(DrawsMaterial* _material, RENDER_PASS_TYPE _p
             pso_desc.shader_stages      = shader_stages.Get();
         }
 
-        pso_desc.input_layout        = ins->GetInputLayoutDesc(_pass_type);
-        pso_desc.depth_stencil_state = ins->GetDepthStencilStateDesc(pass_type);
+        auto&& p = ins->GetPipelineDescription();
+        pso_desc.input_layout        = p.GetInputLayout(_pass_type);
+        pso_desc.depth_stencil_state = p.GetDepthStencilState(pass_type);
 
         bmr = ins->GetDR()->GetDevice()->CreateGraphicsPipelineState(pso_desc, &pipeline);
         BMR_RET_IF_FAILED(bmr);
