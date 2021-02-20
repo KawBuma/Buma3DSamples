@@ -4,6 +4,8 @@
 
 #include <cassert>
 
+#include "Scenes.h" 
+
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
 #define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
 
@@ -14,6 +16,10 @@ constexpr bool USE_HOST_WRITABLE_HEAP = true;
 Camera g_cam{};
 
 namespace init = buma3d::hlp::init;
+namespace b = buma3d;
+
+template<typename T>
+using Ptr = buma3d::util::Ptr<T>;
 
 namespace buma
 {
@@ -38,13 +44,6 @@ buma3d::RESOURCE_FORMAT GetDefaultFormat(const tex::TEXTURE_DESC& _tex_desc)
     }
 }
 }// namespace tex
-
-
-namespace b = buma3d;
-
-template<typename T>
-using Ptr = buma3d::util::Ptr<T>;
-
 
 class HelloImGui::ResizeEvent : public IEvent
 {
@@ -104,7 +103,6 @@ HelloImGui::HelloImGui()
     , util_fence                {}
     , fence_values              {}
     , cmd_fences                {}
-    , render_complete_fence     {}
     , buffer_layout             {}
     , texture_layout            {}
     , pipeline_layout           {}
@@ -135,6 +133,10 @@ HelloImGui::HelloImGui()
     , is_enabled_gui            {}
 {    
     g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
+
+    static const auto x = scne::GetScenesObjectType<scne::INode>();
+    auto scenes = scne::CreateScenes();
+
 }
 
 HelloImGui::~HelloImGui()
@@ -198,9 +200,9 @@ bool HelloImGui::Init()
 
     //g_cam.type = Camera::CameraType::firstperson;
     g_cam.type = Camera::CameraType::lookat;
-	g_cam.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
-	g_cam.setRotation(glm::vec3(0.0f));
-	g_cam.setRotationSpeed(0.5f);
+    g_cam.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
+    g_cam.setRotation(glm::vec3(0.0f));
+    g_cam.setRotationSpeed(0.5f);
     g_cam.setPerspective(60.0f, (float)settings.window_desc.width / (float)settings.window_desc.height, 1.0f, 256.0f);
 
     CBV_ALIGNMENT = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
@@ -244,9 +246,9 @@ bool HelloImGui::LoadAssets()
     auto aspect_ratio = window->GetAspectRatio();
     quad = {
           { { -1.0f , 1.0f, 0.0f, 1.f }, { 0.f, 0.f } }
-        , { {  1.0f,  1.0f, 0.0f, 1.f }, { 1.f, 0.f } }
-        , { { -1.0f, -1.0f, 0.0f, 1.f }, { 0.f, 1.f } }
-        , { {  1.0f, -1.0f, 0.0f, 1.f }, { 1.f, 1.f } }
+        , { {  3.0f,  1.0f, 0.0f, 1.f }, { 2.f, 0.f } }
+        , { { -1.0f, -3.0f, 0.0f, 1.f }, { 0.f, 2.f } }
+        , { {  1.0f, -1.0f, 0.0f, 0.f }, { 1.f, 1.f } }
     };
     //index = { 0,1,2,3 };
 
@@ -376,7 +378,7 @@ bool HelloImGui::CreateRenderPass()
 
     b::ATTACHMENT_REFERENCE color_attachment_ref{};
     color_attachment_ref.attachment_index             = 0;
-    color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE;
+    color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_WRITE;
     color_attachment_ref.stencil_state_at_pass        = {};
     color_attachment_ref.input_attachment_aspect_mask = b::TEXTURE_ASPECT_FLAG_COLOR;
 
@@ -444,13 +446,13 @@ bool HelloImGui::CreateShaderModules()
     b::BMRESULT bmr{};
     shader_modules.resize(2);
     shader::LOAD_SHADER_DESC desc{};
-    desc.options.packMatricesInRowMajor     = false;       // Experimental: Decide how a matrix get packed
-    desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
-    desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
-    desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+    desc.options.pack_matrices_in_row_major = false;       // Experimental: Decide how a matrix get packed
+    desc.options.enable16bit_types          = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
+    desc.options.enable_debug_info          = false;       // Embed debug info into the binary
+    desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
 
-    desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
-    desc.options.shaderModel                = { 6, 2 };
+    desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
+    desc.options.shader_model               = { 6, 2 };
 
     auto&& loader = dr->GetShaderLoader();
     // vs
@@ -617,12 +619,12 @@ bool HelloImGui::CreateGraphicsPipelines()
         b::BLEND_STATE_DESC bs{};
         b::RENDER_TARGET_BLEND_DESC attachments{};
         {
-            attachments.is_enabled_blend    = false;
-            attachments.src_blend           = b::BLEND_FACTOR_ONE;
-            attachments.dst_blend           = b::BLEND_FACTOR_ONE;
+            attachments.is_enabled_blend    = true;
+            attachments.src_blend           = b::BLEND_FACTOR_SRC_ALPHA;
+            attachments.dst_blend           = b::BLEND_FACTOR_SRC_ALPHA_INVERTED;
             attachments.blend_op            = b::BLEND_OP_ADD;
             attachments.src_blend_alpha     = b::BLEND_FACTOR_ONE;
-            attachments.dst_blend_alpha     = b::BLEND_FACTOR_ONE;
+            attachments.dst_blend_alpha     = b::BLEND_FACTOR_ZERO;
             attachments.blend_op_alpha      = b::BLEND_OP_ADD;
             attachments.color_write_mask    = b::COLOR_WRITE_FLAG_ALL;
 
@@ -715,11 +717,6 @@ bool HelloImGui::CreateFences()
         BMR_RET_IF_FAILED(bmr);
         i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
     }
-
-    fd.type = b::FENCE_TYPE_BINARY_GPU_TO_GPU;
-    bmr = device->CreateFence(fd, &render_complete_fence);
-    BMR_RET_IF_FAILED(bmr);
-    render_complete_fence->SetName("render_complete_fence");
 
     return true;
 }
@@ -974,16 +971,16 @@ bool HelloImGui::CreateSampler()
     sd.filter.reduction_mode  = b::SAMPLER_FILTER_REDUCTION_MODE_STANDARD;
     sd.filter.max_anisotropy  = (uint32_t)dr->GetDeviceAdapterLimits().max_sampler_anisotropy;
     sd.filter.comparison_func = b::COMPARISON_FUNC_NEVER;
-    sd.texture.address.u  = b::TEXTURE_ADDRESS_MODE_WRAP;
-    sd.texture.address.v  = b::TEXTURE_ADDRESS_MODE_WRAP;
-    sd.texture.address.w  = b::TEXTURE_ADDRESS_MODE_WRAP;
+    sd.texture.address.u  = b::TEXTURE_ADDRESS_MODE_BORDER;
+    sd.texture.address.v  = b::TEXTURE_ADDRESS_MODE_BORDER;
+    sd.texture.address.w  = b::TEXTURE_ADDRESS_MODE_BORDER;
     sd.texture.sample.minification  = b::TEXTURE_SAMPLE_MODE_LINEAR;
     sd.texture.sample.magnification = b::TEXTURE_SAMPLE_MODE_LINEAR;
     sd.texture.sample.mip           = b::TEXTURE_SAMPLE_MODE_LINEAR;
     sd.mip_lod.min    = 0.f;
     sd.mip_lod.max    = FLT_MAX;
     sd.mip_lod.bias   = 0.f;
-    sd.border_color   = b::BORDER_COLOR_OPAQUE_BLACK_FLOAT;
+    sd.border_color   = b::BORDER_COLOR_TRANSPARENT_BLACK_FLOAT;
 
     auto bmr = device->CreateSampler(sd, &sampler);
     BMR_RET_IF_FAILED(bmr);
@@ -1026,6 +1023,7 @@ bool HelloImGui::InitMyImGui()
 
     auto data_win = static_cast<const b::SURFACE_PLATFORM_DATA_WINDOWS*>(swapchain->GetSurface()->GetDesc().platform_data.data);
     gui_cd.window_handle = data_win->hwnd;
+    gui_cd.flags         = gui::MYIMGUI_CREATE_FLAG_DESCRIPTOR_POOL_FEEDING /*| gui::MYIMGUI_CREATE_FLAG_USE_SINGLE_COMMAND_LIST*/;
 
     gui_cd.config_flags           = ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable | ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableSetMousePos;
     gui_cd.framebuffer_format     = swapchain->GetBuffers()[0].tex->GetDesc().texture.format_desc.format;
@@ -1107,7 +1105,7 @@ void HelloImGui::PrepareFrame(uint32_t _buffer_index)
 
             ////             { index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location }
             //l->DrawIndexed({ 4                       , 1             , 0                   , 0                   , 0                       });            
-            l->Draw({ 4, 1, 0, 0 });
+            l->Draw({ 3, 1, 0, 0 });
         }
         l->EndRenderPass({});
     }
@@ -1145,11 +1143,11 @@ void HelloImGui::Update()
         myimgui->NewFrame();
         ImGui::ShowDemoWindow();
 
-        if (ImGui::Begin("Custom image"))
-        {
-            ImGui::Image(texture.srv.Get(), { 512, 512 });
-        }
-        ImGui::End();
+        //if (ImGui::Begin("Custom image"))
+        //{
+        //    ImGui::Image(texture.srv.Get(), { 512, 512 });
+        //}
+        //ImGui::End();
     }
 
     // 次のバックバッファを取得
@@ -1203,7 +1201,7 @@ void HelloImGui::Update()
 void HelloImGui::MoveToNextFrame()
 {
     uint32_t next_buffer_index = 0;
-    auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index);
+    auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index, true);
     assert(bmr == b::BMRESULT_SUCCEED || bmr == b::BMRESULT_SUCCEED_NOT_READY);
 
     back_buffer_index = next_buffer_index;
@@ -1220,12 +1218,11 @@ void HelloImGui::Render()
 
     // コマンドリストとフェンスを送信
     {
-        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
+        // 待機フェンス
+        //cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         //PrepareFrame(back_buffer_index);
 
-        // 待機フェンス
         wait_fence_desc.Reset();
-        wait_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait);
         wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
@@ -1234,35 +1231,25 @@ void HelloImGui::Render()
 
         // シグナルフェンス
         signal_fence_desc.Reset();
-        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal);
-        signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
+        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal());
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
+        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         bmr = command_queue->Submit(submit);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
     if (is_enabled_gui)
     {
-        ImmediateContext ictx(ctx);
-        util::PipelineBarrierDesc bd{};
-        bd.AddTextureBarrier(back_buffers->data()[back_buffer_index].rtv.Get(), b::RESOURCE_STATE_PRESENT, b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE);
-        ictx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT));
-
-        myimgui->DrawGui(myimgui_framebuffers[back_buffer_index].Get());
-
-        bd.Reset();
-        bd.AddTextureBarrier(back_buffers->data()[back_buffer_index].rtv.Get(), b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE, b::RESOURCE_STATE_PRESENT);
-        ictx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT, b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE));
+        myimgui->DrawGui(myimgui_framebuffers[back_buffer_index].Get(), b::RESOURCE_STATE_PRESENT, b::RESOURCE_STATE_PRESENT);
+        myimgui->SubmitCommands();
+        myimgui->PresentViewports();
     }
 
     // バックバッファをプレゼント
     {
-        swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
-        swapchain_fences->signal_fence_to_cpu->Reset();
-
-        present_info.wait_fence = render_complete_fence.Get();
-        bmr = swapchain->Present(present_info);
+        present_info.wait_fence = nullptr;
+        bmr = swapchain->Present(present_info, true);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 

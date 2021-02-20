@@ -10,6 +10,79 @@ namespace buma
 namespace util
 {
 
+template<typename T>
+inline uint32_t SafeRelease(T*& _p)
+{
+    auto result = (uint32_t)(_p ? _p->Release() : 0);
+    _p = nullptr;
+    return result;
+}
+template<typename T>
+inline T* SafeAddRef(T*& _p)
+{
+    if (!_p) return;
+    _p->AddRef();
+    return _p;
+}
+
+#pragma region containerhelper
+
+template <typename T>
+inline void SwapClear(T& _container)
+{
+    { T().swap(_container); }
+}
+
+template <typename T>
+inline typename T::iterator EraseContainerElem(T& _container, const size_t _erase_pos)
+{
+    return _container.erase(_container.begin() + _erase_pos);
+}
+
+// _first_pos: 0~, _last_pos: _container.size()までの間で設定してください
+template <typename T>
+inline typename T::iterator EraseContainerRange(T& _container, const size_t _first_pos, const size_t _last_pos)
+{
+    typename T::const_iterator it = _container.begin();
+    return _container.erase(it + _first_pos, it + _last_pos);
+}
+
+template <typename T>
+inline typename T::iterator InsertContainerElem(T& _container, const size_t _insert_pos, const typename T::value_type& _value)
+{
+    return _container.insert(_container.begin() + _insert_pos, _value);
+}
+
+template <typename T>
+inline typename T::iterator InsertContainerElem(T& _container, const size_t _insert_pos, typename T::value_type&& _value)
+{
+    return _container.insert(_container.begin() + _insert_pos, _value);
+}
+
+template <typename T>
+inline typename T::iterator InsertContainerElemCount(T& _container, const size_t _insert_pos, const size_t _insert_count, const typename T::value_type& _value)
+{
+    return _container.insert(_container.begin() + _insert_pos, _insert_count, _value);
+}
+
+template <typename T>
+inline typename T::iterator InsertContainerElemCount(T& _container, const size_t _insert_pos, const size_t _insert_count, typename T::value_type&& _value)
+{
+    return _container.insert(_container.begin() + _insert_pos, _insert_count, _value);
+}
+
+// _insert_first: 0 ~ _insert_container.size()までの間で設定してください
+// _insert_last: 0 ~ _insert_container.size()までの間で設定してください
+// _insert_firstと _insert_lastが同じの場合要素は挿入されません
+template <typename T>
+inline typename T::iterator InsertContainerElemRange(T& _container, const size_t _insert_pos, T& _insert_container, const size_t _insert_first, const size_t _insert_last)
+{
+    typename T::iterator ins_it = _insert_container.begin();
+    return _container.insert(_container.begin() + _insert_pos, ins_it + _insert_first, ins_it + _insert_last);
+}
+
+#pragma endregion containerhelper
+
 inline std::string GetUUIDString(const uint8_t _uuid[16])
 {
 #define B3DFW std::setfill('0') << std::setw(2) 
@@ -71,65 +144,6 @@ inline buma3d::UINT3 CalcMipExtents(uint32_t _mip_slice, const buma3d::EXTENT3D&
                          , (std::max)(_extent_mip0.height >> _mip_slice, 1ui32)
                          , (std::max)(_extent_mip0.depth  >> _mip_slice, 1ui32) };
 }
-
-
-#pragma region containerhelper
-
-template <typename T>
-inline void SwapClear(T& _container)
-{
-    { T().swap(_container); }
-}
-
-template <typename T>
-inline typename T::iterator EraseContainerElem(T& _container, const size_t _erase_pos)
-{
-    return _container.erase(_container.begin() + _erase_pos);
-}
-
-// _first_pos: 0~, _last_pos: _container.size()までの間で設定してください
-template <typename T>
-inline typename T::iterator EraseContainerRange(T& _container, const size_t _first_pos, const size_t _last_pos)
-{
-    typename T::const_iterator it = _container.begin();
-    return _container.erase(it + _first_pos, it + _last_pos);
-}
-
-template <typename T>
-inline typename T::iterator InsertContainerElem(T& _container, const size_t _insert_pos, const typename T::value_type& _value)
-{
-    return _container.insert(_container.begin() + _insert_pos, _value);
-}
-
-template <typename T>
-inline typename T::iterator InsertContainerElem(T& _container, const size_t _insert_pos, typename T::value_type&& _value)
-{
-    return _container.insert(_container.begin() + _insert_pos, _value);
-}
-
-template <typename T>
-inline typename T::iterator InsertContainerElemCount(T& _container, const size_t _insert_pos, const size_t _insert_count, const typename T::value_type& _value)
-{
-    return _container.insert(_container.begin() + _insert_pos, _insert_count, _value);
-}
-
-template <typename T>
-inline typename T::iterator InsertContainerElemCount(T& _container, const size_t _insert_pos, const size_t _insert_count, typename T::value_type&& _value)
-{
-    return _container.insert(_container.begin() + _insert_pos, _insert_count, _value);
-}
-
-// _insert_first: 0 ~ _insert_container.size()までの間で設定してください
-// _insert_last: 0 ~ _insert_container.size()までの間で設定してください
-// _insert_firstと _insert_lastが同じの場合要素は挿入されません
-template <typename T>
-inline typename T::iterator InsertContainerElemRange(T& _container, const size_t _insert_pos, T& _insert_container, const size_t _insert_first, const size_t _insert_last)
-{
-    typename T::iterator ins_it = _insert_container.begin();
-    return _container.insert(_container.begin() + _insert_pos, ins_it + _insert_first, ins_it + _insert_last);
-}
-
-#pragma endregion
 
 #pragma region valhelper
 

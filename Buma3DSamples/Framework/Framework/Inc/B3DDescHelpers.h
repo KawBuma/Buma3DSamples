@@ -152,6 +152,11 @@ public:
         return wait_desc;
     }
 
+    const buma3d::FENCE_SUBMISSION& GetAsFenceSubmission()
+    {
+        return GetAsWait().wait_fence;
+    }
+
 private:
     void Resize(uint32_t _num_fences)
     {
@@ -174,6 +179,134 @@ private:
     uint32_t                        num_fences;
     std::vector<buma3d::IFence*>    fences;
     std::vector<uint64_t>           fence_values;
+
+};
+
+class SubmitInfo
+{
+public:
+    SubmitInfo()
+        : submit_info               {}
+        , wait_fence                {}
+        , signal_fence              {}
+        , command_lists_to_execute  {}
+    {
+    }
+
+    ~SubmitInfo()
+    {
+    }
+
+    void Reset()
+    {
+        wait_fence.Reset();
+        signal_fence.Reset();
+        submit_info.num_command_lists_to_execute = 0;
+    }
+    SubmitInfo& AddWaitFence(buma3d::IFence* _fence, uint64_t _fence_value = 0)
+    {
+        wait_fence.AddFence(_fence, _fence_value);
+        return *this;
+    }
+    SubmitInfo& AddSignalFence(buma3d::IFence* _fence, uint64_t _fence_value = 0)
+    {
+        signal_fence.AddFence(_fence, _fence_value);
+        return *this;
+    }
+    SubmitInfo& AddCommandList(buma3d::ICommandList* _command_list_to_execute)
+    {
+        Resize(submit_info.num_command_lists_to_execute + 1);
+        command_lists_to_execute.data()[submit_info.num_command_lists_to_execute++] = _command_list_to_execute;
+        return *this;
+    }
+
+    const buma3d::SUBMIT_INFO& Get()
+    {
+        submit_info.wait_fence   = wait_fence.GetAsFenceSubmission();
+        submit_info.signal_fence = signal_fence.GetAsFenceSubmission();
+        return submit_info;
+    }
+
+private:
+    void Resize(uint32_t _num_command_lists_to_execute)
+    {
+        if (_num_command_lists_to_execute > (uint32_t)command_lists_to_execute.size())
+        {
+            command_lists_to_execute.resize(_num_command_lists_to_execute);
+            submit_info.command_lists_to_execute = command_lists_to_execute.data();
+        }
+    }
+
+private:
+    buma3d::SUBMIT_INFO                 submit_info;
+    FenceSubmitDesc                     wait_fence;
+    FenceSubmitDesc                     signal_fence;
+    std::vector<buma3d::ICommandList*>  command_lists_to_execute;
+
+};
+
+class SubmitDesc
+{
+public:
+    SubmitDesc()
+        : desc      {}
+        , infos     {}
+        , b3d_infos {}
+    {
+    }
+
+    ~SubmitDesc()
+    {
+    }
+
+    void Reset()
+    {
+        for (auto& i : infos)
+            i->Reset();
+        desc.num_submit_infos = 0;
+        desc.signal_fence_to_cpu = nullptr;
+    }
+    void SetSignalFenceToCpu(buma3d::IFence* _signal_fence_to_cpu)
+    {
+        desc.signal_fence_to_cpu = _signal_fence_to_cpu;
+    }
+    SubmitInfo& AddNewSubmitInfo()
+    {
+        Resize(desc.num_submit_infos + 1);
+        return (*infos.data()[desc.num_submit_infos++].get());
+    }
+
+    const buma3d::SUBMIT_DESC& Get()
+    {
+        auto id = infos.data();
+        auto bid = b3d_infos.data();
+        for (uint32_t i = 0; i < desc.num_submit_infos; i++)
+            bid[i] = id[i]->Get();
+
+        return desc;
+    }
+
+private:
+    void Resize(uint32_t _num_infos)
+    {
+        if (_num_infos > (uint32_t)infos.size())
+        {
+            infos.resize(_num_infos);
+            b3d_infos.resize(_num_infos);
+            desc.submit_infos = b3d_infos.data();
+
+            for (auto& i : infos)
+            {
+                if (!i)
+                    i = std::make_shared<SubmitInfo>();
+            }
+        }
+    }
+
+private:
+    buma3d::SUBMIT_DESC                         desc;
+    std::vector<std::shared_ptr<SubmitInfo>>    infos;
+    std::vector<buma3d::SUBMIT_INFO>            b3d_infos;
 
 };
 
@@ -230,6 +363,7 @@ private:
         }
     }
 
+private:
     buma3d::TEXTURE_BARRIER_RANGE           barrier_range;
     std::vector<buma3d::SUBRESOURCE_RANGE>  subres_ranges;
 
@@ -309,6 +443,7 @@ private:
         }
     }
 
+private:
     buma3d::CMD_PIPELINE_BARRIER                    barrier;
     std::vector<buma3d::BUFFER_BARRIER_DESC>        buffer_barreirs;
     std::vector<buma3d::TEXTURE_BARRIER_DESC>       texture_barreirs;
@@ -403,16 +538,12 @@ public:
     RootSignatureDesc()
         : desc              {}
         , parameters        {}
+        , b3d_parameters    {}
         , static_samplers   {}
         , register_shifts   {}
     {}
     ~RootSignatureDesc()
     {
-        desc            = {};
-        parameters      = {};
-        b3d_parameters  = {};
-        static_samplers = {};
-        register_shifts = {};
     }
 
     void Reset()
@@ -1305,7 +1436,6 @@ private:
 
 #pragma endregion descriptor set update
 
-
 #pragma region descriptor heap/pool
 
 class DescriptorSizes
@@ -1518,6 +1648,379 @@ private:
 
 
 #pragma endregion descriptor heap/pool
+
+#pragma region input layout builder
+
+class InputElementDesc
+{
+public:
+    InputElementDesc(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
+        : desc          { nullptr        , _semantic_index, _format, _aligned_byte_offset }
+        , semantic_name { _semantic_name }
+    {
+        desc.semantic_name = semantic_name.c_str();
+    }
+
+    ~InputElementDesc()
+    {
+    }
+
+    void Reset()
+    {
+        semantic_name.clear();
+        desc = {};
+    }
+
+    void Set(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
+    {
+        semantic_name   = _semantic_name;
+        desc            = { nullptr, _semantic_index, _format, _aligned_byte_offset };
+        desc.semantic_name = semantic_name.c_str();
+    }
+    const buma3d::INPUT_ELEMENT_DESC& Get() { return desc; }
+
+private:
+    std::string                 semantic_name;
+    buma3d::INPUT_ELEMENT_DESC  desc;
+
+};
+
+class InputSlotDesc
+{
+public:
+    InputSlotDesc(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
+        : desc          {}
+        , elements      {}
+        , b3d_elements  {}
+    {
+        elements     = std::make_shared<std::vector<InputElementDesc>>();
+        b3d_elements = std::make_shared<std::vector<buma3d::INPUT_ELEMENT_DESC>>();
+    }
+
+    ~InputSlotDesc()
+    {
+    }
+
+    void Reset()
+    {
+        desc = {};
+        for (auto& i : *elements)
+            i.Reset();
+    }
+
+    InputSlotDesc& SetSlotNumber          (uint32_t                     _slot_number)                                                   { desc.slot_number             = _slot_number;     return *this; }
+    InputSlotDesc& SetStrideInBytes       (uint32_t                     _stride_in_bytes)                                               { desc.stride_in_bytes         = _stride_in_bytes; return *this; }
+    InputSlotDesc& SetClassification      (buma3d::INPUT_CLASSIFICATION _classification = buma3d::INPUT_CLASSIFICATION_PER_VERTEX_DATA) { desc.classification          = _classification;  return *this; }
+    InputSlotDesc& SetInstanceDataStepRate(uint32_t                     _step_rate = 0)                                                 { desc.instance_data_step_rate = _step_rate;       return *this; }
+
+    InputElementDesc& AddNewInputElement()
+    {
+        Resize(desc.num_elements + 1);
+        return elements->data()[desc.num_elements++];
+    }
+    InputSlotDesc& AddNewInputElement(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
+    {
+        AddNewInputElement() = InputElementDesc(_semantic_name, _semantic_index, _format, _aligned_byte_offset);
+        return *this;
+    }
+    const buma3d::INPUT_SLOT_DESC& Get()
+    {
+        auto e    = elements->data();
+        auto b3de = b3d_elements->data();
+        for (uint32_t i = 0; i < desc.num_elements; i++)
+            b3de[i] = e[i].Get();
+
+        return desc;
+    }
+
+private:
+    void Resize(uint32_t _num_elements)
+    {
+        if (_num_elements > desc.num_elements)
+        {
+            elements->resize(_num_elements);
+            b3d_elements->resize(_num_elements);
+            desc.elements = b3d_elements->data();
+        }
+    }
+
+private:
+    buma3d::INPUT_SLOT_DESC                                     desc;
+    std::shared_ptr<std::vector<InputElementDesc>>              elements;
+    std::shared_ptr<std::vector<buma3d::INPUT_ELEMENT_DESC>>    b3d_elements;
+
+};
+
+class InputLayoutDesc
+{
+public:
+    InputLayoutDesc()
+        : desc      {}
+        , slots     {}
+        , b3d_slots {}
+    {
+        slots     = std::make_shared<std::vector<InputSlotDesc>>();
+        b3d_slots = std::make_shared<std::vector<buma3d::INPUT_SLOT_DESC>>();
+    }
+
+    ~InputLayoutDesc()
+    {
+
+    }
+
+    void Reset()
+    {
+        desc = {};
+        for (auto& i : *slots)
+            i.Reset();
+    }
+
+    InputSlotDesc& AddNewInputSlot()
+    {
+        Resize(desc.num_input_slots + 1);
+        return slots->data()[desc.num_input_slots++];
+    }
+
+    const buma3d::INPUT_LAYOUT_DESC& Get()
+    {
+        auto s    = slots->data();
+        auto b3ds = b3d_slots->data();
+        for (uint32_t i = 0; i < desc.num_input_slots; i++)
+            b3ds[i] = s[i].Get();
+
+        return desc;
+    }
+
+private:
+    void Resize(uint32_t _num_slots)
+    {
+        if (_num_slots > desc.num_input_slots)
+        {
+            slots->resize(_num_slots);
+            b3d_slots->resize(_num_slots);
+            desc.input_slots = b3d_slots->data();
+        }
+    }
+
+private:
+    buma3d::INPUT_LAYOUT_DESC                               desc;
+    std::shared_ptr<std::vector<InputSlotDesc>>             slots;
+    std::shared_ptr<std::vector<buma3d::INPUT_SLOT_DESC>>   b3d_slots;
+
+};
+
+#pragma endregion input layout builder
+
+#pragma region blend state
+
+class RenderTargetBlendDesc
+{
+public:
+    RenderTargetBlendDesc()
+        : desc{}
+    {
+    }
+
+    ~RenderTargetBlendDesc()
+    {
+    }
+
+    RenderTargetBlendDesc& Src      (buma3d::BLEND_FACTOR _factor) { desc.src_blend = _factor; return *this; }
+    RenderTargetBlendDesc& Op       (buma3d::BLEND_OP     _op)     { desc.blend_op  = _op;     return *this; }
+    RenderTargetBlendDesc& Dst      (buma3d::BLEND_FACTOR _factor) { desc.dst_blend = _factor; return *this; }
+
+    RenderTargetBlendDesc& SrcAlpha (buma3d::BLEND_FACTOR _factor) { desc.src_blend_alpha = _factor; return *this; }
+    RenderTargetBlendDesc& OpAlpha  (buma3d::BLEND_OP     _op)     { desc.blend_op_alpha  = _op;     return *this; }
+    RenderTargetBlendDesc& DstAlpha (buma3d::BLEND_FACTOR _factor) { desc.dst_blend_alpha = _factor; return *this; }
+
+    RenderTargetBlendDesc& ColorWriteMask(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL) { desc.color_write_mask = _color_write_mask; return *this; }
+
+    void BlendDisabled(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    {
+        desc = {};
+        desc.is_enabled_blend = false;
+        desc.color_write_mask = _color_write_mask;
+    }
+    void BlendAdditive(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    {
+        desc.is_enabled_blend = true;
+        desc.src_blend        = buma3d::BLEND_FACTOR_SRC_ALPHA;
+        desc.dst_blend        = buma3d::BLEND_FACTOR_ONE;
+        desc.blend_op         = buma3d::BLEND_OP_ADD;
+        desc.src_blend_alpha  = buma3d::BLEND_FACTOR_ZERO;
+        desc.dst_blend_alpha  = buma3d::BLEND_FACTOR_ONE;
+        desc.blend_op_alpha   = buma3d::BLEND_OP_ADD;
+        desc.color_write_mask = _color_write_mask;
+    }
+    void BlendSubtractive(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    {
+        desc.is_enabled_blend = true;
+        desc.src_blend        = buma3d::BLEND_FACTOR_SRC_ALPHA;
+        desc.dst_blend        = buma3d::BLEND_FACTOR_ONE;
+        desc.blend_op         = buma3d::BLEND_OP_REVERSE_SUBTRACT;
+        desc.src_blend_alpha  = buma3d::BLEND_FACTOR_ZERO;
+        desc.dst_blend_alpha  = buma3d::BLEND_FACTOR_ONE;
+        desc.blend_op_alpha   = buma3d::BLEND_OP_ADD;
+        desc.color_write_mask = _color_write_mask;
+    }
+    void BlendAlpha(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    {
+        desc.is_enabled_blend = true;
+        desc.src_blend        = buma3d::BLEND_FACTOR_SRC_ALPHA; // src.rgb * src.a
+        desc.dst_blend        = buma3d::BLEND_FACTOR_SRC_ALPHA_INVERTED;
+        desc.blend_op         = buma3d::BLEND_OP_ADD;
+        desc.src_blend_alpha  = buma3d::BLEND_FACTOR_ONE;
+        desc.dst_blend_alpha  = buma3d::BLEND_FACTOR_SRC_ALPHA_INVERTED;
+        desc.blend_op_alpha   = buma3d::BLEND_OP_ADD;
+        desc.color_write_mask = _color_write_mask;
+    }
+    void BlendPMA(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    {
+        desc.is_enabled_blend = true;
+        desc.src_blend        = buma3d::BLEND_FACTOR_ONE; // 事前乗算済み(src.rgb * src.aの結果を画像に焼き込むためsrc.aが1だと指定可能) 加算合成として振る舞うことも可能です。
+        desc.dst_blend        = buma3d::BLEND_FACTOR_SRC_ALPHA_INVERTED;
+        desc.blend_op         = buma3d::BLEND_OP_ADD;
+        desc.src_blend_alpha  = buma3d::BLEND_FACTOR_ONE;
+        desc.dst_blend_alpha  = buma3d::BLEND_FACTOR_SRC_ALPHA_INVERTED;
+        desc.blend_op_alpha   = buma3d::BLEND_OP_ADD;
+        desc.color_write_mask = _color_write_mask;
+    }
+
+    const buma3d::RENDER_TARGET_BLEND_DESC& Get() const { return desc; }
+
+private:
+    buma3d::RENDER_TARGET_BLEND_DESC desc;
+
+};
+
+class BlendStateDesc
+{
+public:
+    BlendStateDesc()
+        : desc      {}
+        , blend     {}
+        , b3d_blend {}
+    {
+        Reset();
+    }
+
+    ~BlendStateDesc()
+    {
+    }
+
+    const buma3d::BLEND_STATE_DESC& Reset()
+    {
+        for (auto& i : blend)
+            i.BlendDisabled();
+
+        desc.is_enabled_independent_blend = false;
+        desc.is_enabled_logic_op          = false;
+        desc.logic_op                     = buma3d::LOGIC_OP_CLEAR;
+        desc.num_attachments              = 0;
+        desc.blend_constants              = { 1,1,1,1 };
+    }
+
+    BlendStateDesc&         SetLogicOp                  (buma3d::LOGIC_OP _logic_op)       { desc.logic_op = _logic_op; desc.is_enabled_logic_op = true; return *this; }
+
+    BlendStateDesc&         SetBlendConstants           (const buma3d::COLOR4& _constants) { desc.blend_constants = _constants; return *this; }
+    BlendStateDesc&         SetIndependentBlendEnabled  (bool _is_enabled)                 { desc.is_enabled_independent_blend = _is_enabled; desc.is_enabled_logic_op = false; return *this; }
+    BlendStateDesc&         SetNumAttachmemns           (uint32_t _num_attachments)        { desc.num_attachments = _num_attachments; Resize(_num_attachments); return *this; }
+    RenderTargetBlendDesc&  GetBlendDesc                (uint32_t _index)                  { return blend[_index]; }
+
+    const buma3d::BLEND_STATE_DESC& Get() const 
+    {
+        auto b    = blend.data();
+        auto b3db = b3d_blend.data();
+        auto c = desc.is_enabled_independent_blend ? desc.num_attachments : std::min(desc.num_attachments, 1u);
+        for (uint32_t i = 0; i < c; i++)
+            b3db[i] = b[i].Get();
+
+        return desc;
+    }
+
+private:
+    void Resize(uint32_t _num_attachments)
+    {
+        if (!desc.is_enabled_independent_blend)
+            _num_attachments = 1;
+        if (_num_attachments > desc.num_attachments)
+        {
+            blend.resize(_num_attachments);
+            b3d_blend.resize(_num_attachments);
+            desc.attachments = b3d_blend.data();
+        }
+    }
+
+private:
+    buma3d::BLEND_STATE_DESC                                desc;
+    mutable std::vector<RenderTargetBlendDesc>              blend;
+    mutable std::vector<buma3d::RENDER_TARGET_BLEND_DESC>   b3d_blend;
+
+};
+
+#pragma endregion blend state
+
+#pragma region pipeline shader stages
+
+class PipelineShaderStageDescs
+{
+public:
+    PipelineShaderStageDescs()
+        : descs{}
+    {
+    }
+
+    ~PipelineShaderStageDescs()
+    {
+    }
+
+    void Reset()
+    {
+        num_shader_stages = 0;
+    }
+
+    uint32_t                                    GetSize() const { return num_shader_stages; }
+    const buma3d::PIPELINE_SHADER_STAGE_DESC*   Get()     const { return descs.data(); }
+
+    void AddStage(  buma3d::SHADER_STAGE_FLAG           _stage
+                  , buma3d::IShaderModule*              _module
+                  , const char*                         _entry_point_name
+                  , buma3d::PIPELINE_SHADER_STAGE_FLAGS _flags = buma3d::PIPELINE_SHADER_STAGE_FLAG_NONE)
+    {
+        assert(!(stages & _stage));
+        stages |= _stage;
+        Resize(num_shader_stages + 1);
+        entry_point_names.data()[num_shader_stages].assign(_entry_point_name);
+        descs            .data()[num_shader_stages] = {_flags, _stage, _module, entry_point_names.data()[num_shader_stages+1].c_str() };
+        num_shader_stages++;
+    }
+
+    void AddVS(buma3d::IShaderModule* _module, const char* _entry_point_name, buma3d::PIPELINE_SHADER_STAGE_FLAGS _flags = buma3d::PIPELINE_SHADER_STAGE_FLAG_NONE) { AddStage(buma3d::SHADER_STAGE_FLAG_VERTEX   , _module, _entry_point_name, _flags); }
+    void AddHS(buma3d::IShaderModule* _module, const char* _entry_point_name, buma3d::PIPELINE_SHADER_STAGE_FLAGS _flags = buma3d::PIPELINE_SHADER_STAGE_FLAG_NONE) { AddStage(buma3d::SHADER_STAGE_FLAG_HULL     , _module, _entry_point_name, _flags); }
+    void AddDS(buma3d::IShaderModule* _module, const char* _entry_point_name, buma3d::PIPELINE_SHADER_STAGE_FLAGS _flags = buma3d::PIPELINE_SHADER_STAGE_FLAG_NONE) { AddStage(buma3d::SHADER_STAGE_FLAG_DOMAIN   , _module, _entry_point_name, _flags); }
+    void AddGS(buma3d::IShaderModule* _module, const char* _entry_point_name, buma3d::PIPELINE_SHADER_STAGE_FLAGS _flags = buma3d::PIPELINE_SHADER_STAGE_FLAG_NONE) { AddStage(buma3d::SHADER_STAGE_FLAG_GEOMETRY , _module, _entry_point_name, _flags); }
+    void AddPS(buma3d::IShaderModule* _module, const char* _entry_point_name, buma3d::PIPELINE_SHADER_STAGE_FLAGS _flags = buma3d::PIPELINE_SHADER_STAGE_FLAG_NONE) { AddStage(buma3d::SHADER_STAGE_FLAG_PIXEL    , _module, _entry_point_name, _flags); }
+    void AddCS(buma3d::IShaderModule* _module, const char* _entry_point_name, buma3d::PIPELINE_SHADER_STAGE_FLAGS _flags = buma3d::PIPELINE_SHADER_STAGE_FLAG_NONE) { AddStage(buma3d::SHADER_STAGE_FLAG_COMPUTE  , _module, _entry_point_name, _flags); }
+
+private:
+    void Resize(uint32_t _num_shader_stages)
+    {
+        if (_num_shader_stages > num_shader_stages)
+        {
+            descs.resize(_num_shader_stages);
+            entry_point_names.resize(_num_shader_stages);
+        }
+    }
+
+private:
+    uint32_t                                        num_shader_stages;
+    std::vector<buma3d::PIPELINE_SHADER_STAGE_DESC> descs;
+    std::vector<std::string>                        entry_point_names;
+    buma3d::SHADER_STAGE_FLAGS                      stages;
+
+};
+
+#pragma endregion pipeline shader stages
 
 
 }// namespace util

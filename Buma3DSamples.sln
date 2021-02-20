@@ -50,6 +50,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloTexture", "Buma3DSampl
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HelloImGui", "Buma3DSamples\Samples\HelloImGui\HelloImGui.vcxproj", "{347C4493-03C6-47E7-B708-DB0EE53116D8}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Draws", "Buma3DSamples\Framework\Draws\Draws.vcxproj", "{5F2E635F-FAD5-4F3B-B8F8-DED8D3878351}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Scenes", "Buma3DSamples\Framework\Scenes\Scenes.vcxproj", "{B68E67AB-72BC-4A8B-88D2-523E3592AA75}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		Buma3DSamples\External\Buma3D\Project\SharedInc\v16\Buma3DSharedInc.vcxitems*{26e803ba-793b-4c45-bd7b-a0b8498a0f98}*SharedItemsImports = 4
@@ -109,6 +113,14 @@ Global
 		{347C4493-03C6-47E7-B708-DB0EE53116D8}.Debug|x64.Build.0 = Debug|x64
 		{347C4493-03C6-47E7-B708-DB0EE53116D8}.Release|x64.ActiveCfg = Release|x64
 		{347C4493-03C6-47E7-B708-DB0EE53116D8}.Release|x64.Build.0 = Release|x64
+		{5F2E635F-FAD5-4F3B-B8F8-DED8D3878351}.Debug|x64.ActiveCfg = Debug|x64
+		{5F2E635F-FAD5-4F3B-B8F8-DED8D3878351}.Debug|x64.Build.0 = Debug|x64
+		{5F2E635F-FAD5-4F3B-B8F8-DED8D3878351}.Release|x64.ActiveCfg = Release|x64
+		{5F2E635F-FAD5-4F3B-B8F8-DED8D3878351}.Release|x64.Build.0 = Release|x64
+		{B68E67AB-72BC-4A8B-88D2-523E3592AA75}.Debug|x64.ActiveCfg = Debug|x64
+		{B68E67AB-72BC-4A8B-88D2-523E3592AA75}.Debug|x64.Build.0 = Debug|x64
+		{B68E67AB-72BC-4A8B-88D2-523E3592AA75}.Release|x64.ActiveCfg = Release|x64
+		{B68E67AB-72BC-4A8B-88D2-523E3592AA75}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -126,6 +138,8 @@ Global
 		{C0283DFA-C2BE-4A33-BC85-4B0F03706855} = {81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}
 		{839DBE1B-7A38-40E9-BEC9-89D0C110169C} = {BBF7681E-1ACD-4E1B-A8F6-3CAE92BCEFBB}
 		{347C4493-03C6-47E7-B708-DB0EE53116D8} = {BBF7681E-1ACD-4E1B-A8F6-3CAE92BCEFBB}
+		{5F2E635F-FAD5-4F3B-B8F8-DED8D3878351} = {81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}
+		{B68E67AB-72BC-4A8B-88D2-523E3592AA75} = {81137D8E-80AD-4DFB-B48D-1EAA0B9E8053}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B61617D9-7ECD-40F0-B8B1-1087FB9F2216}

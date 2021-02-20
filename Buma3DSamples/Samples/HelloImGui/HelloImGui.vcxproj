@@ -61,7 +61,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;$(ProjectDir)..\..\Framework\Scenes\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <SupportJustMyCode>false</SupportJustMyCode>
     </ClCompile>
     <Link>
@@ -83,7 +83,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\Buma3D\Inc;$(ProjectDir)Src;$(ProjectDir)Inc;$(ProjectDir)..\..\External\imgui;$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)..\..\Framework\Imgui\Inc;$(ProjectDir)..\..\Framework\TextureLoads\Inc;$(ProjectDir)..\..\Framework\Inputs\inc;$(ProjectDir)..\..\Framework\Framework\Inc;$(ProjectDir)..\..\Framework\Scenes\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
@@ -119,6 +119,9 @@
     </ProjectReference>
     <ProjectReference Include="..\..\Framework\Imgui\Imgui.vcxproj">
       <Project>{2647224d-0083-43df-9dd7-cc74f286bbea}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Framework\Scenes\Scenes.vcxproj">
+      <Project>{b68e67ab-72bc-4a8b-88d2-523e3592aa75}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\Framework\TextureLoads\TextureLoads.vcxproj">
       <Project>{c0283dfa-c2be-4a33-bc85-4b0f03706855}</Project>

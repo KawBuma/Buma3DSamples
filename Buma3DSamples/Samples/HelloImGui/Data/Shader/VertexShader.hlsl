@@ -10,7 +10,7 @@ struct CB_SCENE
 {
     float4x4 view_proj;
 };
-ConstantBuffer<CB_SCENE> cb_scene : register(b0, space1);
+ConstantBuffer<CB_SCENE> cb_scene : register(b1, space0);
 
 [shader("vertex")]
 PS_IN main(VS_IN _in)

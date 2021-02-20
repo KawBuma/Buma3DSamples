@@ -98,6 +98,9 @@
     <ClCompile Include="Src\ResourceBufferImpl.cpp">
       <Filter>Sources\Resource</Filter>
     </ClCompile>
+    <ClCompile Include="Src\ShaderReflection.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inc\Window.h">
@@ -192,6 +195,9 @@
     </ClInclude>
     <ClInclude Include="Inc\External\Camera.h">
       <Filter>Headers\External</Filter>
+    </ClInclude>
+    <ClInclude Include="Inc\ShaderReflection.h">
+      <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="Inc\B3DDescHelpers.h">
       <Filter>Headers</Filter>

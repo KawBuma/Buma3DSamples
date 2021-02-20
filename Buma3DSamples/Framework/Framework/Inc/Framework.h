@@ -52,6 +52,7 @@
 #include "ResourceCreate.h"
 
 #include "ShaderLoader.h"
+#include "ShaderReflection.h"
 
 #include "StagingBufferPool.h"
 #include "DeferredContext.h"

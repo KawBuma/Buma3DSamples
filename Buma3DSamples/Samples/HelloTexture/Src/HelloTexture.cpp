@@ -14,6 +14,10 @@ constexpr bool USE_HOST_WRITABLE_HEAP = true;
 Camera g_cam{};
 
 namespace init = buma3d::hlp::init;
+namespace b = buma3d;
+
+template<typename T>
+using Ptr = buma3d::util::Ptr<T>;
 
 namespace buma
 {
@@ -38,13 +42,6 @@ buma3d::RESOURCE_FORMAT GetDefaultFormat(const tex::TEXTURE_DESC& _tex_desc)
     }
 }
 }// namespace tex
-
-
-namespace b = buma3d;
-
-template<typename T>
-using Ptr = buma3d::util::Ptr<T>;
-
 
 class HelloTexture::ResizeEvent : public IEvent
 {
@@ -94,7 +91,6 @@ HelloTexture::HelloTexture()
     , util_fence                {}
     , fence_values              {}
     , cmd_fences                {}
-    , render_complete_fence     {}
     , buffer_layout             {}
     , texture_layout            {}
     , pipeline_layout           {}
@@ -465,13 +461,13 @@ bool HelloTexture::CreateShaderModules()
     b::BMRESULT bmr{};
     shader_modules.resize(2);
     shader::LOAD_SHADER_DESC desc{};
-    desc.options.packMatricesInRowMajor     = false;       // Experimental: Decide how a matrix get packed
-    desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
-    desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
-    desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+    desc.options.pack_matrices_in_row_major = false;       // Experimental: Decide how a matrix get packed
+    desc.options.enable16bit_types          = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
+    desc.options.enable_debug_info          = false;       // Embed debug info into the binary
+    desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
 
-    desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
-    desc.options.shaderModel                = { 6, 2 };
+    desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
+    desc.options.shader_model               = { 6, 2 };
 
     auto&& loader = dr->GetShaderLoader();
     // vs
@@ -736,11 +732,6 @@ bool HelloTexture::CreateFences()
         BMR_RET_IF_FAILED(bmr);
         i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
     }
-
-    fd.type = b::FENCE_TYPE_BINARY_GPU_TO_GPU;
-    bmr = device->CreateFence(fd, &render_complete_fence);
-    BMR_RET_IF_FAILED(bmr);
-    render_complete_fence->SetName("render_complete_fence");
 
     return true;
 }
@@ -1208,12 +1199,11 @@ void HelloTexture::Render()
 
     // コマンドリストとフェンスを送信
     {
-        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
+        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         //PrepareFrame(back_buffer_index);
 
         // 待機フェンス
         wait_fence_desc.Reset();
-        wait_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait);
         wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
@@ -1222,8 +1212,7 @@ void HelloTexture::Render()
 
         // シグナルフェンス
         signal_fence_desc.Reset();
-        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal);
-        signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
+        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal());
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
         bmr = command_queue->Submit(submit);
@@ -1232,10 +1221,6 @@ void HelloTexture::Render()
 
     // バックバッファをプレゼント
     {
-        swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
-        swapchain_fences->signal_fence_to_cpu->Reset();
-
-        present_info.wait_fence = render_complete_fence.Get();
         bmr = swapchain->Present(present_info);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
