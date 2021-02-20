@@ -416,11 +416,6 @@ bool HelloConstantBuffer::CreateShaderModules()
     desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
     desc.options.shaderModel                = { 6, 2 };
 
-    desc.options.shiftAllTexturesBindings   = 0;
-    desc.options.shiftAllSamplersBindings   = 0;
-    desc.options.shiftAllCBuffersBindings   = 0;
-    desc.options.shiftAllUABuffersBindings  = 0;
-
     auto&& loader = dr->GetShaderLoader();
     // vs
     {

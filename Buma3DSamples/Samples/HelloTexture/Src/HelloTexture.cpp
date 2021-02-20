@@ -473,11 +473,6 @@ bool HelloTexture::CreateShaderModules()
     desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
     desc.options.shaderModel                = { 6, 2 };
 
-    desc.options.shiftAllTexturesBindings   = 1;// register(t0, space0) -> register(t1, space0)
-    desc.options.shiftAllSamplersBindings   = 2;// register(s0, space0) -> register(s2, space0)
-    desc.options.shiftAllCBuffersBindings   = 0;
-    desc.options.shiftAllUABuffersBindings  = 0;
-
     auto&& loader = dr->GetShaderLoader();
     // vs
     {
