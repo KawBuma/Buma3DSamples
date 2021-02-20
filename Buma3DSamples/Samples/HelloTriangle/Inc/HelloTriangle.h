@@ -21,7 +21,7 @@ public:
     bool Init() override;
     bool InitSwapChain();
     bool LoadAssets();
-    bool CreateRootSignature();
+    bool CreatePipelineLayout();
     bool CreateRenderPass();
     bool CreateFramebuffer();
     bool CreateShaderModules();
@@ -99,7 +99,7 @@ private:
 
     std::vector<buma3d::RESOURCE_HEAP_PROPERTIES>               heap_props;
 
-    buma3d::util::Ptr<buma3d::IRootSignature>                   signature;
+    buma3d::util::Ptr<buma3d::IPipelineLayout>                  pipeline_layout;
     buma3d::util::Ptr<buma3d::IRenderPass>                      render_pass;
     buma3d::util::Ptr<buma3d::IResourceHeap>                    resource_heap;
     buma3d::util::Ptr<buma3d::IBuffer>                          vertex_buffer;

@@ -99,6 +99,7 @@
     <ClInclude Include="Src\pch.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Data\Shader\ShaderHeader.hlsli" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -112,6 +113,10 @@
     <ProjectReference Include="..\..\Framework\Framework\Framework.vcxproj">
       <Project>{dce42634-12c0-41fc-93a7-367d6bc5db5e}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Data\Shader\PixelShader.hlsl" />
+    <FxCompile Include="Data\Shader\VertexShader.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

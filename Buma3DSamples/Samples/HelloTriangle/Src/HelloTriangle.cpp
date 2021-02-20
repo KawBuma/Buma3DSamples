@@ -85,7 +85,7 @@ HelloTriangle::HelloTriangle()
     , cmd_fences            {}
     , render_complete_fence {}
     , heap_props            {}
-    , signature             {}
+    , pipeline_layout       {}
     , render_pass           {}
     , resource_heap         {}
     , vertex_buffer         {}
@@ -199,7 +199,7 @@ bool HelloTriangle::LoadAssets()
     };
     index = { 0,1,2 };
 
-    if (!CreateRootSignature())     return false;
+    if (!CreatePipelineLayout())    return false;
     if (!CreateRenderPass())        return false;
     if (!CreateFramebuffer())       return false;
     if (!CreateShaderModules())     return false;
@@ -224,22 +224,19 @@ bool HelloTriangle::LoadAssets()
     return true;
 }
 
-bool HelloTriangle::CreateRootSignature()
+bool HelloTriangle::CreatePipelineLayout()
 {
     // ルートシグネチャの作成
-    b::ROOT_SIGNATURE_DESC rsdesc{};
+    b::PIPELINE_LAYOUT_DESC pld{};
     //b::ROOT_PARAMETER parameters[1]{};
 
-    rsdesc.flags                          = b::ROOT_SIGNATURE_FLAG_NONE;
-    rsdesc.raytracing_shader_visibilities = b::RAY_TRACING_SHADER_VISIBILITY_FLAG_NONE;
-    rsdesc.num_parameters                 = 0;
-    rsdesc.parameters                     = nullptr;
-    rsdesc.num_static_samplers            = 0;
-    rsdesc.static_samplers                = nullptr;
-    rsdesc.num_register_shifts            = 0;
-    rsdesc.register_shifts                = nullptr;
+    pld.flags               = b::PIPELINE_LAYOUT_FLAG_NONE;
+    pld.num_set_layouts     = 0;
+    pld.set_layouts         = 0;
+    pld.num_push_constants  = 0;
+    pld.push_constants      = 0;
 
-    auto bmr = device->CreateRootSignature(rsdesc, &signature);
+    auto bmr = device->CreatePipelineLayout(pld, &pipeline_layout);
     assert(bmr == b::BMRESULT_SUCCEED);
     return bmr == b::BMRESULT_SUCCEED;
 }
@@ -387,7 +384,7 @@ bool HelloTriangle::CreateGraphicsPipelines()
     {
         b::GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
 
-        pso_desc.root_signature       = signature.Get();
+        pso_desc.pipeline_layout      = pipeline_layout.Get();
         pso_desc.render_pass          = render_pass.Get();
         pso_desc.subpass              = 0;
         pso_desc.node_mask            = b::B3D_DEFAULT_NODE_MASK;
@@ -928,7 +925,7 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
         l->PipelineBarrier(barrier);
 
         l->SetPipelineState(pipeline.Get());
-        l->SetRootSignature(b::PIPELINE_BIND_POINT_GRAPHICS, signature.Get());
+        l->SetPipelineLayout(b::PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout.Get());
 
         static float sc = 0.f;
         static float sx = 0.f;
@@ -1095,7 +1092,7 @@ void HelloTriangle::Term()
     shader_modules = {};
     framebuffers = {};
     render_pass.Reset();
-    signature.Reset();
+    pipeline_layout.Reset();
     back_buffers = nullptr;
     swapchain.reset();
     command_queue.Reset();

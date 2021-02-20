@@ -21,8 +21,9 @@ public:
     bool Init() override;
     bool InitSwapChain();
     bool LoadAssets();
-    bool CreateRootSignature();
-    bool CreateDescriptorPool();
+    bool CreateDescriptorSetLayout();
+    bool CreatePipelineLayout();
+    bool CreateDescriptorHeapAndPool();
     bool AllocateDescriptorSets();
     bool CreateRenderPass();
     bool CreateFramebuffer();
@@ -135,9 +136,14 @@ private:
     std::vector<buma3d::util::Ptr<buma3d::IFence>>              cmd_fences;
     buma3d::util::Ptr<buma3d::IFence>                           render_complete_fence;
 
-    buma3d::util::Ptr<buma3d::IRootSignature>                   signature;
+    buma3d::util::Ptr<buma3d::IDescriptorSetLayout>             buffer_layout;
+    buma3d::util::Ptr<buma3d::IDescriptorSetLayout>             texture_layout;
+    buma3d::util::Ptr<buma3d::IPipelineLayout>                  pipeline_layout;
+    buma3d::util::Ptr<buma3d::IDescriptorHeap>                  descriptor_heap;
     buma3d::util::Ptr<buma3d::IDescriptorPool>                  descriptor_pool;
-    std::vector<buma3d::util::Ptr<buma3d::IDescriptorSet>>      descriptor_sets;
+    buma3d::util::Ptr<buma3d::IDescriptorUpdate>                descriptor_update;
+    std::vector<buma3d::util::Ptr<buma3d::IDescriptorSet>>      buffer_descriptor_sets;
+    buma3d::util::Ptr<buma3d::IDescriptorSet>                   texture_descriptor_set;
 
     buma3d::util::Ptr<buma3d::IRenderPass>                      render_pass;
     std::shared_ptr<buma::res::IResourceBuffer>                 vertex_buffer;

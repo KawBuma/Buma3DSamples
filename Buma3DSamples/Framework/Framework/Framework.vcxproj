@@ -130,6 +130,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inc\Application.h" />
+    <ClInclude Include="Inc\B3DDescHelpers.h" />
     <ClInclude Include="Inc\B3DInit.h" />
     <ClInclude Include="Inc\DeferredContext.h" />
     <ClInclude Include="Inc\DeviceResources.h" />

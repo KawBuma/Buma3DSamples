@@ -14,16 +14,13 @@ constexpr bool USE_HOST_WRITABLE_HEAP = true;
 Camera g_cam{};
 
 namespace init = buma3d::hlp::init;
-
-namespace buma
-{
-
-
 namespace b = buma3d;
 
 template<typename T>
 using Ptr = buma3d::util::Ptr<T>;
 
+namespace buma
+{
 
 class HelloConstantBuffer::ResizeEvent : public IEvent
 {
@@ -73,8 +70,11 @@ HelloConstantBuffer::HelloConstantBuffer()
     , fence_values          {}
     , cmd_fences            {}
     , render_complete_fence {}
-    , signature             {}
+    , descriptor_set_layout {}
+    , pipeline_layout       {}
+    , descriptor_heap       {}
     , descriptor_pool       {}
+    , descriptor_update     {}
     , descriptor_sets       {}
     , render_pass           {}
     , resource_heap         {}
@@ -201,16 +201,18 @@ bool HelloConstantBuffer::LoadAssets()
     };
     index = { 0,1,2 };
 
-    if (!CreateRootSignature())     return false;
-    if (!CreateDescriptorPool())    return false;
-    if (!AllocateDescriptorSets())  return false;
-    if (!CreateRenderPass())        return false;
-    if (!CreateFramebuffer())       return false;
-    if (!CreateShaderModules())     return false;
-    if (!CreateGraphicsPipelines()) return false;
-    if (!CreateCommandAllocator())  return false;
-    if (!CreateCommandLists())      return false;
-    if (!CreateFences())            return false;
+    if (!CreateDescriptorSetLayout())   return false;
+    if (!CreatePipelineLayout())        return false;
+    if (!CreateDescriptorHeap())        return false;
+    if (!CreateDescriptorPool())        return false;
+    if (!AllocateDescriptorSets())      return false;
+    if (!CreateRenderPass())            return false;
+    if (!CreateFramebuffer())           return false;
+    if (!CreateShaderModules())         return false;
+    if (!CreateGraphicsPipelines())     return false;
+    if (!CreateCommandAllocator())      return false;
+    if (!CreateCommandLists())          return false;
+    if (!CreateFences())                return false;
 
     b::RESOURCE_HEAP_ALLOCATION_INFO         heap_alloc_info{};
     std::vector<b::RESOURCE_ALLOCATION_INFO> alloc_infos;
@@ -222,7 +224,7 @@ bool HelloConstantBuffer::LoadAssets()
     if (!CreateBufferViews())                               return false;
     if (!CreateConstantBuffer())                            return false;
     if (!CreateConstantBufferView())                        return false;
-    if (!WriteDescriptorSet())                              return false;
+    if (!UpdateDescriptorSet())                             return false;
 
     // 描画コマンドを記録
     for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
@@ -231,79 +233,74 @@ bool HelloConstantBuffer::LoadAssets()
     return true;
 }
 
-bool HelloConstantBuffer::CreateRootSignature()
+bool HelloConstantBuffer::CreateDescriptorSetLayout()
 {
-    // ルートシグネチャの作成
-    b::ROOT_SIGNATURE_DESC rsdesc{};
+    // 頂点シェーダーに可視の register(b0, space*) を割り当てます。
+    buma3d::DESCRIPTOR_SET_LAYOUT_BINDING bindings[1]{};
+    bindings[0].descriptor_type      = b::DESCRIPTOR_TYPE_CBV;
+    bindings[0].flags                = b::DESCRIPTOR_FLAG_NONE;
+    bindings[0].base_shader_register = 0;
+    bindings[0].num_descriptors      = 1;
+    bindings[0].shader_visibility    = b::SHADER_VISIBILITY_VERTEX;
+    bindings[0].static_sampler       = nullptr;
 
-    // ディスクリプタテーブル: 頂点シェーダーに対して register(b0, space0),register(b0, space1) を割り当てます。
-    b::ROOT_PARAMETER parameters[2]{};
-    parameters[0].shader_visibility = b::SHADER_VISIBILITY_VERTEX;
-    parameters[0].type              = b::ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    parameters[1] = parameters[0];
+    buma3d::DESCRIPTOR_SET_LAYOUT_DESC desc{};
+    desc.num_bindings   = _countof(bindings);
+    desc.bindings       = bindings;
+    desc.flags          = b::DESCRIPTOR_SET_LAYOUT_FLAG_NONE;
+    auto bmr = device->CreateDescriptorSetLayout(desc, &descriptor_set_layout);
+    BMR_RET_IF_FAILED(bmr);
 
-    b::DESCRIPTOR_RANGE ranges[2]{};
-    {
-        ranges[0].type                 = b::DESCRIPTOR_TYPE_CBV;
-        ranges[0].flags                = b::DESCRIPTOR_FLAG_NONE;
-        ranges[0].num_descriptors      = 1;
+    return true;
+}
 
-        ranges[1] = ranges[0];
+bool HelloConstantBuffer::CreatePipelineLayout()
+{
+    // space0,space1 にそれぞれdescriptor_set_layoutのリソースが定義されます。
+    b::IDescriptorSetLayout* layouts[2]{};
+    layouts[0] = descriptor_set_layout.Get(); // モデル定数
+    layouts[1] = descriptor_set_layout.Get(); // シーン定数
 
-        // モデル定数
-        ranges[0].base_shader_register = 0;
-        ranges[0].register_space       = 0;
-        parameters[0].descriptor_table.num_descriptor_ranges = 1;
-        parameters[0].descriptor_table.descriptor_ranges     = &ranges[0];
+    b::PIPELINE_LAYOUT_DESC desc{};
+    desc.flags = b::PIPELINE_LAYOUT_FLAG_NONE;
+    desc.num_set_layouts    = _countof(layouts);
+    desc.set_layouts        = layouts;
+    desc.num_push_constants = 0;
+    desc.push_constants     = nullptr;
 
-        // シーン定数
-        ranges[1].base_shader_register = 0;
-        ranges[1].register_space       = 1;
-        parameters[1].descriptor_table.num_descriptor_ranges = 1;
-        parameters[1].descriptor_table.descriptor_ranges     = &ranges[1];
-    }
+    auto bmr = device->CreatePipelineLayout(desc, &pipeline_layout);
+    BMR_RET_IF_FAILED(bmr);
 
-    rsdesc.flags                          = b::ROOT_SIGNATURE_FLAG_NONE;
-    rsdesc.raytracing_shader_visibilities = b::RAY_TRACING_SHADER_VISIBILITY_FLAG_NONE;
-    rsdesc.num_parameters                 = _countof(parameters);
-    rsdesc.parameters                     = parameters;
-    rsdesc.num_static_samplers            = 0;
-    rsdesc.static_samplers                = nullptr;
-    rsdesc.num_register_shifts            = 0;
-    rsdesc.register_shifts                = nullptr;
+    return true;
+}
+bool HelloConstantBuffer::CreateDescriptorHeap()
+{
+    b::DESCRIPTOR_HEAP_SIZE heap_sizes[] = {
+         { b::DESCRIPTOR_TYPE_CBV, 2 * BACK_BUFFER_COUNT }
+    };
 
-    auto bmr = device->CreateRootSignature(rsdesc, &signature);
+    b::DESCRIPTOR_HEAP_DESC desc{};
+    desc.flags          = b::DESCRIPTOR_HEAP_FLAG_NONE;
+    desc.num_heap_sizes = _countof(heap_sizes);
+    desc.heap_sizes     = heap_sizes;
+    desc.node_mask      = b::B3D_DEFAULT_NODE_MASK;
+    auto bmr = device->CreateDescriptorHeap(desc, &descriptor_heap);
     BMR_RET_IF_FAILED(bmr);
 
     return true;
 }
 bool HelloConstantBuffer::CreateDescriptorPool()
 {
-    uint32_t max_num_register_space{};
-    std::vector<b::DESCRIPTOR_POOL_SIZE> pool_sizes;
-
-    if constexpr (false)
-    {
-        pool_sizes.resize(signature->GetDescriptorPoolRequirementSizes(BACK_BUFFER_COUNT, &max_num_register_space, nullptr));
-        signature->GetDescriptorPoolRequirementSizes(BACK_BUFFER_COUNT, &max_num_register_space, pool_sizes.data());
-    }
-    else
-    {
-        pool_sizes.resize(device->GetDescriptorPoolSizesAllocationInfo(1, signature.GetAddressOf(), &BACK_BUFFER_COUNT, &max_num_register_space, nullptr));
-        device->GetDescriptorPoolSizesAllocationInfo(1, signature.GetAddressOf(), &BACK_BUFFER_COUNT, &max_num_register_space, pool_sizes.data());
-    }
-
-    assert(pool_sizes[0].type == b::DESCRIPTOR_TYPE_CBV);
-    assert(pool_sizes[0].num_descriptors == 6);
+    b::DESCRIPTOR_POOL_SIZE pool_sizes[] = {
+         { b::DESCRIPTOR_TYPE_CBV, 2 * BACK_BUFFER_COUNT }
+    };
 
     b::DESCRIPTOR_POOL_DESC pool_desc{};
+    pool_desc.heap                      = descriptor_heap.Get();
     pool_desc.flags                     = b::DESCRIPTOR_POOL_FLAG_NONE;
     pool_desc.max_sets_allocation_count = BACK_BUFFER_COUNT;
-    pool_desc.max_num_register_space    = max_num_register_space;
-
-    pool_desc.num_pool_sizes = (uint32_t)pool_sizes.size();
-    pool_desc.pool_sizes     = pool_sizes.data();
-    pool_desc.node_mask      = b::B3D_DEFAULT_NODE_MASK;
+    pool_desc.num_pool_sizes            = _countof(pool_sizes);
+    pool_desc.pool_sizes                = pool_sizes;
 
     auto bmr = device->CreateDescriptorPool(pool_desc, &descriptor_pool);
     BMR_RET_IF_FAILED(bmr);
@@ -312,12 +309,20 @@ bool HelloConstantBuffer::CreateDescriptorPool()
 }
 bool HelloConstantBuffer::AllocateDescriptorSets()
 {
-    descriptor_sets.resize(BACK_BUFFER_COUNT);
-    for (auto& i : descriptor_sets)
-    {
-        auto bmr = descriptor_pool->AllocateDescriptorSet(signature.Get(), &i);
-        BMR_RET_IF_FAILED(bmr);
-    }
+    std::vector<b::IDescriptorSet*>         sets   (BACK_BUFFER_COUNT * 2);
+    std::vector<b::IDescriptorSetLayout*>   layouts(BACK_BUFFER_COUNT * 2, descriptor_set_layout.Get());
+
+    buma3d::DESCRIPTOR_SET_ALLOCATE_DESC allocate_desc{};
+    allocate_desc.descriptor_pool     = descriptor_pool.Get();
+    allocate_desc.num_descriptor_sets = BACK_BUFFER_COUNT * 2;
+    allocate_desc.set_layouts         = layouts.data();
+    auto bmr = descriptor_pool->AllocateDescriptorSets(allocate_desc, sets.data());
+    BMR_RET_IF_FAILED(bmr);
+
+    descriptor_sets.reserve(BACK_BUFFER_COUNT * 2);
+    for (auto& i : sets)
+        descriptor_sets.emplace_back().Attach(i);
+
     return true;
 }
 bool HelloConstantBuffer::CreateRenderPass()
@@ -464,7 +469,7 @@ bool HelloConstantBuffer::CreateGraphicsPipelines()
     {
         b::GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
 
-        pso_desc.root_signature       = signature.Get();
+        pso_desc.pipeline_layout      = pipeline_layout.Get();
         pso_desc.render_pass          = render_pass.Get();
         pso_desc.subpass              = 0;
         pso_desc.node_mask            = b::B3D_DEFAULT_NODE_MASK;
@@ -1091,39 +1096,34 @@ bool HelloConstantBuffer::CreateConstantBufferView()
 
     return true;
 }
-bool HelloConstantBuffer::WriteDescriptorSet()
+bool HelloConstantBuffer::UpdateDescriptorSet()
 {
-    b::WRITE_DESCRIPTOR_SET   write_sets[BACK_BUFFER_COUNT]{};
-    b::WRITE_DESCRIPTOR_RANGE write_ranges[BACK_BUFFER_COUNT * 2]{};
-    b::WRITE_DESCRIPTOR_TABLE write_tables[BACK_BUFFER_COUNT * 2]{};
-    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
+    // IDescriptorUpdateを作成
+    auto bmr = device->CreateDescriptorUpdate({}, &descriptor_update);
+    BMR_RET_IF_FAILED(bmr);
+
+    b::WRITE_DESCRIPTOR_SET     write_sets[BACK_BUFFER_COUNT * 2]{};
+    b::WRITE_DESCRIPTOR_BINDING write_bindings[BACK_BUFFER_COUNT]{};
+    for (uint32_t i_frame = 0; i_frame < BACK_BUFFER_COUNT; i_frame++)
     {
-        auto offset = i * 2;
+        auto offset = i_frame * 2;
+        for (uint32_t i_set = 0; i_set < 2; i_set++)
         {
-            write_ranges[offset + 0].dst_range_index            = 0;
-            write_ranges[offset + 0].dst_first_array_element    = 0;
-            write_ranges[offset + 0].num_descriptors            = 1;
-            write_ranges[offset + 0].src_views                  = (b::IView**)frame_cbs[i].model_cbv.GetAddressOf();
+            auto&& b = write_bindings[offset + i_set];
+            b.dst_binding_index       = 0;
+            b.dst_first_array_element = 0;
+            b.num_descriptors         = 1;
+            b.src_views = i_set == 0
+                ? (b::IView**)frame_cbs[i_frame].model_cbv.GetAddressOf()
+                : (b::IView**)frame_cbs[i_frame].scene_cbv.GetAddressOf();
 
-            write_ranges[offset + 1]                            = write_ranges[offset + 0];
-            write_ranges[offset + 1].src_views                  = (b::IView**)frame_cbs[i].scene_cbv.GetAddressOf();
+            auto&& w = write_sets[offset + i_set];
+            w.dst_set               = descriptor_sets[offset + i_set].Get();
+            w.num_bindings          = 1;
+            w.bindings              = &b;
+            w.num_dynamic_bindings  = 0;
+            w.dynamic_bindings      = nullptr;
         }
-
-        {
-            write_tables[offset + 0].dst_root_parameter_index   = 0;
-            write_tables[offset + 0].num_ranges                 = 1;
-            write_tables[offset + 0].ranges                     = &write_ranges[offset + 0];
-
-            write_tables[offset + 1].dst_root_parameter_index   = 1;
-            write_tables[offset + 1].num_ranges                 = 1;
-            write_tables[offset + 1].ranges                     = &write_ranges[offset + 1];
-        }
-
-        write_sets[i].dst_set                  = descriptor_sets[i].Get();
-        write_sets[i].num_descriptor_tables    = 2;
-        write_sets[i].descriptor_tables        = write_tables + offset;
-        write_sets[i].num_dynamic_descriptors  = 0;
-        write_sets[i].dynamic_descriptors      = nullptr;
     }
 
     b::UPDATE_DESCRIPTOR_SET_DESC update_desc{};
@@ -1131,7 +1131,7 @@ bool HelloConstantBuffer::WriteDescriptorSet()
     update_desc.write_descriptor_sets       = write_sets;
     update_desc.num_copy_descriptor_sets    = 0;
     update_desc.copy_descriptor_sets        = nullptr;
-    auto bmr = device->UpdateDescriptorSets(update_desc);
+    bmr = descriptor_update->UpdateDescriptorSets(update_desc);
     BMR_RET_IF_FAILED(bmr);
 
     return true;
@@ -1167,14 +1167,18 @@ void HelloConstantBuffer::PrepareFrame(uint32_t _buffer_index)
         barrier.dst_stages           = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
         l->PipelineBarrier(barrier);
 
+        l->SetPipelineLayout(b::PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout.Get());
         l->SetPipelineState(pipeline.Get());
-        l->SetRootSignature(b::PIPELINE_BIND_POINT_GRAPHICS, signature.Get());
 
-        b::CMD_BIND_DESCRIPTOR_SET bind_sets{};
-        bind_sets.descriptor_set                 = descriptor_sets[_buffer_index].Get();
-        bind_sets.num_dynamic_descriptor_offsets = 0;
-        bind_sets.dynamic_descriptor_offsets     = nullptr;
-        l->BindDescriptorSet(b::PIPELINE_BIND_POINT_GRAPHICS, bind_sets);
+        auto descriptor_sets_data = descriptor_sets.data() + _buffer_index * 2;
+        b::IDescriptorSet* sets[2] = { descriptor_sets_data[0].Get(), descriptor_sets_data[1].Get() };
+        b::CMD_BIND_DESCRIPTOR_SETS bind_sets{};
+        bind_sets.first_set                         = 0;
+        bind_sets.num_descriptor_sets               = 2;
+        bind_sets.descriptor_sets                   = sets;
+        bind_sets.num_dynamic_descriptor_offsets    = 0;
+        bind_sets.dynamic_descriptor_offsets        = nullptr;
+        l->BindDescriptorSets(b::PIPELINE_BIND_POINT_GRAPHICS, bind_sets);
 
         static float sc = 0.f;
         static float sx = 0.f;
@@ -1378,8 +1382,10 @@ void HelloConstantBuffer::Term()
         i->Reset(b::COMMAND_ALLOCATOR_RESET_FLAG_RELEASE_RESOURCES);
     cmd_lists = {};
     cmd_allocator = {};
+    descriptor_update.Reset();
     descriptor_sets = {};
     descriptor_pool.Reset();
+    descriptor_heap.Reset();
     ctx.Reset();
     for (auto& i : frame_cbs)
     {
@@ -1400,7 +1406,8 @@ void HelloConstantBuffer::Term()
     shader_modules = {};
     framebuffers = {};
     render_pass.Reset();
-    signature.Reset();
+    pipeline_layout.Reset();
+    descriptor_set_layout.Reset();
     back_buffers = nullptr;
     swapchain.reset();
     command_queue.Reset();

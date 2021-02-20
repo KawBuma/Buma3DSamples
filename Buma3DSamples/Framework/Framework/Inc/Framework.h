@@ -32,6 +32,7 @@
 
 #include "FormatUtils.h"
 #include "Utils.h"
+#include "B3DDescHelpers.h"
 
 #include "ResourceHeapProperties.h"
 #include "VariableSizeAllocationsManager.h"

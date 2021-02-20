@@ -27,7 +27,9 @@ public:
     bool Init() override;
     bool InitSwapChain();
     bool LoadAssets();
-    bool CreateRootSignature();
+    bool CreateDescriptorSetLayout();
+    bool CreatePipelineLayout();
+    bool CreateDescriptorHeap();
     bool CreateDescriptorPool();
     bool AllocateDescriptorSets();
     bool CreateRenderPass();
@@ -45,7 +47,7 @@ public:
     bool CreateBufferViews();
     bool CreateConstantBuffer();
     bool CreateConstantBufferView();
-    bool WriteDescriptorSet();
+    bool UpdateDescriptorSet();
 
     void Tick() override;
     void Update();
@@ -127,8 +129,11 @@ private:
     std::vector<buma3d::util::Ptr<buma3d::IFence>>              cmd_fences;
     buma3d::util::Ptr<buma3d::IFence>                           render_complete_fence;
 
-    buma3d::util::Ptr<buma3d::IRootSignature>                   signature;
+    buma3d::util::Ptr<buma3d::IDescriptorSetLayout>             descriptor_set_layout;
+    buma3d::util::Ptr<buma3d::IPipelineLayout>                  pipeline_layout;
+    buma3d::util::Ptr<buma3d::IDescriptorHeap>                  descriptor_heap;
     buma3d::util::Ptr<buma3d::IDescriptorPool>                  descriptor_pool;
+    buma3d::util::Ptr<buma3d::IDescriptorUpdate>                descriptor_update;
     std::vector<buma3d::util::Ptr<buma3d::IDescriptorSet>>      descriptor_sets;
 
     buma3d::util::Ptr<buma3d::IRenderPass>                      render_pass;
