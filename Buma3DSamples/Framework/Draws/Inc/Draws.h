@@ -16,8 +16,6 @@ namespace buma
 namespace draws
 {
 
-#define TO_FLAGS(T) inline constexpr T T##S(uint32_t _flags) { return (T)_flags; }
-
 #pragma region declaration
 
 inline constexpr uint32_t REGISTER_SPACE_DRAWS_RESERVED     = 0;
@@ -25,14 +23,21 @@ inline constexpr uint32_t REGISTER_SPACE_SAMPLER_PARAMETER  = 1;
 inline constexpr uint32_t REGISTER_SPACE_TEXTURE_PARAMETER  = 2;
 inline constexpr uint32_t REGISTER_SPACE_VALUE_PARAMETER    = 3;
 
-inline constexpr const char* VERTEX_SEMANTIC_NAME_POSITION   = "POSITION" ;
-inline constexpr const char* VERTEX_SEMANTIC_NAME_NORMAL     = "NORMAL"   ;
-inline constexpr const char* VERTEX_SEMANTIC_NAME_TANGENT    = "TANGENT"  ;
-inline constexpr const char* VERTEX_SEMANTIC_NAME_TEXCOORD0  = "TEXCOORD0";
+// プリミティブ作成時にマテリアル側で要求されている頂点属性がIMeshDataに存在しない場合失敗します。
+
+inline constexpr const char* VERTEX_ELEMENT_NAMES[/*VERTEX_ELEMENT_TYPE_NUM_TYPES*/] = {
+      "POSITION"
+    , "NORMAL"
+    , "TANGENT"
+    , "COLOR"
+    , "TEXCOORD0"
+    , "TEXCOORD1"
+};
 
 using VertPositionT   = glm::vec4;
-using VertNormalT     = glm::vec4;
+using VertNormalT     = glm::vec3;
 using VertTangentT    = glm::vec4;
+using VertColorT      = glm::vec4;
 using VertTexcoordT   = glm::vec2;
 
 
@@ -99,7 +104,7 @@ struct IDrawsRenderer;
 enum RENDERER_TYPE
 {
       RENDERER_TYPE_DEFERRED
-    //, RENDERER_TYPE_FORWARD
+//  , RENDERER_TYPE_FORWARD
 };
 
 enum RENDER_PASS_TYPE
@@ -108,7 +113,7 @@ enum RENDER_PASS_TYPE
     , RENDER_PASS_TYPE_BASE
     , RENDER_PASS_TYPE_LIGHTING
     , RENDER_PASS_TYPE_TRANSLUCENT
-    //, RENDER_PASS_TYPE_FORWARD
+//  , RENDER_PASS_TYPE_FORWARD
 
     , RENDER_PASS_TYPE_NUM_TYPES
 };
@@ -138,19 +143,33 @@ enum VERTEX_BUFFER_TYPE
 enum VERTEX_ELEMENT_TYPE
 {
       VERTEX_ELEMENT_TYPE_POSITION  // VERTEX_BUFFER_TYPE_FLOAT4
-    , VERTEX_ELEMENT_TYPE_NORMAL    // VERTEX_BUFFER_TYPE_FLOAT4
+    , VERTEX_ELEMENT_TYPE_NORMAL    // VERTEX_BUFFER_TYPE_FLOAT3
     , VERTEX_ELEMENT_TYPE_TANGENT   // VERTEX_BUFFER_TYPE_FLOAT4
+    , VERTEX_ELEMENT_TYPE_COLOR     // VERTEX_BUFFER_TYPE_FLOAT4
     , VERTEX_ELEMENT_TYPE_TEXCOORD0 // VERTEX_BUFFER_TYPE_FLOAT2
+    , VERTEX_ELEMENT_TYPE_TEXCOORD1 // VERTEX_BUFFER_TYPE_FLOAT2
 
     , VERTEX_ELEMENT_TYPE_NUM_TYPES
 };
+
+enum VERTEX_ELEMENT_FLAG : uint32_t
+{
+      VERTEX_ELEMENT_TYPE_UNSPECIFIED   = 0x0
+    , VERTEX_ELEMENT_FLAG_POSITION      = 0x1
+    , VERTEX_ELEMENT_FLAG_NORMAL        = 0x2
+    , VERTEX_ELEMENT_FLAG_TANGENT       = 0x4
+    , VERTEX_ELEMENT_FLAG_COLOR         = 0x8
+    , VERTEX_ELEMENT_FLAG_TEXCOORD0     = 0x10
+    , VERTEX_ELEMENT_FLAG_TEXCOORD1     = 0x20
+};
+using VERTEX_ELEMENT_FLAGS = uint32_t;
 
 enum BUFFER_FLAG : uint32_t
 {
       BUFFER_FLAG_NONE          = 0x0
     , BUFFER_FLAG_CPU_VISIBLE   = 0x1 // バッファのリビルドを省略可能にします。(パフォーマンスに影響を与える可能性があります) 
 };
-TO_FLAGS(BUFFER_FLAG);
+using BUFFER_FLAGS = uint32_t;
 
 enum INDEX_BUFFER_TYPE
 {

@@ -120,6 +120,7 @@
     <ClCompile Include="Src\ResourceHeapAllocator.cpp" />
     <ClCompile Include="Src\ResourceTextureImpl.cpp" />
     <ClCompile Include="Src\ShaderLoader.cpp" />
+    <ClCompile Include="Src\ShaderReflection.cpp" />
     <ClCompile Include="Src\StagingBufferPool.cpp" />
     <ClCompile Include="Src\StepTimer.cpp" />
     <ClCompile Include="Src\SwapChain.cpp" />
@@ -149,6 +150,7 @@
     <ClInclude Include="Inc\ResourceHeapProperties.h" />
     <ClInclude Include="Inc\ResourceTexture.h" />
     <ClInclude Include="Inc\ShaderLoader.h" />
+    <ClInclude Include="Inc\ShaderReflection.h" />
     <ClInclude Include="Inc\StagingBufferPool.h" />
     <ClInclude Include="Inc\StepTimer.h" />
     <ClInclude Include="Inc\SwapChain.h" />

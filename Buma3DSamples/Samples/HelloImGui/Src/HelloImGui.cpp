@@ -333,6 +333,8 @@ bool HelloImGui::CreateDescriptorPool()
         device->GetDescriptorPoolSizesAllocationInfo(1, signature.GetAddressOf(), &BACK_BUFFER_COUNT, &max_num_register_space, pool_sizes.data());
     }
     /*
+    
+    
 
     SceneLoads ( b3d-independent )
     // SaveScene
