@@ -24,8 +24,8 @@ ShaderConductor::ShadingLanguage GetShadingLanguage(INTERNAL_API_TYPE _type)
 {
     switch (_type)
     {
-    case buma::INTERNAL_API_TYPE_D3D12  : ShaderConductor::ShadingLanguage::Dxil;
-    case buma::INTERNAL_API_TYPE_VULKAN : ShaderConductor::ShadingLanguage::SpirV;
+    case buma::INTERNAL_API_TYPE_D3D12  : return ShaderConductor::ShadingLanguage::Dxil;
+    case buma::INTERNAL_API_TYPE_VULKAN : return ShaderConductor::ShadingLanguage::SpirV;
 
     default:
         assert(false);
@@ -100,7 +100,7 @@ void PrepareOptions(ShaderConductor::Compiler::Options&                         
     }
 }
 
-void PrepareModules(std::vector<ShaderConductor::Compiler::ModuleDesc>& _modules, std::vector<ShaderConductor::Compiler::ModuleDesc*>& _pmodules, const buma::shader::LIBRARY_LINK_DESC& _desc)
+void PrepareModules(std::vector<ShaderConductor::Compiler::ModuleDesc>& _modules, std::vector<const ShaderConductor::Compiler::ModuleDesc*>& _pmodules, const buma::shader::LIBRARY_LINK_DESC& _desc)
 {
     _modules.reserve(_desc.link.modules.size());
     _pmodules.reserve(_desc.link.modules.size());
@@ -109,7 +109,7 @@ void PrepareModules(std::vector<ShaderConductor::Compiler::ModuleDesc>& _modules
         auto&& m = _modules.emplace_back();
         m.name = i->library_name;
         m.target.Reset(i->target->data(), i->target->size());
-        _modules.emplace_back(&m);
+        _pmodules.emplace_back(&m);
     }
 }
 
@@ -208,7 +208,7 @@ void ShaderLoader::LinkLibrary(INTERNAL_API_TYPE _type, const LIBRARY_LINK_DESC&
     PrepareOptions(opt, _desc.options, _type, shifts, _desc.link.stage);
 
     std::vector<SCC::ModuleDesc>  modules;
-    std::vector<SCC::ModuleDesc*> pmodules;
+    std::vector<const SCC::ModuleDesc*> pmodules;
     PrepareModules(modules, pmodules, _desc);
 
     SCC::LinkDesc ld{
