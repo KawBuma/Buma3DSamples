@@ -287,14 +287,6 @@ inline bool IsFailed(buma3d::BMRESULT _bmr)
     return _bmr >= buma3d::BMRESULT_FAILED;
 }
 
-template<typename T>
-inline uint32_t SafeRelease(T*& _ptr)
-{
-    uint32_t result = _ptr ? _ptr->Release() : 0;
-    _ptr = nullptr;
-    return result;
-}
-
 
 }// namespace util
 }// namespace buma

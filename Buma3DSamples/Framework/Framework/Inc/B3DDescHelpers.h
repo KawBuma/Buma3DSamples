@@ -100,16 +100,20 @@ public:
         , num_fences   {}
         , fences       {}
         , fence_values {}
+    {}
+    FenceSubmitDesc(const FenceSubmitDesc& _c)
+        : signal_desc  { _c.signal_desc }
+        , wait_desc    { _c.wait_desc }
+        , num_fences   { _c.num_fences }
+        , fences       { _c.fences }
+        , fence_values { _c.fence_values }
     {
-
+        Finalize();
     }
-
     ~FenceSubmitDesc()
-    {
+    {}
 
-    }
-
-    void Reset()
+    FenceSubmitDesc& Reset()
     {
         num_fences = 0;
 
@@ -121,38 +125,42 @@ public:
         wait_desc.wait_fence.num_fences         = 0;
         wait_desc.wait_fence.fences             = 0;
         wait_desc.wait_fence.fence_values       = 0;
-    }
 
-    void AddFence(buma3d::IFence* _fence, uint64_t _fence_value)
+        return *this;
+    }
+    FenceSubmitDesc& AddFence(buma3d::IFence* _fence, uint64_t _fence_value)
     {
         Resize(num_fences + 1);
         fences      .data()[num_fences] = _fence;
         fence_values.data()[num_fences] = _fence_value;
         num_fences++;
+        return *this;
     }
-
-    void SetSignalFenceToGpu(buma3d::IFence* _fence)
+    FenceSubmitDesc& SetSignalFenceToGpu(buma3d::IFence* _fence)
     {
         signal_desc.signal_fence_to_cpu = _fence;
+        return *this;
+    }
+    FenceSubmitDesc& Finalize()
+    {
+        signal_desc.signal_fence.num_fences     = num_fences;
+        signal_desc.signal_fence.fences         = fences.data();
+        signal_desc.signal_fence.fence_values   = fence_values.data();
+        wait_desc.wait_fence.num_fences         = num_fences;
+        wait_desc.wait_fence.fences             = fences.data();
+        wait_desc.wait_fence.fence_values       = fence_values.data();
+        return *this;
     }
 
-    const buma3d::SUBMIT_SIGNAL_DESC& GetAsSignal()
+    const buma3d::SUBMIT_SIGNAL_DESC& GetAsSignal() const 
     {
-        signal_desc.signal_fence.num_fences   = num_fences;
-        signal_desc.signal_fence.fences       = fences.data();
-        signal_desc.signal_fence.fence_values = fence_values.data();
         return signal_desc;
     }
-
-    const buma3d::SUBMIT_WAIT_DESC& GetAsWait()
+    const buma3d::SUBMIT_WAIT_DESC& GetAsWait() const
     {
-        wait_desc.wait_fence.num_fences   = num_fences;
-        wait_desc.wait_fence.fences       = fences.data();
-        wait_desc.wait_fence.fence_values = fence_values.data();
         return wait_desc;
     }
-
-    const buma3d::FENCE_SUBMISSION& GetAsFenceSubmission()
+    const buma3d::FENCE_SUBMISSION& GetAsFenceSubmission() const
     {
         return GetAsWait().wait_fence;
     }
@@ -190,18 +198,24 @@ public:
         , wait_fence                {}
         , signal_fence              {}
         , command_lists_to_execute  {}
+    {}
+    SubmitInfo(const SubmitInfo& _c)
+        : submit_info               { _c.submit_info }
+        , wait_fence                { _c.wait_fence }
+        , signal_fence              { _c.signal_fence }
+        , command_lists_to_execute  { _c.command_lists_to_execute }
     {
+        Finalize();
     }
-
     ~SubmitInfo()
-    {
-    }
+    {}
 
-    void Reset()
+    SubmitInfo& Reset()
     {
         wait_fence.Reset();
         signal_fence.Reset();
         submit_info.num_command_lists_to_execute = 0;
+        return *this;
     }
     SubmitInfo& AddWaitFence(buma3d::IFence* _fence, uint64_t _fence_value = 0)
     {
@@ -219,11 +233,16 @@ public:
         command_lists_to_execute.data()[submit_info.num_command_lists_to_execute++] = _command_list_to_execute;
         return *this;
     }
-
-    const buma3d::SUBMIT_INFO& Get()
+    SubmitInfo& Finalize()
     {
-        submit_info.wait_fence   = wait_fence.GetAsFenceSubmission();
-        submit_info.signal_fence = signal_fence.GetAsFenceSubmission();
+        submit_info.wait_fence               = wait_fence.GetAsFenceSubmission();
+        submit_info.command_lists_to_execute = command_lists_to_execute.data();
+        submit_info.signal_fence             = signal_fence.GetAsFenceSubmission();
+        return *this;
+    }
+
+    const buma3d::SUBMIT_INFO& Get() const 
+    {
         return submit_info;
     }
 
@@ -231,10 +250,7 @@ private:
     void Resize(uint32_t _num_command_lists_to_execute)
     {
         if (_num_command_lists_to_execute > (uint32_t)command_lists_to_execute.size())
-        {
             command_lists_to_execute.resize(_num_command_lists_to_execute);
-            submit_info.command_lists_to_execute = command_lists_to_execute.data();
-        }
     }
 
 private:
@@ -252,37 +268,54 @@ public:
         : desc      {}
         , infos     {}
         , b3d_infos {}
+    {}
+    SubmitDesc(const SubmitDesc& _c)
+        : desc      { _c.desc }
+        , infos     { _c.infos }
+        , b3d_infos { _c.b3d_infos }
     {
+        Finalize();
     }
-
     ~SubmitDesc()
-    {
-    }
+    {}
 
-    void Reset()
+    SubmitDesc& Reset()
     {
         for (auto& i : infos)
-            i->Reset();
+            i.Reset();
         desc.num_submit_infos = 0;
         desc.signal_fence_to_cpu = nullptr;
+        return *this;
     }
-    void SetSignalFenceToCpu(buma3d::IFence* _signal_fence_to_cpu)
+    SubmitDesc& SetSignalFenceToCpu(buma3d::IFence* _signal_fence_to_cpu)
     {
         desc.signal_fence_to_cpu = _signal_fence_to_cpu;
+        return *this;
+    }
+    SubmitDesc& AddSubmitInfo(const SubmitInfo& _info)
+    {
+        Resize(desc.num_submit_infos + 1);
+        infos.data()[desc.num_submit_infos++] = _info;
+        return *this;
     }
     SubmitInfo& AddNewSubmitInfo()
     {
         Resize(desc.num_submit_infos + 1);
-        return (*infos.data()[desc.num_submit_infos++].get());
+        return infos.data()[desc.num_submit_infos++];
     }
-
-    const buma3d::SUBMIT_DESC& Get()
+    SubmitDesc& Finalize()
     {
         auto id = infos.data();
         auto bid = b3d_infos.data();
         for (uint32_t i = 0; i < desc.num_submit_infos; i++)
-            bid[i] = id[i]->Get();
+            bid[i] = id[i].Get();
 
+        desc.submit_infos = bid;
+        return *this;
+    }
+
+    const buma3d::SUBMIT_DESC& Get() const 
+    {
         return desc;
     }
 
@@ -293,50 +326,60 @@ private:
         {
             infos.resize(_num_infos);
             b3d_infos.resize(_num_infos);
-            desc.submit_infos = b3d_infos.data();
-
-            for (auto& i : infos)
-            {
-                if (!i)
-                    i = std::make_shared<SubmitInfo>();
-            }
         }
     }
 
 private:
-    buma3d::SUBMIT_DESC                         desc;
-    std::vector<std::shared_ptr<SubmitInfo>>    infos;
-    std::vector<buma3d::SUBMIT_INFO>            b3d_infos;
+    buma3d::SUBMIT_DESC                 desc;
+    std::vector<SubmitInfo>             infos;
+    std::vector<buma3d::SUBMIT_INFO>    b3d_infos;
 
 };
 
 #pragma region pipeline barrier
 
+class PipelineBarrierDesc;
+
 class TextureBarrierRange
 {
 public:
-    TextureBarrierRange()
-        : barrier_range{}
-        , subres_ranges{}
+    TextureBarrierRange(PipelineBarrierDesc* _parent)
+        : parent        { _parent }
+        , barrier_range {}
+        , subres_ranges {}
+    {}
+    TextureBarrierRange(PipelineBarrierDesc* _parent, const buma3d::TEXTURE_BARRIER_RANGE* _range)
+        : parent        { _parent }
+        , barrier_range { *_range }
+        , subres_ranges { _range->num_subresource_ranges }
     {
+        memcpy(subres_ranges.data(), _range->subresource_ranges, sizeof(buma3d::SUBRESOURCE_RANGE) * _range->num_subresource_ranges);
+        if (parent)
+            Finalize();
     }
-
+    TextureBarrierRange(const TextureBarrierRange& _c)
+        : parent        { _c.parent }
+        , barrier_range { _c.barrier_range }
+        , subres_ranges { _c.subres_ranges }
+    {
+        if (parent)
+            Finalize();
+    }
     ~TextureBarrierRange()
+    {}
+
+    void SetParent(PipelineBarrierDesc* _parent)
     {
+        parent = _parent;
     }
 
-    void AddSubresRange()
-    {
-
-    }
-
-    void Reset()
+    TextureBarrierRange& Reset()
     {
         barrier_range.texture                   = nullptr;
         barrier_range.num_subresource_ranges    = 0;
+        return *this;
     }
-
-    void AddSubresRange(buma3d::TEXTURE_ASPECT_FLAGS _aspect, uint32_t _mip_slice, uint32_t _array_slice, uint32_t _array_size = 1, uint32_t _mip_levels = 1)
+    TextureBarrierRange& AddSubresRange(buma3d::TEXTURE_ASPECT_FLAGS _aspect, uint32_t _mip_slice, uint32_t _array_slice, uint32_t _array_size = 1, uint32_t _mip_levels = 1)
     {
         Resize(barrier_range.num_subresource_ranges + 1);
         auto&& range = subres_ranges.data()[barrier_range.num_subresource_ranges++];
@@ -345,25 +388,43 @@ public:
         range.offset.aspect         = _aspect;
         range.offset.mip_slice      = _mip_slice;
         range.offset.array_slice    = _array_slice;
-    }
 
-    const buma3d::TEXTURE_BARRIER_RANGE* Get(buma3d::ITexture* _texture)
+        return *this;
+    }
+    TextureBarrierRange& SetTexture(buma3d::ITexture* _texture)
     {
         barrier_range.texture = _texture;
-        return &barrier_range;
+        return *this;
+    }
+    PipelineBarrierDesc& Finalize()
+    {
+        barrier_range.subresource_ranges = subres_ranges.data();
+        return *parent;
+    }
+
+    void Finalize(PipelineBarrierDesc* _parent, const buma3d::TEXTURE_BARRIER_RANGE* _range)
+    {
+        SetParent(_parent);
+        Resize(_range->num_subresource_ranges);
+        memcpy(subres_ranges.data(), _range->subresource_ranges, sizeof(buma3d::SUBRESOURCE_RANGE) * _range->num_subresource_ranges);
+        barrier_range = *_range;
+        Finalize();
+    }
+
+    const buma3d::TEXTURE_BARRIER_RANGE& Get() const 
+    {
+        return barrier_range;
     }
 
 private:
     void Resize(uint32_t _num_subres_ranges)
     {
-        if (_num_subres_ranges > barrier_range.num_subresource_ranges)
-        {
+        if (_num_subres_ranges > (uint32_t)subres_ranges.size())
             subres_ranges.resize(_num_subres_ranges);
-            barrier_range.subresource_ranges = subres_ranges.data();
-        }
     }
 
 private:
+    PipelineBarrierDesc*                    parent;
     buma3d::TEXTURE_BARRIER_RANGE           barrier_range;
     std::vector<buma3d::SUBRESOURCE_RANGE>  subres_ranges;
 
@@ -373,80 +434,149 @@ class PipelineBarrierDesc
 {
 public:
     PipelineBarrierDesc()
-        : barrier           {}
-        , buffer_barreirs   {}
-        , texture_barreirs  {}
+        : barrier               {}
+        , buffer_barriers       {}
+        , texture_barriers      {}
+        , barrier_ranges        {}
+        , num_barrier_ranges    {}
     {}
+    PipelineBarrierDesc(uint32_t _num_buffer_barriers_reserve, uint32_t _num_texture_barriers_reserve)
+        : barrier               {}
+        , buffer_barriers       { _num_buffer_barriers_reserve }
+        , texture_barriers      { _num_texture_barriers_reserve }
+        , barrier_ranges        {}
+        , num_barrier_ranges    {}
+    {}
+    PipelineBarrierDesc(const PipelineBarrierDesc& _c)
+        : barrier               { _c.barrier }
+        , buffer_barriers       { _c.buffer_barriers }
+        , texture_barriers      { _c.texture_barriers }
+        , barrier_ranges        { _c.barrier_ranges }
+        , num_barrier_ranges    { _c.num_barrier_ranges }
+    {
+        for (auto& i : barrier_ranges) i.SetParent(this);
+        Finalize();
+    }
     ~PipelineBarrierDesc() {}
 
-    void Reset()
+    PipelineBarrierDesc& Reset(bool _reset_pipeline_stage_flags = true, bool _reset_dependency_flags = true)
     {
+        if (_reset_pipeline_stage_flags)
+            barrier.dst_stages = barrier.src_stages = buma3d::PIPELINE_STAGE_FLAG_NONE;
+        if (_reset_dependency_flags)
+            barrier.dependency_flags = buma3d::DEPENDENCY_FLAG_NONE;
+
         barrier.num_buffer_barriers  = 0;
         barrier.num_texture_barriers = 0;
-        barrier.dependency_flags     = buma3d::DEPENDENCY_FLAG_NONE;
+        num_barrier_ranges = 0;
+        return *this;
     }
-
-    void AddBufferBarrier(  buma3d::IBuffer*                _buffer
-                          , buma3d::RESOURCE_STATE          _src_state
-                          , buma3d::RESOURCE_STATE          _dst_state
-                          , buma3d::RESOURCE_BARRIER_FLAG   _barrier_flags  = buma3d::RESOURCE_BARRIER_FLAG_NONE
-                          , buma3d::COMMAND_TYPE            _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
-                          , buma3d::COMMAND_TYPE            _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
+    PipelineBarrierDesc& AddBufferBarrier(  buma3d::IBuffer*                _buffer
+                                          , buma3d::RESOURCE_STATE          _src_state
+                                          , buma3d::RESOURCE_STATE          _dst_state
+                                          , buma3d::RESOURCE_BARRIER_FLAG   _barrier_flags  = buma3d::RESOURCE_BARRIER_FLAG_NONE
+                                          , buma3d::COMMAND_TYPE            _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
+                                          , buma3d::COMMAND_TYPE            _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
     {
-        Resize(barrier.num_buffer_barriers + 1, barrier.buffer_barriers, &buffer_barreirs);
-        buffer_barreirs.data()[barrier.num_buffer_barriers++] = { _buffer , _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags };
+        Resize(barrier.num_buffer_barriers + 1, &buffer_barriers);
+        buffer_barriers.data()[barrier.num_buffer_barriers++] = { _buffer , _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags };
+        return *this;
     }
-    void AddBufferBarrier(const buma3d::BUFFER_BARRIER_DESC& _buffer_barrier)
+    PipelineBarrierDesc& AddBufferBarrier(const buma3d::BUFFER_BARRIER_DESC& _buffer_barrier)
     {
-        Resize(barrier.num_buffer_barriers + 1, barrier.buffer_barriers, &buffer_barreirs);
-        buffer_barreirs.data()[barrier.num_buffer_barriers++] = _buffer_barrier;
+        Resize(barrier.num_buffer_barriers + 1, &buffer_barriers);
+        buffer_barriers.data()[barrier.num_buffer_barriers++] = _buffer_barrier;
+        return *this;
     }
-
-    void AddTextureBarrier(const buma3d::TEXTURE_BARRIER_RANGE* _barrier_range
-                           , buma3d::RESOURCE_STATE             _src_state
-                           , buma3d::RESOURCE_STATE             _dst_state
-                           , buma3d::RESOURCE_BARRIER_FLAG      _barrier_flags  = buma3d::RESOURCE_BARRIER_FLAG_NONE
-                           , buma3d::COMMAND_TYPE               _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
-                           , buma3d::COMMAND_TYPE               _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
+    PipelineBarrierDesc& AddTextureBarrier(  buma3d::IView*                 _view
+                                           , buma3d::RESOURCE_STATE         _src_state
+                                           , buma3d::RESOURCE_STATE         _dst_state
+                                           , buma3d::RESOURCE_BARRIER_FLAG  _barrier_flags = buma3d::RESOURCE_BARRIER_FLAG_NONE
+                                           , buma3d::COMMAND_TYPE           _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
+                                           , buma3d::COMMAND_TYPE           _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
     {
-        Resize(barrier.num_texture_barriers + 1, barrier.texture_barriers, &texture_barreirs);
-        texture_barreirs.data()[barrier.num_texture_barriers++] = { buma3d::TEXTURE_BARRIER_TYPE_BARRIER_RANGE , _barrier_range , _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags };
-    }
-    void AddTextureBarrier(  buma3d::IView*                     _view
-                           , buma3d::RESOURCE_STATE             _src_state
-                           , buma3d::RESOURCE_STATE             _dst_state
-                           , buma3d::RESOURCE_BARRIER_FLAG      _barrier_flags = buma3d::RESOURCE_BARRIER_FLAG_NONE
-                           , buma3d::COMMAND_TYPE               _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
-                           , buma3d::COMMAND_TYPE               _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
-    {
-        Resize(barrier.num_texture_barriers + 1, barrier.texture_barriers, &texture_barreirs);
-        (texture_barreirs.data()[barrier.num_texture_barriers++] = { buma3d::TEXTURE_BARRIER_TYPE_VIEW , nullptr, _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags })
+        Resize(barrier.num_texture_barriers + 1, &texture_barriers);
+        (texture_barriers.data()[barrier.num_texture_barriers++] = { buma3d::TEXTURE_BARRIER_TYPE_VIEW , nullptr, _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags })
             .view = _view;
+        return *this;
+    }
+    PipelineBarrierDesc& AddTextureBarrierRange(const buma3d::TEXTURE_BARRIER_RANGE*    _barrier_range
+                                                , buma3d::RESOURCE_STATE                _src_state
+                                                , buma3d::RESOURCE_STATE                _dst_state
+                                                , buma3d::RESOURCE_BARRIER_FLAG         _barrier_flags  = buma3d::RESOURCE_BARRIER_FLAG_NONE
+                                                , buma3d::COMMAND_TYPE                  _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
+                                                , buma3d::COMMAND_TYPE                  _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
+    {
+        Resize(barrier.num_texture_barriers + 1, &texture_barriers);
+        texture_barriers.data()[barrier.num_texture_barriers++] = { buma3d::TEXTURE_BARRIER_TYPE_BARRIER_RANGE , nullptr, _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags };
+
+        ResizeTextureBarrierRange();
+        barrier_ranges.data()[num_barrier_ranges++].Finalize(this, _barrier_range);
+        return *this;
+    }
+    TextureBarrierRange& AddNewTextureBarrierRange(  buma3d::RESOURCE_STATE             _src_state
+                                                   , buma3d::RESOURCE_STATE             _dst_state
+                                                   , buma3d::RESOURCE_BARRIER_FLAG      _barrier_flags  = buma3d::RESOURCE_BARRIER_FLAG_NONE
+                                                   , buma3d::COMMAND_TYPE               _src_queue_type = buma3d::COMMAND_TYPE_DIRECT
+                                                   , buma3d::COMMAND_TYPE               _dst_queue_type = buma3d::COMMAND_TYPE_DIRECT)
+    {
+        Resize(barrier.num_texture_barriers + 1, &texture_barriers);
+        texture_barriers.data()[barrier.num_texture_barriers++] = { buma3d::TEXTURE_BARRIER_TYPE_BARRIER_RANGE , nullptr, _src_state , _dst_state , _src_queue_type , _dst_queue_type , _barrier_flags };        
+
+        ResizeTextureBarrierRange();
+        return barrier_ranges.data()[num_barrier_ranges++];
+    }
+    PipelineBarrierDesc& SetPipelineStageFalgs(buma3d::PIPELINE_STAGE_FLAGS _src_stages, buma3d::PIPELINE_STAGE_FLAGS _dst_stages)
+    {
+        barrier.src_stages = _src_stages;
+        barrier.dst_stages = _dst_stages;
+        return *this;
+    }
+    PipelineBarrierDesc& SetDependencyFalgs(buma3d::DEPENDENCY_FLAGS _dependency_flags = buma3d::DEPENDENCY_FLAG_NONE)
+    {
+        barrier.dependency_flags = _dependency_flags;
+        return *this;
+    }
+    PipelineBarrierDesc& Finalize()
+    {
+        auto tb = texture_barriers.data();
+        auto r = barrier_ranges.data();
+        uint32_t cnt = 0;
+        for (uint32_t i = 0; i < barrier.num_texture_barriers; i++)
+        {
+            if (tb[i].type == buma3d::TEXTURE_BARRIER_TYPE_BARRIER_RANGE)
+                tb[i].barrier_range = &(r[cnt++].Get());
+        }
+
+        barrier.texture_barriers = texture_barriers.data();
+        barrier.buffer_barriers  = buffer_barriers.data();
+        return *this;
     }
 
-    const buma3d::CMD_PIPELINE_BARRIER& Get(buma3d::PIPELINE_STAGE_FLAGS _src_stages, buma3d::PIPELINE_STAGE_FLAGS _dst_stages, buma3d::DEPENDENCY_FLAGS _dependency_flags = buma3d::DEPENDENCY_FLAG_NONE)
+    const buma3d::CMD_PIPELINE_BARRIER& Get() const 
     {
-        barrier.src_stages       = _src_stages;
-        barrier.dst_stages       = _dst_stages;
-        barrier.dependency_flags = _dependency_flags;
         return barrier;
     }
 
 private:
     template<typename T>
-    void Resize(uint32_t _num, const T*& _ptr, std::vector<T>* _dst)
+    void Resize(uint32_t _num, std::vector<T>* _dst)
     {
-        if (_num > _dst->size())
-        {
+        if (_num > (uint32_t)_dst->size())
             _dst->resize(_num);
-            _ptr = _dst->data();
-        }
+    }
+    void ResizeTextureBarrierRange()
+    {
+        if (num_barrier_ranges + 1 > (uint32_t)barrier_ranges.size())
+            barrier_ranges.resize(num_barrier_ranges + 1, this);
     }
 
 private:
-    buma3d::CMD_PIPELINE_BARRIER                    barrier;
-    std::vector<buma3d::BUFFER_BARRIER_DESC>        buffer_barreirs;
-    std::vector<buma3d::TEXTURE_BARRIER_DESC>       texture_barreirs;
+    buma3d::CMD_PIPELINE_BARRIER                barrier;
+    std::vector<buma3d::BUFFER_BARRIER_DESC>    buffer_barriers;
+    std::vector<buma3d::TEXTURE_BARRIER_DESC>   texture_barriers;
+    std::vector<TextureBarrierRange>            barrier_ranges;
+    uint32_t                                    num_barrier_ranges;
 
 };
 
@@ -609,7 +739,12 @@ public:
         : desc      {}
         , bindings  { _num_bindings_reserve }
     {}
-    DescriptorSetLayoutDesc(const DescriptorSetLayoutDesc&) = delete;
+    DescriptorSetLayoutDesc(const DescriptorSetLayoutDesc& _c)
+        : desc      { _c.desc }
+        , bindings  { _c.bindings }
+    {
+        Finalize();
+    }
     ~DescriptorSetLayoutDesc()
     {}
 
@@ -690,6 +825,13 @@ public:
         , set_layouts       { _num_set_layouts_reserve }
         , push_constants    { _num_push_descriptors_reserve }
     {}
+    PipelineLayoutDesc(const PipelineLayoutDesc& _c)
+        : desc              { _c.desc }
+        , set_layouts       { _c.set_layouts }
+        , push_constants    { _c.push_constants }
+    {
+        Finalize();
+    }
     ~PipelineLayoutDesc()
     {}
 
@@ -700,10 +842,9 @@ public:
         for (auto& i : push_constants) i = {};
         return *this;
     }
-
     PipelineLayoutDesc& SetNumLayouts(uint32_t _num_descriptor_set_layouts)
     {
-        desc.num_push_constants = _num_descriptor_set_layouts;
+        desc.num_set_layouts = _num_descriptor_set_layouts;
         if (_num_descriptor_set_layouts > (uint32_t)set_layouts.size())
             set_layouts.resize(_num_descriptor_set_layouts);
         return *this;
@@ -756,7 +897,6 @@ private:
     std::vector<buma3d::PUSH_CONSTANT_PARAMETER>    push_constants;
 
 };
-
 
 #pragma endregion pipeline layout
 
@@ -1118,16 +1258,27 @@ public:
         , binding   {}
         , src_views {}
     {}
+    WriteDescriptorBinding(const WriteDescriptorBinding& _c)
+        : parent    { _c.parent }
+        , binding   { _c.binding }
+        , src_views { _c.src_views }
+    {
+        if (parent)
+            Finalize();
+    }
     ~WriteDescriptorBinding() {}
 
-    WriteDescriptorBinding& Reset(WriteDescriptorSet* _parent)
+    void SetParent(WriteDescriptorSet* _parent)
     {
         parent = _parent;
+    }
+
+    WriteDescriptorBinding& Reset()
+    {
         binding = {};
         for (auto& i : src_views) i = nullptr;
         return *this;
     }
-
     WriteDescriptorBinding& SetDstBinding(uint32_t _dst_binding_index, uint32_t _dst_first_array_element = 0)
     {
         binding.dst_binding_index = _dst_binding_index;
@@ -1137,7 +1288,7 @@ public:
     WriteDescriptorBinding& SetNumDescriptors(uint32_t _num_descriptors)
     {
         binding.num_descriptors = _num_descriptors;
-        if (_num_descriptors < (uint32_t)src_views.size())
+        if (_num_descriptors > (uint32_t)src_views.size())
             src_views.resize(_num_descriptors);
         return *this;
     }
@@ -1184,19 +1335,34 @@ public:
         , b3d_bindings          {}
         , dynamic_descriptors   {}
     {}
+    WriteDescriptorSet(const WriteDescriptorSet& _c)
+        : parent                { _c.parent }
+        , write_set             { _c.write_set }
+        , bindings              { _c.bindings }
+        , b3d_bindings          { _c.b3d_bindings }
+        , dynamic_descriptors   { _c.dynamic_descriptors }
+    {
+        for (auto& i : bindings) i.SetParent(this);
+        if (parent)
+            Finalize();
+    }
     ~WriteDescriptorSet()
     {}
 
-    WriteDescriptorSet& Reset(UpdateDescriptorSetDesc* _parent)
+    void SetParent(UpdateDescriptorSetDesc* _parent)
     {
-        parent  = _parent;
+        parent = _parent;
+        for (auto& i : bindings) i.SetParent(this);
+    }
+
+    WriteDescriptorSet& Reset()
+    {
         write_set = {};
-        for (auto& i : bindings)            i.Reset(this);
+        for (auto& i : bindings)            i.Reset();
         for (auto& i : b3d_bindings)        i = {};
         for (auto& i : dynamic_descriptors) i = {};
         return *this;
     }
-
     WriteDescriptorSet& SetDst(buma3d::IDescriptorSet* _dst_set)
     {
         write_set.dst_set = _dst_set;
@@ -1260,17 +1426,28 @@ class CopyDescriptorBinding
 {
 public:
     CopyDescriptorBinding(CopyDescriptorSet* _parent)
-        : parent{ _parent }, binding{}
+        : parent  { _parent }
+        , binding {}
     {}
+    CopyDescriptorBinding(const CopyDescriptorBinding& _c)
+        : parent  { _c.parent }
+        , binding { _c.binding }
+    {
+        if (parent)
+            Finalize();
+    }
     ~CopyDescriptorBinding() {}
 
-    CopyDescriptorBinding& Reset(CopyDescriptorSet* _parent)
+    void SetParent(CopyDescriptorSet* _parent)
     {
         parent = _parent;
+    }
+
+    CopyDescriptorBinding& Reset()
+    {
         binding = {};
         return *this;
     }
-
     CopyDescriptorBinding& SetSrcBinding(uint32_t _src_binding_index, uint32_t _src_first_array_element = 0)
     {
         binding.src_binding_index       = _src_binding_index;
@@ -1307,17 +1484,31 @@ public:
         , bindings      {}
         , b3d_bindings  {}
     {}
+    CopyDescriptorSet(const CopyDescriptorSet& _c)
+        : parent        { _c.parent }
+        , copy_set      { _c.copy_set }
+        , bindings      { _c.bindings }
+        , b3d_bindings  { _c.b3d_bindings }
+    {
+        for (auto& i : bindings) i.SetParent(this);
+        if (parent)
+            Finalize();
+    }
     ~CopyDescriptorSet() {}
 
-    CopyDescriptorSet& Reset(UpdateDescriptorSetDesc* _parent)
+    void SetParent(UpdateDescriptorSetDesc* _parent)
     {
         parent = _parent;
-        copy_set.num_bindings = 0;
-        for (auto& i : bindings) i.Reset(this);
+        for (auto& i : bindings) i.SetParent(this);
+    }
+
+    CopyDescriptorSet& Reset()
+    {
+        copy_set = {};
+        for (auto& i : bindings) i.Reset();
         for (auto& i : b3d_bindings) i = {};
         return *this;
     }
-
     CopyDescriptorSet& SetSrc(buma3d::IDescriptorSet* _src_set)
     {
         copy_set.src_set = _src_set;
@@ -1374,16 +1565,35 @@ public:
         , b3d_write_descriptor_sets {}
         , b3d_copy_descriptor_sets  {}
     {}
+    UpdateDescriptorSetDesc(uint32_t _num_write_descriptor_set_reserve, uint32_t _num_copy_descriptor_set_reserve)
+        : update_desc               {}
+        , write_descriptor_sets     (_num_write_descriptor_set_reserve, this)
+        , copy_descriptor_sets      (_num_copy_descriptor_set_reserve , this)
+        , b3d_write_descriptor_sets { _num_write_descriptor_set_reserve }
+        , b3d_copy_descriptor_sets  { _num_copy_descriptor_set_reserve }
+    {}
+    UpdateDescriptorSetDesc(const UpdateDescriptorSetDesc& _c)
+        : update_desc               { _c.update_desc }
+        , write_descriptor_sets     { _c.write_descriptor_sets }
+        , copy_descriptor_sets      { _c.copy_descriptor_sets }
+        , b3d_write_descriptor_sets { _c.b3d_write_descriptor_sets }
+        , b3d_copy_descriptor_sets  { _c.b3d_copy_descriptor_sets }
+    {
+        for (auto& i : write_descriptor_sets) i.SetParent(this);
+        for (auto& i : copy_descriptor_sets) i.SetParent(this);
+        Finalize();
+    }
     ~UpdateDescriptorSetDesc()
     {}
 
-    void Reset()
+    UpdateDescriptorSetDesc& Reset()
     {
         update_desc = {};
-        for (auto& i : write_descriptor_sets)     i.Reset(this);
-        for (auto& i : copy_descriptor_sets)      i.Reset(this);
+        for (auto& i : write_descriptor_sets)     i.Reset();
+        for (auto& i : copy_descriptor_sets)      i.Reset();
         for (auto& i : b3d_write_descriptor_sets) i = {};
         for (auto& i : b3d_copy_descriptor_sets)  i = {};
+        return *this;
     }
 
     WriteDescriptorSet& AddNewWriteDescriptorSet()
@@ -1455,6 +1665,15 @@ public:
         , heap_sizes            { _num_descriptor_sizes_reserve }
         , pool_sizes            { _num_descriptor_sizes_reserve }
     {}
+    DescriptorSizes(const DescriptorSizes& _c)
+        : descriptor_sizes      { _c.descriptor_sizes }
+        , num_sizes             { _c.num_sizes }
+        , total_multiply_count  { _c.total_multiply_count }
+        , heap_sizes            { _c.heap_sizes }
+        , pool_sizes            { _c.pool_sizes }
+    {
+        Finalize();
+    }
     ~DescriptorSizes()
     {}
 
@@ -1565,7 +1784,6 @@ private:
 
 };
 
-
 class DescriptorSetAllocateDesc
 {
 public:
@@ -1579,6 +1797,13 @@ public:
         , layouts   { _num_descriptor_sets_reserve }
         , dst_sets  { _num_descriptor_sets_reserve }
     {}
+    DescriptorSetAllocateDesc(const DescriptorSetAllocateDesc& _c)
+        : desc      { _c.desc }
+        , layouts   { _c.layouts }
+        , dst_sets  { _c.dst_sets }
+    {
+        Finalize();
+    }
     ~DescriptorSetAllocateDesc()
     {
         Reset();
@@ -1645,41 +1870,67 @@ private:
 
 };
 
-
-
 #pragma endregion descriptor heap/pool
 
 #pragma region input layout builder
 
+class InputLayoutDesc;
+class InputSlotDesc;
+
 class InputElementDesc
 {
 public:
-    InputElementDesc(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
-        : desc          { nullptr        , _semantic_index, _format, _aligned_byte_offset }
+    InputElementDesc(InputSlotDesc* _parent)
+        : parent        { _parent }
+        , desc          {}
+        , semantic_name {}
+    {}
+    InputElementDesc(InputSlotDesc* _parent, const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
+        : parent        { _parent }
+        , desc          { nullptr, _semantic_index, _format, _aligned_byte_offset }
         , semantic_name { _semantic_name }
     {
-        desc.semantic_name = semantic_name.c_str();
+        semantic_name.assign(_semantic_name);
+        Finalize();
     }
-
-    ~InputElementDesc()
+    InputElementDesc(const InputElementDesc& _c)
+        : parent        { _c.parent }
+        , desc          { _c.desc }
+        , semantic_name { _c.semantic_name }
     {
+        if (parent)
+            Finalize();
+    }
+    ~InputElementDesc()
+    {}
+
+    void SetParent(InputSlotDesc* _parent)
+    {
+        parent = _parent;
     }
 
-    void Reset()
+    InputElementDesc& Reset()
     {
         semantic_name.clear();
         desc = {};
+        return *this;
+    }
+    InputElementDesc& Set(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
+    {
+        semantic_name.assign(_semantic_name);
+        desc = { nullptr, _semantic_index, _format, _aligned_byte_offset };
+        return *this;
+    }
+    InputSlotDesc& Finalize()
+    {
+        desc.semantic_name = semantic_name.c_str();
+        return *parent;
     }
 
-    void Set(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
-    {
-        semantic_name   = _semantic_name;
-        desc            = { nullptr, _semantic_index, _format, _aligned_byte_offset };
-        desc.semantic_name = semantic_name.c_str();
-    }
-    const buma3d::INPUT_ELEMENT_DESC& Get() { return desc; }
+    const buma3d::INPUT_ELEMENT_DESC& Get() const { return desc; }
 
 private:
+    InputSlotDesc*              parent;
     std::string                 semantic_name;
     buma3d::INPUT_ELEMENT_DESC  desc;
 
@@ -1688,48 +1939,64 @@ private:
 class InputSlotDesc
 {
 public:
-    InputSlotDesc(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
-        : desc          {}
+    InputSlotDesc(InputLayoutDesc* _parent)
+        : parent        { _parent }
+        , desc          {}
         , elements      {}
         , b3d_elements  {}
+    {}
+    InputSlotDesc(const InputSlotDesc& _c)
+        : parent        { _c.parent }
+        , desc          { _c.desc }
+        , elements      { _c.elements }
+        , b3d_elements  { _c.b3d_elements }
     {
-        elements     = std::make_shared<std::vector<InputElementDesc>>();
-        b3d_elements = std::make_shared<std::vector<buma3d::INPUT_ELEMENT_DESC>>();
+        for (auto& i : elements) i.SetParent(this);
+        if (_c.parent)
+            Finalize();
     }
-
     ~InputSlotDesc()
+    {}
+
+    void SetParent(InputLayoutDesc* _parent)
     {
+        for (auto& i : elements) i.SetParent(this);
+        parent = _parent;
     }
 
-    void Reset()
+    InputSlotDesc& Reset()
     {
         desc = {};
-        for (auto& i : *elements)
-            i.Reset();
+        for (auto& i : elements) i.Reset();
+        for (auto& i : b3d_elements) i = {};
+        return *this;
     }
-
     InputSlotDesc& SetSlotNumber          (uint32_t                     _slot_number)                                                   { desc.slot_number             = _slot_number;     return *this; }
     InputSlotDesc& SetStrideInBytes       (uint32_t                     _stride_in_bytes)                                               { desc.stride_in_bytes         = _stride_in_bytes; return *this; }
     InputSlotDesc& SetClassification      (buma3d::INPUT_CLASSIFICATION _classification = buma3d::INPUT_CLASSIFICATION_PER_VERTEX_DATA) { desc.classification          = _classification;  return *this; }
     InputSlotDesc& SetInstanceDataStepRate(uint32_t                     _step_rate = 0)                                                 { desc.instance_data_step_rate = _step_rate;       return *this; }
-
     InputElementDesc& AddNewInputElement()
     {
         Resize(desc.num_elements + 1);
-        return elements->data()[desc.num_elements++];
+        return elements.data()[desc.num_elements++];
     }
     InputSlotDesc& AddNewInputElement(const char* _semantic_name, uint32_t _semantic_index, buma3d::RESOURCE_FORMAT _format, uint32_t _aligned_byte_offset = buma3d::B3D_APPEND_ALIGNED_ELEMENT)
     {
-        AddNewInputElement() = InputElementDesc(_semantic_name, _semantic_index, _format, _aligned_byte_offset);
+        AddNewInputElement() = InputElementDesc(this, _semantic_name, _semantic_index, _format, _aligned_byte_offset);
         return *this;
     }
-    const buma3d::INPUT_SLOT_DESC& Get()
+    InputLayoutDesc& Finalize()
     {
-        auto e    = elements->data();
-        auto b3de = b3d_elements->data();
+        auto e = elements.data();
+        auto b3de = b3d_elements.data();
         for (uint32_t i = 0; i < desc.num_elements; i++)
             b3de[i] = e[i].Get();
 
+        return *parent;
+    }
+
+    const buma3d::INPUT_SLOT_DESC& Get() const 
+    {
         return desc;
     }
 
@@ -1738,56 +2005,63 @@ private:
     {
         if (_num_elements > desc.num_elements)
         {
-            elements->resize(_num_elements);
-            b3d_elements->resize(_num_elements);
-            desc.elements = b3d_elements->data();
+            elements.resize(_num_elements, this);
+            b3d_elements.resize(_num_elements);
+            desc.elements = b3d_elements.data();
         }
     }
 
 private:
-    buma3d::INPUT_SLOT_DESC                                     desc;
-    std::shared_ptr<std::vector<InputElementDesc>>              elements;
-    std::shared_ptr<std::vector<buma3d::INPUT_ELEMENT_DESC>>    b3d_elements;
+    InputLayoutDesc*                        parent;
+    buma3d::INPUT_SLOT_DESC                 desc;
+    std::vector<InputElementDesc>           elements;
+    std::vector<buma3d::INPUT_ELEMENT_DESC> b3d_elements;
 
 };
 
 class InputLayoutDesc
 {
 public:
-    InputLayoutDesc()
+    InputLayoutDesc(uint32_t _num_input_slots_reserve = 0)
         : desc      {}
-        , slots     {}
-        , b3d_slots {}
+        , slots     (_num_input_slots_reserve, this)
+        , b3d_slots { _num_input_slots_reserve }
+    {}
+    InputLayoutDesc(const InputLayoutDesc& _c)
+        : desc      { _c.desc }
+        , slots     { _c.slots }
+        , b3d_slots { _c.b3d_slots }
     {
-        slots     = std::make_shared<std::vector<InputSlotDesc>>();
-        b3d_slots = std::make_shared<std::vector<buma3d::INPUT_SLOT_DESC>>();
+        for (auto& i : slots) i.SetParent(this);
+        Finalize();
     }
-
     ~InputLayoutDesc()
-    {
+    {}
 
-    }
-
-    void Reset()
+    InputLayoutDesc& Reset()
     {
         desc = {};
-        for (auto& i : *slots)
-            i.Reset();
+        for (auto& i : slots) i.Reset();
+        for (auto& i : b3d_slots) i = {};
+        return *this;
     }
-
     InputSlotDesc& AddNewInputSlot()
     {
         Resize(desc.num_input_slots + 1);
-        return slots->data()[desc.num_input_slots++];
+        return slots.data()[desc.num_input_slots++];
     }
-
-    const buma3d::INPUT_LAYOUT_DESC& Get()
+    void Finalize()
     {
-        auto s    = slots->data();
-        auto b3ds = b3d_slots->data();
+        auto s = slots.data();
+        auto b3ds = b3d_slots.data();
         for (uint32_t i = 0; i < desc.num_input_slots; i++)
             b3ds[i] = s[i].Get();
 
+        desc.input_slots = b3ds;
+    }
+
+    const buma3d::INPUT_LAYOUT_DESC& Get() const 
+    {
         return desc;
     }
 
@@ -1796,16 +2070,16 @@ private:
     {
         if (_num_slots > desc.num_input_slots)
         {
-            slots->resize(_num_slots);
-            b3d_slots->resize(_num_slots);
-            desc.input_slots = b3d_slots->data();
+            slots.resize(_num_slots, this);
+            b3d_slots.resize(_num_slots);
+            desc.input_slots = b3d_slots.data();
         }
     }
 
 private:
-    buma3d::INPUT_LAYOUT_DESC                               desc;
-    std::shared_ptr<std::vector<InputSlotDesc>>             slots;
-    std::shared_ptr<std::vector<buma3d::INPUT_SLOT_DESC>>   b3d_slots;
+    buma3d::INPUT_LAYOUT_DESC               desc;
+    std::vector<InputSlotDesc>              slots;
+    std::vector<buma3d::INPUT_SLOT_DESC>    b3d_slots;
 
 };
 
@@ -1813,35 +2087,47 @@ private:
 
 #pragma region blend state
 
+class BlendStateDesc;
+
 class RenderTargetBlendDesc
 {
 public:
-    RenderTargetBlendDesc()
-        : desc{}
-    {
-    }
-
+    RenderTargetBlendDesc(BlendStateDesc* _parent)
+        : parent    { _parent }
+        , desc      {}
+    {}
+    RenderTargetBlendDesc(const RenderTargetBlendDesc& _c)
+        : parent    { _c.parent }
+        , desc      { _c.desc }
+    {}
     ~RenderTargetBlendDesc()
+    {}
+
+    void SetParent(BlendStateDesc* _parent)
     {
+        parent = _parent;
     }
 
+    RenderTargetBlendDesc& Reset()
+    {
+        desc = {};
+        return *this;
+    }
     RenderTargetBlendDesc& Src      (buma3d::BLEND_FACTOR _factor) { desc.src_blend = _factor; return *this; }
     RenderTargetBlendDesc& Op       (buma3d::BLEND_OP     _op)     { desc.blend_op  = _op;     return *this; }
     RenderTargetBlendDesc& Dst      (buma3d::BLEND_FACTOR _factor) { desc.dst_blend = _factor; return *this; }
-
     RenderTargetBlendDesc& SrcAlpha (buma3d::BLEND_FACTOR _factor) { desc.src_blend_alpha = _factor; return *this; }
     RenderTargetBlendDesc& OpAlpha  (buma3d::BLEND_OP     _op)     { desc.blend_op_alpha  = _op;     return *this; }
     RenderTargetBlendDesc& DstAlpha (buma3d::BLEND_FACTOR _factor) { desc.dst_blend_alpha = _factor; return *this; }
-
     RenderTargetBlendDesc& ColorWriteMask(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL) { desc.color_write_mask = _color_write_mask; return *this; }
-
-    void BlendDisabled(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    RenderTargetBlendDesc& BlendDisabled(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
     {
         desc = {};
         desc.is_enabled_blend = false;
         desc.color_write_mask = _color_write_mask;
+        return *this;
     }
-    void BlendAdditive(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    RenderTargetBlendDesc& BlendAdditive(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
     {
         desc.is_enabled_blend = true;
         desc.src_blend        = buma3d::BLEND_FACTOR_SRC_ALPHA;
@@ -1851,8 +2137,9 @@ public:
         desc.dst_blend_alpha  = buma3d::BLEND_FACTOR_ONE;
         desc.blend_op_alpha   = buma3d::BLEND_OP_ADD;
         desc.color_write_mask = _color_write_mask;
+        return *this;
     }
-    void BlendSubtractive(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    RenderTargetBlendDesc& BlendSubtractive(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
     {
         desc.is_enabled_blend = true;
         desc.src_blend        = buma3d::BLEND_FACTOR_SRC_ALPHA;
@@ -1862,8 +2149,9 @@ public:
         desc.dst_blend_alpha  = buma3d::BLEND_FACTOR_ONE;
         desc.blend_op_alpha   = buma3d::BLEND_OP_ADD;
         desc.color_write_mask = _color_write_mask;
+        return *this;
     }
-    void BlendAlpha(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    RenderTargetBlendDesc& BlendAlpha(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
     {
         desc.is_enabled_blend = true;
         desc.src_blend        = buma3d::BLEND_FACTOR_SRC_ALPHA; // src.rgb * src.a
@@ -1873,8 +2161,9 @@ public:
         desc.dst_blend_alpha  = buma3d::BLEND_FACTOR_SRC_ALPHA_INVERTED;
         desc.blend_op_alpha   = buma3d::BLEND_OP_ADD;
         desc.color_write_mask = _color_write_mask;
+        return *this;
     }
-    void BlendPMA(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
+    RenderTargetBlendDesc& BlendPMA(buma3d::COLOR_WRITE_FLAGS _color_write_mask = buma3d::COLOR_WRITE_FLAG_ALL)
     {
         desc.is_enabled_blend = true;
         desc.src_blend        = buma3d::BLEND_FACTOR_ONE; // 事前乗算済み(src.rgb * src.aの結果を画像に焼き込むためsrc.aが1だと指定可能) 加算合成として振る舞うことも可能です。
@@ -1884,12 +2173,18 @@ public:
         desc.dst_blend_alpha  = buma3d::BLEND_FACTOR_SRC_ALPHA_INVERTED;
         desc.blend_op_alpha   = buma3d::BLEND_OP_ADD;
         desc.color_write_mask = _color_write_mask;
+        return *this;
+    }
+    BlendStateDesc& Finalize()
+    {
+        return *parent;
     }
 
     const buma3d::RENDER_TARGET_BLEND_DESC& Get() const { return desc; }
 
 private:
-    buma3d::RENDER_TARGET_BLEND_DESC desc;
+    BlendStateDesc*                     parent;
+    buma3d::RENDER_TARGET_BLEND_DESC    desc;
 
 };
 
@@ -1903,12 +2198,18 @@ public:
     {
         Reset();
     }
-
-    ~BlendStateDesc()
+    BlendStateDesc(const BlendStateDesc& _c)
+        : desc      { _c.desc }
+        , blend     { _c.blend }
+        , b3d_blend { _c.b3d_blend }
     {
+        for (auto& i : blend) i.SetParent(this);
+        Finalize();
     }
+    ~BlendStateDesc()
+    {}
 
-    const buma3d::BLEND_STATE_DESC& Reset()
+    BlendStateDesc& Reset()
     {
         for (auto& i : blend)
             i.BlendDisabled();
@@ -1918,23 +2219,25 @@ public:
         desc.logic_op                     = buma3d::LOGIC_OP_CLEAR;
         desc.num_attachments              = 0;
         desc.blend_constants              = { 1,1,1,1 };
+
+        return *this;
     }
-
     BlendStateDesc&         SetLogicOp                  (buma3d::LOGIC_OP _logic_op)       { desc.logic_op = _logic_op; desc.is_enabled_logic_op = true; return *this; }
-
     BlendStateDesc&         SetBlendConstants           (const buma3d::COLOR4& _constants) { desc.blend_constants = _constants; return *this; }
     BlendStateDesc&         SetIndependentBlendEnabled  (bool _is_enabled)                 { desc.is_enabled_independent_blend = _is_enabled; desc.is_enabled_logic_op = false; return *this; }
     BlendStateDesc&         SetNumAttachmemns           (uint32_t _num_attachments)        { desc.num_attachments = _num_attachments; Resize(_num_attachments); return *this; }
     RenderTargetBlendDesc&  GetBlendDesc                (uint32_t _index)                  { return blend[_index]; }
-
-    const buma3d::BLEND_STATE_DESC& Get() const 
+    void Finalize()
     {
         auto b    = blend.data();
         auto b3db = b3d_blend.data();
         auto c = desc.is_enabled_independent_blend ? desc.num_attachments : std::min(desc.num_attachments, 1u);
         for (uint32_t i = 0; i < c; i++)
             b3db[i] = b[i].Get();
+    }
 
+    const buma3d::BLEND_STATE_DESC& Get() const 
+    {
         return desc;
     }
 
@@ -1952,9 +2255,9 @@ private:
     }
 
 private:
-    buma3d::BLEND_STATE_DESC                                desc;
-    mutable std::vector<RenderTargetBlendDesc>              blend;
-    mutable std::vector<buma3d::RENDER_TARGET_BLEND_DESC>   b3d_blend;
+    buma3d::BLEND_STATE_DESC                        desc;
+    std::vector<RenderTargetBlendDesc>              blend;
+    std::vector<buma3d::RENDER_TARGET_BLEND_DESC>   b3d_blend;
 
 };
 
