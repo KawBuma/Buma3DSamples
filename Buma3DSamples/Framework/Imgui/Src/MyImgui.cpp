@@ -765,7 +765,6 @@ void MyImGui::MyImGuiImpl::Destroy()
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext(ctx);
     ctx = nullptr;
-    rr = {};
 }
 
 bool MyImGui::MyImGuiImpl::CreateContext(ImGuiConfigFlags _config_flags)

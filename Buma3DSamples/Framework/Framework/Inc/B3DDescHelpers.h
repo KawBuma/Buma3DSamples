@@ -110,6 +110,15 @@ public:
     {
         Finalize();
     }
+    FenceSubmitDesc& operator=(const FenceSubmitDesc& _c)
+    {
+        signal_desc  = _c.signal_desc;
+        wait_desc    = _c.wait_desc;
+        num_fences   = _c.num_fences;
+        fences       = _c.fences;
+        fence_values = _c.fence_values;
+        return Finalize();
+    }
     ~FenceSubmitDesc()
     {}
 
@@ -195,6 +204,14 @@ public:
     {
         Finalize();
     }
+    SubmitInfo& operator=(const SubmitInfo& _c)
+    {
+        submit_info               = _c.submit_info;
+        wait_fence                = _c.wait_fence;
+        signal_fence              = _c.signal_fence;
+        command_lists_to_execute  = _c.command_lists_to_execute;
+        return Finalize();
+    }
     ~SubmitInfo()
     {}
 
@@ -263,6 +280,13 @@ public:
         , b3d_infos { _c.b3d_infos }
     {
         Finalize();
+    }
+    SubmitDesc& operator=(const SubmitDesc& _c)
+    {
+        desc      = _c.desc;
+        infos     = _c.infos;
+        b3d_infos = _c.b3d_infos;
+        return Finalize();
     }
     ~SubmitDesc()
     {}
@@ -351,6 +375,15 @@ public:
     {
         if (parent)
             Finalize();
+    }
+    TextureBarrierRange& operator=(const TextureBarrierRange& _c)
+    {
+        parent        = _c.parent;
+        barrier_range = _c.barrier_range;
+        subres_ranges = _c.subres_ranges;
+        if (parent)
+            Finalize();
+        return *this;
     }
     ~TextureBarrierRange()
     {}
@@ -443,6 +476,16 @@ public:
     {
         for (auto& i : barrier_ranges) i.SetParent(this);
         Finalize();
+    }
+    PipelineBarrierDesc& operator=(const PipelineBarrierDesc& _c)
+    {
+        barrier             = _c.barrier;
+        buffer_barriers     = _c.buffer_barriers;
+        texture_barriers    = _c.texture_barriers;
+        barrier_ranges      = _c.barrier_ranges;
+        num_barrier_ranges  = _c.num_barrier_ranges;
+        for (auto& i : barrier_ranges) i.SetParent(this);
+        return Finalize();
     }
     ~PipelineBarrierDesc() {}
 
@@ -732,6 +775,13 @@ public:
     {
         Finalize();
     }
+    DescriptorSetLayoutDesc& operator=(const DescriptorSetLayoutDesc& _c)
+    {
+        desc      = _c.desc;
+        bindings  = _c.bindings;
+        Finalize();
+        return *this;
+    }
     ~DescriptorSetLayoutDesc()
     {}
 
@@ -818,6 +868,14 @@ public:
         , push_constants    { _c.push_constants }
     {
         Finalize();
+    }
+    PipelineLayoutDesc& operator=(const PipelineLayoutDesc& _c)
+    {
+        desc              = _c.desc;
+        set_layouts       = _c.set_layouts;
+        push_constants    = _c.push_constants;
+        Finalize();
+        return *this;
     }
     ~PipelineLayoutDesc()
     {}
@@ -1253,6 +1311,15 @@ public:
         if (parent)
             Finalize();
     }
+    WriteDescriptorBinding& operator=(const WriteDescriptorBinding& _c)
+    {
+        parent    = _c.parent;
+        binding   = _c.binding;
+        src_views = _c.src_views;
+        if (parent)
+            Finalize();
+        return *this;
+    }
     ~WriteDescriptorBinding() {}
 
     void SetParent(WriteDescriptorSet* _parent)
@@ -1332,6 +1399,18 @@ public:
         for (auto& i : bindings) i.SetParent(this);
         if (parent)
             Finalize();
+    }
+    WriteDescriptorSet& operator=(const WriteDescriptorSet& _c)
+    {
+        parent                = _c.parent;
+        write_set             = _c.write_set;
+        bindings              = _c.bindings;
+        b3d_bindings          = _c.b3d_bindings;
+        dynamic_descriptors   = _c.dynamic_descriptors;
+        for (auto& i : bindings) i.SetParent(this);
+        if (parent)
+            Finalize();
+        return *this;
     }
     ~WriteDescriptorSet()
     {}
@@ -1423,6 +1502,14 @@ public:
         if (parent)
             Finalize();
     }
+    CopyDescriptorBinding& operator=(const CopyDescriptorBinding& _c)
+    {
+        parent  = _c.parent;
+        binding = _c.binding;
+        if (parent)
+            Finalize();
+        return *this;
+    }
     ~CopyDescriptorBinding() {}
 
     void SetParent(CopyDescriptorSet* _parent)
@@ -1480,6 +1567,17 @@ public:
         for (auto& i : bindings) i.SetParent(this);
         if (parent)
             Finalize();
+    }
+    CopyDescriptorSet& operator=(const CopyDescriptorSet& _c)
+    {
+        parent        = _c.parent;
+        copy_set      = _c.copy_set;
+        bindings      = _c.bindings;
+        b3d_bindings  = _c.b3d_bindings;
+        for (auto& i : bindings) i.SetParent(this);
+        if (parent)
+            Finalize();
+        return *this;
     }
     ~CopyDescriptorSet() {}
 
@@ -1569,6 +1667,18 @@ public:
         for (auto& i : write_descriptor_sets) i.SetParent(this);
         for (auto& i : copy_descriptor_sets) i.SetParent(this);
         Finalize();
+    }
+    UpdateDescriptorSetDesc& operator=(const UpdateDescriptorSetDesc& _c)
+    {
+        update_desc               = _c.update_desc;
+        write_descriptor_sets     = _c.write_descriptor_sets;
+        copy_descriptor_sets      = _c.copy_descriptor_sets;
+        b3d_write_descriptor_sets = _c.b3d_write_descriptor_sets;
+        b3d_copy_descriptor_sets  = _c.b3d_copy_descriptor_sets;
+        for (auto& i : write_descriptor_sets) i.SetParent(this);
+        for (auto& i : copy_descriptor_sets) i.SetParent(this);
+        Finalize();
+        return *this;
     }
     ~UpdateDescriptorSetDesc()
     {}
@@ -1660,6 +1770,16 @@ public:
         , pool_sizes            { _c.pool_sizes }
     {
         Finalize();
+    }
+    DescriptorSizes& operator=(const DescriptorSizes& _c)
+    {
+        descriptor_sizes      = _c.descriptor_sizes;
+        num_sizes             = _c.num_sizes;
+        total_multiply_count  = _c.total_multiply_count;
+        heap_sizes            = _c.heap_sizes;
+        pool_sizes            = _c.pool_sizes;
+        Finalize();
+        return *this;
     }
     ~DescriptorSizes()
     {}
@@ -1791,6 +1911,14 @@ public:
     {
         Finalize();
     }
+    DescriptorSetAllocateDesc& operator=(const DescriptorSetAllocateDesc& _c)
+    {
+        desc      = _c.desc;
+        layouts   = _c.layouts;
+        dst_sets  = _c.dst_sets;
+        Finalize();
+        return *this;
+    }
     ~DescriptorSetAllocateDesc()
     {
         Reset();
@@ -1888,6 +2016,15 @@ public:
         if (parent)
             Finalize();
     }
+    InputElementDesc& operator=(const InputElementDesc& _c)
+    {
+        parent        = _c.parent;
+        desc          = _c.desc;
+        semantic_name = _c.semantic_name;
+        if (parent)
+            Finalize();
+        return *this;
+    }
     ~InputElementDesc()
     {}
 
@@ -1941,6 +2078,17 @@ public:
         for (auto& i : elements) i.SetParent(this);
         if (_c.parent)
             Finalize();
+    }
+    InputSlotDesc& operator=(const InputSlotDesc& _c)
+    {
+        parent        = _c.parent;
+        desc          = _c.desc;
+        elements      = _c.elements;
+        b3d_elements  = _c.b3d_elements;
+        for (auto& i : elements) i.SetParent(this);
+        if (_c.parent)
+            Finalize();
+        return *this;
     }
     ~InputSlotDesc()
     {}
@@ -2021,6 +2169,15 @@ public:
     {
         for (auto& i : slots) i.SetParent(this);
         Finalize();
+    }
+    InputLayoutDesc& operator=(const InputLayoutDesc& _c)
+    {
+        desc      = _c.desc;
+        slots     = _c.slots;
+        b3d_slots = _c.b3d_slots;
+        for (auto& i : slots) i.SetParent(this);
+        Finalize();
+        return *this;
     }
     ~InputLayoutDesc()
     {}
@@ -2192,6 +2349,15 @@ public:
     {
         for (auto& i : blend) i.SetParent(this);
         Finalize();
+    }
+    BlendStateDesc& operator=(const BlendStateDesc& _c)
+    {
+        desc      = _c.desc;
+        blend     = _c.blend;
+        b3d_blend = _c.b3d_blend;
+        for (auto& i : blend) i.SetParent(this);
+        Finalize();
+        return *this;
     }
     ~BlendStateDesc()
     {}

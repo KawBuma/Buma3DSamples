@@ -133,10 +133,6 @@ HelloImGui::HelloImGui()
     , is_enabled_gui            {}
 {    
     g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
-
-    static const auto x = scne::GetScenesObjectType<scne::INode>();
-    auto scenes = scne::CreateScenes();
-
 }
 
 HelloImGui::~HelloImGui()
@@ -166,7 +162,6 @@ bool HelloImGui::Prepare(PlatformBase& _platform)
 
     PrepareSubmitInfo();
     CreateEvents();
-    myimgui = std::make_unique<gui::MyImGui>(dr);
 
     return true;
 }
@@ -1020,9 +1015,7 @@ bool HelloImGui::UpdateDescriptorSets()
 }
 bool HelloImGui::InitMyImGui()
 {
-    if (!myimgui)
-        return true;
-
+    myimgui = std::make_unique<gui::MyImGui>(dr);
     gui::MYIMGUI_CREATE_DESC gui_cd{};
 
     auto data_win = static_cast<const b::SURFACE_PLATFORM_DATA_WINDOWS*>(swapchain->GetSurface()->GetDesc().platform_data.data);
