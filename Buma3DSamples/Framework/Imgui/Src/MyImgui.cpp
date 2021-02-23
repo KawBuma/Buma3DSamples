@@ -24,7 +24,7 @@ struct VERTEX_BUFFER_CONSTANT
 {
     float4x4 ProjectionMatrix;
 };
-[[vk::push_constant]] ConstantBuffer<VERTEX_BUFFER_CONSTANT> constant : register(b0, space0);
+[[vk::push_constant]] ConstantBuffer<VERTEX_BUFFER_CONSTANT> constant : register(b1, space0);
 
 
 struct VS_INPUT
@@ -105,13 +105,11 @@ public:
     bool BuildTextureAtlas();
     void CopyDataToTexture(size_t _aligned_row_pitch, size_t _texture_height, void* _mem);
     bool CreateShaderResourceView();
-    bool CreateRootSignature();
+    bool CreateDescriptorSetLayouts();
+    bool CreatePipelineLayout();
     bool CreateRenderPass();
     bool CreateShaderModules();
     bool CreateGraphicsPipelines();
-    bool CreateFontDescriptorPool();
-    bool AllocateFontDescriptorSet();
-    bool WriteFontSrv();
 
     void OnProcessMessage(ProcessMessageEventArgs* _args);
 
@@ -218,13 +216,11 @@ bool MyImGui::MyImGuiImpl::Init(const MYIMGUI_CREATE_DESC& _desc)
     RET_IF_FAILED(CreateSampler());
     RET_IF_FAILED(BuildTextureAtlas());
     RET_IF_FAILED(CreateShaderResourceView());
-    RET_IF_FAILED(CreateRootSignature());
+    RET_IF_FAILED(CreateDescriptorSetLayouts());
+    RET_IF_FAILED(CreatePipelineLayout());
     RET_IF_FAILED(CreateRenderPass());
     RET_IF_FAILED(CreateShaderModules());
     RET_IF_FAILED(CreateGraphicsPipelines());
-    RET_IF_FAILED(CreateFontDescriptorPool());
-    RET_IF_FAILED(AllocateFontDescriptorSet());
-    RET_IF_FAILED(WriteFontSrv());
     rr.flags = desc.flags;
 
     renderer = std::make_unique<MyImGuiRenderer>(rr, /*viewport*/false, /*primary*/true);
@@ -259,7 +255,7 @@ bool MyImGui::MyImGuiImpl::BuildTextureAtlas()
 {
     auto&& io = ImGui::GetIO();
 
-    ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\Cica-Regular.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+    ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\Meiryo.ttc", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     IM_ASSERT(font != NULL);
 
     // アライメントのためにpixel_dataのデータをmemにコピー
@@ -302,20 +298,24 @@ void MyImGui::MyImGuiImpl::CopyDataToTexture(size_t _aligned_row_pitch, size_t _
 
     ctx.Begin();
     {
-        util::TextureBarrierRange br{};
         util::PipelineBarrierDesc pb{};
+        util::TextureBarrierRange br(&pb);
         auto ft = rr.font_texture->GetB3DTexture().Get();
-        br.AddSubresRange(buma3d::TEXTURE_ASPECT_FLAG_COLOR, 0, 0);
+        br.AddSubresRange(buma3d::TEXTURE_ASPECT_FLAG_COLOR, 0, 0).SetTexture(ft).Finalize();
 
-        pb.AddTextureBarrier(br.Get(ft), buma3d::RESOURCE_STATE_UNDEFINED, buma3d::RESOURCE_STATE_COPY_DST_WRITE);
-        ctx.PipelineBarrier(pb.Get(buma3d::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, buma3d::PIPELINE_STAGE_FLAG_COPY_RESOLVE));
+        pb.AddTextureBarrierRange(&br.Get(), buma3d::RESOURCE_STATE_UNDEFINED, buma3d::RESOURCE_STATE_COPY_DST_WRITE)
+          .SetPipelineStageFalgs(buma3d::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, buma3d::PIPELINE_STAGE_FLAG_COPY_RESOLVE)
+          .Finalize();
+        ctx.PipelineBarrier(pb.Get());
 
-        ctx.CopyDataToTexture(rr.font_texture->GetB3DTexture().Get(), 0, 0, _aligned_row_pitch, _texture_height, _aligned_row_pitch * _texture_height, _mem);
+        ctx.CopyDataToTexture(ft, 0, 0, _aligned_row_pitch, _texture_height, _aligned_row_pitch * _texture_height, _mem);
         //ctx.GenerateMips(*font_texture);
 
-        pb.Reset();
-        pb.AddTextureBarrier(br.Get(ft), buma3d::RESOURCE_STATE_COPY_DST_WRITE, buma3d::RESOURCE_STATE_SHADER_READ);
-        ctx.PipelineBarrier(pb.Get(buma3d::PIPELINE_STAGE_FLAG_COPY_RESOLVE, buma3d::PIPELINE_STAGE_FLAG_PIXEL_SHADER));
+        pb.Reset()
+          .AddTextureBarrierRange(&br.Get(), buma3d::RESOURCE_STATE_COPY_DST_WRITE, buma3d::RESOURCE_STATE_SHADER_READ)
+          .SetPipelineStageFalgs(buma3d::PIPELINE_STAGE_FLAG_COPY_RESOLVE, buma3d::PIPELINE_STAGE_FLAG_PIXEL_SHADER)
+          .Finalize();
+        ctx.PipelineBarrier(pb.Get());
     }
     ctx.End(ctx.GetGpuWaitFence());
     ctx.WaitOnCpu();
@@ -340,27 +340,45 @@ bool MyImGui::MyImGuiImpl::CreateShaderResourceView()
 
     return true;
 }
-bool MyImGui::MyImGuiImpl::CreateRootSignature()
+bool MyImGui::MyImGuiImpl::CreateDescriptorSetLayouts()
 {
-    util::RootSignatureDesc rootsig_desc{};
-    {        
-        auto&& matrix_cb = rootsig_desc.AddNewRootParameter();
-        matrix_cb.InitAsPush32BitConstants(sizeof(float[4][4]) / 4, 0, 0);
-        matrix_cb.SetShaderVisibility(buma3d::SHADER_VISIBILITY_VERTEX);
-
-        rootsig_desc.SetRegisterShift(buma3d::SHADER_REGISTER_TYPE_T, 1, 1);
-        auto&& font_or_user_texture = rootsig_desc.AddNewRootParameter();
-        font_or_user_texture.InitAsDescriptorTable();
-        font_or_user_texture.AddRange(buma3d::DESCRIPTOR_TYPE_SRV_TEXTURE, 1, 0, 1, buma3d::DESCRIPTOR_FLAG_NONE);// フォントまたはImGui::Image用
-        font_or_user_texture.SetShaderVisibility(buma3d::SHADER_VISIBILITY_PIXEL);
-
-        rootsig_desc.SetRegisterShift(buma3d::SHADER_REGISTER_TYPE_S, 2, 0);
-        rootsig_desc.AddStaticSampler(0, 0, rr.sampler.Get(), buma3d::SHADER_VISIBILITY_PIXEL);
-    }
-
-    auto bmr = rr.device->CreateRootSignature(rootsig_desc.Get(buma3d::ROOT_SIGNATURE_FLAG_NONE), &rr.root_signature);
+    util::DescriptorSetLayoutDesc layout_desc(2);
+    // サンプラー用レイアウト。 space0 に設定します。
+    layout_desc
+        .AddNewBinding(b::DESCRIPTOR_TYPE_SAMPLER, 0, 1, b::SHADER_VISIBILITY_PIXEL, b::DESCRIPTOR_FLAG_NONE)
+        .SetFlags(b::DESCRIPTOR_SET_LAYOUT_FLAG_NONE)
+        .Finalize();
+    auto bmr = rr.device->CreateDescriptorSetLayout(layout_desc.Get(), &rr.sampler_layout);
     BMR_RET_IF_FAILED(bmr);
-    rr.root_signature->SetName("MyImGui::MyImGuiImpl::rr.root_signature");
+
+    // テクスチャ用レイアウト。 space1 に設定します。
+    layout_desc
+        .Reset()
+        .AddNewBinding(b::DESCRIPTOR_TYPE_SRV_TEXTURE, 0, 1, b::SHADER_VISIBILITY_PIXEL, b::DESCRIPTOR_FLAG_NONE)
+        .SetFlags(b::DESCRIPTOR_SET_LAYOUT_FLAG_NONE)
+        .Finalize();
+    bmr = rr.device->CreateDescriptorSetLayout(layout_desc.Get(), &rr.texture_layout);
+    BMR_RET_IF_FAILED(bmr);
+
+    rr.sampler_layout->SetName("MyImGui::MyImGuiImpl::rr.sampler_layout");
+    rr.texture_layout->SetName("MyImGui::MyImGuiImpl::rr.texture_layout");
+
+    return true;
+}
+bool MyImGui::MyImGuiImpl::CreatePipelineLayout()
+{
+    util::PipelineLayoutDesc desc(2, 0);
+    desc
+        .SetNumLayouts(2)
+        .AddNewPushConstantParameter(sizeof(float[4][4]) / 4, 1, buma3d::SHADER_VISIBILITY_VERTEX, 0)   // space0 プッシュ定数
+        .SetLayout(0, rr.sampler_layout.Get())                                                          // space0 サンプラー
+        .SetLayout(1, rr.texture_layout.Get())                                                          // space1 テクスチャ
+        .SetFlags(b::PIPELINE_LAYOUT_FLAG_NONE)
+        .Finalize();
+    auto bmr = rr.device->CreatePipelineLayout(desc.Get(), &rr.pipeline_layout);
+    BMR_RET_IF_FAILED(bmr);
+
+    rr.pipeline_layout->SetName("MyImGui::MyImGuiImpl::rr.pipeline_layout");
 
     return true;
 }
@@ -439,11 +457,6 @@ bool MyImGui::MyImGuiImpl::CreateShaderModules()
     desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
     desc.options.shader_model               = { 6, 2 };
 
-    desc.options.shift_all_cbuf_bindings    = 1;// register(t0, space0) -> register(t1, space0)
-    desc.options.shift_all_cbuf_bindings    = 2;// register(s0, space0) -> register(s2, space0)
-    desc.options.shift_all_cbuf_bindings    = 0;
-    desc.options.shift_all_cbuf_bindings    = 0;
-
     auto&& loader = rr.dr->GetShaderLoader();
     // vs
     {
@@ -488,7 +501,7 @@ bool MyImGui::MyImGuiImpl::CreateGraphicsPipelines()
     b::BMRESULT bmr{};
     b::GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
 
-    pso_desc.root_signature       = rr.root_signature.Get();
+    pso_desc.pipeline_layout      = rr.pipeline_layout.Get();
     pso_desc.render_pass          = rr.render_pass_load.Get();
     pso_desc.subpass              = 0;
     pso_desc.node_mask            = b::B3D_DEFAULT_NODE_MASK;
@@ -649,50 +662,6 @@ bool MyImGui::MyImGuiImpl::CreateGraphicsPipelines()
 
     return true;
 }
-bool MyImGui::MyImGuiImpl::CreateFontDescriptorPool()
-{
-    b::DESCRIPTOR_POOL_DESC dpd{};
-    dpd.flags                       = b::DESCRIPTOR_POOL_FLAG_NONE;
-    dpd.max_sets_allocation_count   = 1;
-    dpd.max_num_register_space      = 2;
-
-    b::DESCRIPTOR_POOL_SIZE size{ b::DESCRIPTOR_TYPE_SRV_TEXTURE, 1 };
-    dpd.num_pool_sizes              = 1;
-    dpd.pool_sizes                  = &size;
-    dpd.node_mask                   = b::B3D_DEFAULT_NODE_MASK;
-
-    auto bmr = rr.device->CreateDescriptorPool(dpd, &rr.font_pool);
-    BMR_RET_IF_FAILED(bmr);
-    rr.font_pool->SetName("MyImGui::MyImGuiImpl::rr.font_pool");
-
-    return true;
-}
-bool MyImGui::MyImGuiImpl::AllocateFontDescriptorSet()
-{
-    auto bmr = rr.font_pool->AllocateDescriptorSet(rr.root_signature.Get(), &rr.font_set);
-    BMR_RET_IF_FAILED(bmr);
-    rr.font_set->SetName("MyImGui::MyImGuiImpl::rr.font_set");
-
-    return true;
-}
-bool MyImGui::MyImGuiImpl::WriteFontSrv()
-{
-    util::UpdateDescriptorSetDesc update_desc{};
-    {
-        auto&& write_set   = update_desc.AddNewWriteDescriptorSets();
-
-        auto&& write_table = write_set.AddNewWriteDescriptorTable();
-        write_table.AddNewWriteDescriptorRange().SetDstRange(0, 0, 1).SetSrcView(0, rr.font_srv.Get());
-        write_table.Finalize(1);
-
-        write_set.Finalize(rr.font_set.Get());
-    }
-    update_desc.Finalize();
-    auto bmr = rr.device->UpdateDescriptorSets(update_desc.Get());
-    BMR_RET_IF_FAILED(bmr);
-
-    return true;
-}
 
 void MyImGui::MyImGuiImpl::OnProcessMessage(ProcessMessageEventArgs* _args)
 {
@@ -756,7 +725,7 @@ void MyImGui::MyImGuiImpl::RecordGuiCommands(buma3d::ICommandList* _list, buma3d
 
 void MyImGui::MyImGuiImpl::SubmitCommands()
 {
-    renderer->AddSubmissionTo(&rr.submit.AddNewSubmitInfo());
+    renderer->AddSubmitInfoTo(&rr.submit);
 
     if (desc.config_flags & ImGuiConfigFlags_ViewportsEnable)
     {
@@ -770,7 +739,7 @@ void MyImGui::MyImGuiImpl::SubmitCommands()
             renderer->AddSubmitInfoTo(&rr.submit);
         }
     }
-    auto bmr = rr.queue->Submit(rr.submit.Get());
+    auto bmr = rr.queue->Submit(rr.submit.Finalize().Get());
     assert(util::IsSucceeded(bmr));
 }
 

@@ -297,7 +297,7 @@ bool HelloConstantBuffer::CreateDescriptorPool()
     b::DESCRIPTOR_POOL_DESC pool_desc{};
     pool_desc.heap                      = descriptor_heap.Get();
     pool_desc.flags                     = b::DESCRIPTOR_POOL_FLAG_NONE;
-    pool_desc.max_sets_allocation_count = BACK_BUFFER_COUNT;
+    pool_desc.max_sets_allocation_count = 2 * BACK_BUFFER_COUNT;
     pool_desc.num_pool_sizes            = _countof(pool_sizes);
     pool_desc.pool_sizes                = pool_sizes;
 
@@ -312,7 +312,6 @@ bool HelloConstantBuffer::AllocateDescriptorSets()
     std::vector<b::IDescriptorSetLayout*>   layouts(BACK_BUFFER_COUNT * 2, descriptor_set_layout.Get());
 
     buma3d::DESCRIPTOR_SET_ALLOCATE_DESC allocate_desc{};
-    allocate_desc.descriptor_pool     = descriptor_pool.Get();
     allocate_desc.num_descriptor_sets = BACK_BUFFER_COUNT * 2;
     allocate_desc.set_layouts         = layouts.data();
     auto bmr = descriptor_pool->AllocateDescriptorSets(allocate_desc, sets.data());
@@ -1092,7 +1091,7 @@ bool HelloConstantBuffer::UpdateDescriptorSet()
     BMR_RET_IF_FAILED(bmr);
 
     b::WRITE_DESCRIPTOR_SET     write_sets[BACK_BUFFER_COUNT * 2]{};
-    b::WRITE_DESCRIPTOR_BINDING write_bindings[BACK_BUFFER_COUNT]{};
+    b::WRITE_DESCRIPTOR_BINDING write_bindings[BACK_BUFFER_COUNT * 2]{};
     for (uint32_t i_frame = 0; i_frame < BACK_BUFFER_COUNT; i_frame++)
     {
         auto offset = i_frame * 2;
@@ -1290,16 +1289,14 @@ void HelloConstantBuffer::Render()
         //cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         //PrepareFrame(back_buffer_index);
 
-        wait_fence_desc.Reset();
-        wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
+        wait_fence_desc.Reset().AddFence(swapchain_fences->signal_fence.Get(), 0).Finalize();
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
         // コマンドリスト
         submit_info.command_lists_to_execute = cmd_lists_data[back_buffer_index].GetAddressOf();
 
         // シグナルフェンス
-        signal_fence_desc.Reset();
-        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal());
+        signal_fence_desc.Reset().AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal()).Finalize();
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
         cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);

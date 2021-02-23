@@ -303,7 +303,7 @@ bool HelloImGui::CreateDescriptorSetLayout()
         .AddNewBinding(b::DESCRIPTOR_TYPE_SAMPLER    , 1, 1, b::SHADER_VISIBILITY_ALL_GRAPHICS_COMPUTE, b::DESCRIPTOR_FLAG_NONE)
         .SetFlags(b::DESCRIPTOR_SET_LAYOUT_FLAG_NONE)
         .Finalize();
-    auto bmr = device->CreateDescriptorSetLayout(layout_desc.Get(), &texture_layout);
+    bmr = device->CreateDescriptorSetLayout(layout_desc.Get(), &texture_layout);
     BMR_RET_IF_FAILED(bmr);
 
     return true;
@@ -359,7 +359,7 @@ bool HelloImGui::AllocateDescriptorSets()
     for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
         buffer_descriptor_sets[i] = dst_sets[i];
 
-    texture_descriptor_set = dst_sets[BACK_BUFFER_COUNT + 1];
+    texture_descriptor_set = dst_sets[BACK_BUFFER_COUNT];
 
     return true;
 }
@@ -894,11 +894,13 @@ bool HelloImGui::CopyDataToTexture()
     copy_ctx.Begin();
     {
         util::PipelineBarrierDesc bd{};
-        util::TextureBarrierRange tex{};
+        util::TextureBarrierRange tex(&bd);
+        tex .SetTexture(texture.texture->GetB3DTexture().Get())
+            .AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels)
+            .Finalize();
 
-        tex.AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels);
-        bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_UNDEFINED, b::RESOURCE_STATE_COPY_DST_WRITE);
-        copy_ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COPY_RESOLVE));
+        bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_UNDEFINED, b::RESOURCE_STATE_COPY_DST_WRITE);
+        copy_ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COPY_RESOLVE).Finalize().Get());
 
         for (size_t i = 0; i < data_desc.num_mips; i++)
         {
@@ -914,14 +916,14 @@ bool HelloImGui::CopyDataToTexture()
         if (copy_ctx.GetCommandType() == b::COMMAND_TYPE_COPY_ONLY)
         {
             // 所有権をコピーキューから開放します。
-            bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
-                                 , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
-            copy_ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE));
+            bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
+                                      , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
+            copy_ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE).Finalize().Get());
         }
         else
         {
-            bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ);
-            copy_ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS));
+            bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ);
+            copy_ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS).Finalize().Get());
         }
     }
     copy_ctx.End(copy_ctx.GetGpuWaitFence());
@@ -933,11 +935,13 @@ bool HelloImGui::CopyDataToTexture()
         ctx.Begin();
         {
             util::PipelineBarrierDesc bd{};
-            util::TextureBarrierRange tex{};
-            tex.AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels);
-            bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
-                                 , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
-            ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS));
+            util::TextureBarrierRange tex(&bd);
+            tex .SetTexture(texture.texture->GetB3DTexture().Get())
+                .AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels)
+                .Finalize();
+            bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
+                                      , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
+            ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS).Finalize().Get());
         }
         ctx.End(ctx.GetGpuWaitFence());
         BMR_RET_IF_FAILED(ctx.WaitOnCpu());
@@ -1009,7 +1013,7 @@ bool HelloImGui::UpdateDescriptorSets()
     auto bmr = device->CreateDescriptorUpdate({}, &descriptor_update);
     BMR_RET_IF_FAILED(bmr);
 
-    auto bmr = descriptor_update->UpdateDescriptorSets(update_desc.Get());
+    bmr = descriptor_update->UpdateDescriptorSets(update_desc.Get());
     BMR_RET_IF_FAILED(bmr);
 
     return true;
@@ -1143,11 +1147,11 @@ void HelloImGui::Update()
         myimgui->NewFrame();
         ImGui::ShowDemoWindow();
 
-        //if (ImGui::Begin("Custom image"))
-        //{
-        //    ImGui::Image(texture.srv.Get(), { 512, 512 });
-        //}
-        //ImGui::End();
+        if (ImGui::Begin("Custom image"))
+        {
+            ImGui::Image(texture.srv.Get(), { 512, 512 });
+        }
+        ImGui::End();
     }
 
     // 次のバックバッファを取得
@@ -1222,16 +1226,14 @@ void HelloImGui::Render()
         //cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         //PrepareFrame(back_buffer_index);
 
-        wait_fence_desc.Reset();
-        wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
+        wait_fence_desc.Reset().AddFence(swapchain_fences->signal_fence.Get(), 0).Finalize();
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
         // コマンドリスト
         submit_info.command_lists_to_execute = cmd_lists_data[back_buffer_index].GetAddressOf();
 
         // シグナルフェンス
-        signal_fence_desc.Reset();
-        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal());
+        signal_fence_desc.Reset().AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal()).Finalize();
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
         cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);

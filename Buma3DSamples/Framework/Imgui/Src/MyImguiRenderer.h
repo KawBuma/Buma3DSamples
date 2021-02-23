@@ -23,7 +23,7 @@ public:
     void EndRecord  (buma3d::ICommandList* _list = nullptr);
 
     void RecordGuiCommands(buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after, ImDrawData* _draw_data);
-    void AddSubmissionTo(util::SubmitInfo* _submit_info);
+    void AddSubmitInfoTo(util::SubmitDesc* _submit_info);
 
     buma3d::ICommandList* GetCommandList() const { return list.Get(); }
 
@@ -60,7 +60,7 @@ private:
         if (texid_descriptors_offset + 1 > texid_descriptors.size())
         {
             texid_descriptors.emplace_back(std::make_unique<TEXID_DESCRIPTORS>())
-                ->Init(rr);
+                ->Init(rr, *this);
         }
         ChangeTexIdDescriptors();
     }
@@ -99,9 +99,12 @@ private:
 
     struct TEXID_DESCRIPTORS
     {
-        bool Init(RENDER_RESOURCE& _rr);
+        bool Init(RENDER_RESOURCE& _rr, MyImGuiRenderer& _parent);
 
+        buma3d::util::Ptr<buma3d::IDescriptorHeap>              descriptor_heap;
         buma3d::util::Ptr<buma3d::IDescriptorPool>              descriptor_pool;
+        buma3d::util::Ptr<buma3d::IDescriptorSet>               sampler_set;
+        buma3d::util::Ptr<buma3d::IDescriptorSet>               font_set;
         std::vector<buma3d::util::Ptr<buma3d::IDescriptorSet>>  texid_sets;
     };
 
@@ -119,6 +122,7 @@ private:
 
     std::unique_ptr<SUBMIT>                                 submit;
 
+    buma3d::util::Ptr<buma3d::IDescriptorUpdate>            descriptor_update;
     util::UpdateDescriptorSetDesc                           update_desc;
     std::vector<std::unique_ptr<TEXID_DESCRIPTORS>>         texid_descriptors;
     size_t                                                  texid_descriptors_offset;

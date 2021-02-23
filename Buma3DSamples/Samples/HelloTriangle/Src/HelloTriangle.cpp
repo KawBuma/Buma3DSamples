@@ -226,15 +226,13 @@ bool HelloTriangle::LoadAssets()
 
 bool HelloTriangle::CreatePipelineLayout()
 {
-    // ルートシグネチャの作成
+    // このサンプルで使用するリソースはありません。
     b::PIPELINE_LAYOUT_DESC pld{};
-    //b::ROOT_PARAMETER parameters[1]{};
-
     pld.flags               = b::PIPELINE_LAYOUT_FLAG_NONE;
     pld.num_set_layouts     = 0;
-    pld.set_layouts         = 0;
+    pld.set_layouts         = nullptr;
     pld.num_push_constants  = 0;
-    pld.push_constants      = 0;
+    pld.push_constants      = nullptr;
 
     auto bmr = device->CreatePipelineLayout(pld, &pipeline_layout);
     assert(bmr == b::BMRESULT_SUCCEED);
@@ -997,18 +995,18 @@ void HelloTriangle::Render()
         //PrepareFrame(back_buffer_index);
 
         // 待機フェンス
-        wait_fence_desc.Reset();
-        wait_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait());
-        wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
+        wait_fence_desc.Reset()
+                       .AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait())
+                       .AddFence(swapchain_fences->signal_fence.Get(), 0).Finalize();
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
         // コマンドリスト
         submit_info.command_lists_to_execute = cmd_lists_data[back_buffer_index].GetAddressOf();
 
         // シグナルフェンス
-        signal_fence_desc.Reset();
-        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal());
-        signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
+        signal_fence_desc.Reset()
+                         .AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal())
+                         .AddFence(render_complete_fence.Get(), 0).Finalize();
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
         bmr = command_queue->Submit(submit);
@@ -1017,9 +1015,6 @@ void HelloTriangle::Render()
 
     // バックバッファをプレゼント
     {
-        swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
-        swapchain_fences->signal_fence_to_cpu->Reset();
-
         present_info.wait_fence = render_complete_fence.Get();
         bmr = swapchain->Present(present_info, true);
         assert(bmr == b::BMRESULT_SUCCEED);
@@ -1092,6 +1087,8 @@ void HelloTriangle::Term()
     swapchain.reset();
     command_queue.Reset();
     swapchain_fences = {};
+    render_complete_fence.Reset();
+    util_fence.Reset();
     cmd_fences = {};
 
     device.Reset();

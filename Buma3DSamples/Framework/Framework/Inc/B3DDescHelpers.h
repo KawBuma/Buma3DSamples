@@ -117,14 +117,8 @@ public:
     {
         num_fences = 0;
 
-        signal_desc.signal_fence.num_fences     = 0;
-        signal_desc.signal_fence.fences         = 0;
-        signal_desc.signal_fence.fence_values   = 0;
-        signal_desc.signal_fence_to_cpu = nullptr;
-
-        wait_desc.wait_fence.num_fences         = 0;
-        wait_desc.wait_fence.fences             = 0;
-        wait_desc.wait_fence.fence_values       = 0;
+        signal_desc = {};
+        wait_desc = {};
 
         return *this;
     }
@@ -143,12 +137,12 @@ public:
     }
     FenceSubmitDesc& Finalize()
     {
-        signal_desc.signal_fence.num_fences     = num_fences;
-        signal_desc.signal_fence.fences         = fences.data();
-        signal_desc.signal_fence.fence_values   = fence_values.data();
-        wait_desc.wait_fence.num_fences         = num_fences;
-        wait_desc.wait_fence.fences             = fences.data();
-        wait_desc.wait_fence.fence_values       = fence_values.data();
+        signal_desc .signal_fence   .num_fences     = num_fences;
+        signal_desc .signal_fence   .fences         = fences.data();
+        signal_desc .signal_fence   .fence_values   = fence_values.data();
+        wait_desc   .wait_fence     .num_fences     = num_fences;
+        wait_desc   .wait_fence     .fences         = fences.data();
+        wait_desc   .wait_fence     .fence_values   = fence_values.data();
         return *this;
     }
 
@@ -168,16 +162,10 @@ public:
 private:
     void Resize(uint32_t _num_fences)
     {
-        if (_num_fences > fences.size())
+        if (_num_fences > (uint32_t)fences.size())
         {
             fences.resize(_num_fences);
             fence_values.resize(_num_fences);
-
-            wait_desc.wait_fence.fences             = fences.data();
-            wait_desc.wait_fence.fence_values       = fence_values.data();
-
-            signal_desc.signal_fence.fences         = fences.data();
-            signal_desc.signal_fence.fence_values   = fence_values.data();
         }
     }
 
@@ -214,7 +202,7 @@ public:
     {
         wait_fence.Reset();
         signal_fence.Reset();
-        submit_info.num_command_lists_to_execute = 0;
+        submit_info = {};
         return *this;
     }
     SubmitInfo& AddWaitFence(buma3d::IFence* _fence, uint64_t _fence_value = 0)
@@ -235,9 +223,9 @@ public:
     }
     SubmitInfo& Finalize()
     {
-        submit_info.wait_fence               = wait_fence.GetAsFenceSubmission();
+        submit_info.wait_fence               = wait_fence.Finalize().GetAsFenceSubmission();
         submit_info.command_lists_to_execute = command_lists_to_execute.data();
-        submit_info.signal_fence             = signal_fence.GetAsFenceSubmission();
+        submit_info.signal_fence             = signal_fence.Finalize().GetAsFenceSubmission();
         return *this;
     }
 
@@ -283,8 +271,7 @@ public:
     {
         for (auto& i : infos)
             i.Reset();
-        desc.num_submit_infos = 0;
-        desc.signal_fence_to_cpu = nullptr;
+        desc = {};
         return *this;
     }
     SubmitDesc& SetSignalFenceToCpu(buma3d::IFence* _signal_fence_to_cpu)
@@ -2248,7 +2235,7 @@ private:
             _num_attachments = 1;
         if (_num_attachments > desc.num_attachments)
         {
-            blend.resize(_num_attachments);
+            blend.resize(_num_attachments, this);
             b3d_blend.resize(_num_attachments);
             desc.attachments = b3d_blend.data();
         }

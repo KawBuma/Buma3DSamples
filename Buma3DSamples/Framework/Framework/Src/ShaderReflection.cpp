@@ -1,3 +1,5 @@
+#define _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING
+
 #include "pch.h"
 #include "ShaderReflection.h"
 #include "Utils.h"
@@ -11,7 +13,11 @@ using ComPtr = Microsoft::WRL::ComPtr<T>;
 #include <d3d12shader.h>
 #include <dxc/dxcapi.h>
 
+// 'std::iterator<std::input_iterator_tag,const hlsl::DxilContainerHeader *,ptrdiff_t,const hlsl::DxilContainerHeader **,const hlsl::DxilContainerHeader *&>':
+// warning STL4015: The std::iterator class template (used as a base class to provide typedefs) is deprecated in C++17.(The <iterator> header is NOT deprecated.)
+#pragma warning(disable : 4996)
 #include <dxc/DxilContainer/DxilContainer.h>
+#pragma warning(default : 4996)
 
 #define ASSERT_HR(hr) assert(SUCCEEDED(hr))
 
@@ -22,7 +28,7 @@ static void CreateDxcReflectionFromBlob(const std::vector<uint8_t>& _buffer, Com
 {
     auto dxc_module = LoadLibraryA("dxcompiler.dll");
     assert(dxc_module != NULL);
-    DxcCreateInstanceProc DxcCreateInstance = GetProcAddress(dxc_module, "DxcCreateInstance");
+    DxcCreateInstanceProc DxcCreateInstance = (DxcCreateInstanceProc)GetProcAddress(dxc_module, "DxcCreateInstance");
 
     HRESULT hr{};
 
@@ -30,7 +36,7 @@ static void CreateDxcReflectionFromBlob(const std::vector<uint8_t>& _buffer, Com
     hr = DxcCreateInstance(CLSID_DxcLibrary, IID_PPV_ARGS(&lib));
     ASSERT_HR(hr);
 
-    ComPtr<IDxcBlob> dxil_blob;
+    ComPtr<IDxcBlobEncoding> dxil_blob;
     hr = lib->CreateBlobWithEncodingFromPinned(_buffer.data(), _buffer.size(), DXC_CP_ACP, &dxil_blob);
     ASSERT_HR(hr);
     
@@ -38,7 +44,7 @@ static void CreateDxcReflectionFromBlob(const std::vector<uint8_t>& _buffer, Com
     hr = DxcCreateInstance(CLSID_DxcContainerReflection, IID_PPV_ARGS(&container_reflection));
     ASSERT_HR(hr);
 
-    hr = container_reflection->Load(&dxil_blob);
+    hr = container_reflection->Load(dxil_blob.Get());
     ASSERT_HR(hr);
 
     uint32_t dxil_part_index = ~0u;
@@ -87,7 +93,7 @@ namespace shader
 
 std::unique_ptr<util::InputLayoutDesc> CreateInputLayoutDesc(const std::vector<std::shared_ptr<SIGNATURE_PARAMETER_DESC>>& _descs)
 {
-    //std::shared_ptr<util::InputLayoutDesc> result = std::make_shared<util::InputLayoutDesc>();
+    std::unique_ptr<util::InputLayoutDesc> result = std::make_unique<util::InputLayoutDesc>();
 
     //auto num_elem = _descs.size();
     //auto&& descs_data = _descs.data();
@@ -107,7 +113,7 @@ std::unique_ptr<util::InputLayoutDesc> CreateInputLayoutDesc(const std::vector<s
     //    res_elem.SetInstanceDataStepRate  (0);
     //}
 
-    //return result;
+    return result;
 }
 
 
@@ -775,6 +781,25 @@ ShaderReflectionType::~ShaderReflectionType()
 {
 }
 
+class ShaderReflectionConstantBuffer::Initialize
+{
+public:
+    static void Init(ShaderReflectionConstantBuffer& _dst, ID3D12ShaderReflectionConstantBuffer* _reflection_buffer)
+    {
+        HRESULT hr{};
+        D3D12_SHADER_BUFFER_DESC shader_buffer_desc{};
+        hr = _reflection_buffer->GetDesc(&shader_buffer_desc);
+        ASSERT_HR(hr);
+
+        _dst.desc = std::make_shared<SHADER_BUFFER_DESC>();
+        _dst.desc->name                 = shader_buffer_desc.Name;
+        _dst.desc->cb_type              = ConvertCbufferType(shader_buffer_desc.Type);
+        _dst.desc->num_variables        = shader_buffer_desc.Variables;
+        _dst.desc->size_of_cb           = shader_buffer_desc.Size;
+        _dst.desc->buffer_desc_flags    = shader_buffer_desc.uFlags;
+    }
+};
+
 class ShaderReflectionVariable::Initialize
 {
 public:
@@ -822,25 +847,6 @@ ShaderReflectionVariable::~ShaderReflectionVariable()
 
 }
 
-
-class ShaderReflectionConstantBuffer::Initialize
-{
-public:
-    static void Init(ShaderReflectionConstantBuffer& _dst, ID3D12ShaderReflectionConstantBuffer* _reflection_buffer)
-    {
-        HRESULT hr{};
-        D3D12_SHADER_BUFFER_DESC shader_buffer_desc{};
-        hr = _reflection_buffer->GetDesc(&shader_buffer_desc);
-        ASSERT_HR(hr);
-
-        _dst.desc = std::make_shared<SHADER_BUFFER_DESC>();
-        _dst.desc->name                 = shader_buffer_desc.Name;
-        _dst.desc->cb_type              = ConvertCbufferType(shader_buffer_desc.Type);
-        _dst.desc->num_variables        = shader_buffer_desc.Variables;
-        _dst.desc->size_of_cb           = shader_buffer_desc.Size;
-        _dst.desc->buffer_desc_flags    = shader_buffer_desc.uFlags;
-    }
-};
 
 ShaderReflectionConstantBuffer::ShaderReflectionConstantBuffer()
     :desc{}
@@ -1022,7 +1028,7 @@ public:
         for (uint32_t i = 0; i < _dst.func_desc->constant_buffers; i++)
         {
             ID3D12ShaderReflectionConstantBuffer* ref_cb = _func_ref->GetConstantBufferByIndex(i);
-            auto&& b = _dst.reflection_cbufs.emplace_back(std::make_shared<ShaderReflectionConstantBuffer>(ref_cb));
+            auto&& b = _dst.reflection_cbufs.emplace_back(std::make_shared<ShaderReflectionConstantBuffer>());
             ShaderReflectionConstantBuffer::Initialize::Init(*b, ref_cb);
         }
 
@@ -1076,7 +1082,7 @@ bool LibraryReflection::ReflectFromBlob(const std::vector<uint8_t>& _blob)
     auto hr = libreflection->GetDesc(&desc);
     ASSERT_HR(hr);
 
-    lib_desc = std::make_shared<LIBRARY_DESC>(desc);
+    lib_desc = std::make_shared<LIBRARY_DESC>();
     InitLibraryDesc(*lib_desc, desc);
 
     for (uint32_t i = 0; i < lib_desc->function_count; i++)

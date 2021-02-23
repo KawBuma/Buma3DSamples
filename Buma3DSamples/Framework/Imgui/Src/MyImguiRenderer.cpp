@@ -52,6 +52,9 @@ void MyImGuiRenderer::Init()
     args.ca = { b::TEXTURE_ASPECT_FLAG_COLOR, 0, &cv };
     args.cas = { 1, &args.ca };
 
+    auto bmr = rr.device->CreateDescriptorUpdate({}, &descriptor_update);
+    assert(util::IsSucceeded(bmr));
+
     AddNewTexIdDescriptors();
 
     if (!is_primary_renderer && rr.flags & MYIMGUI_CREATE_FLAG_USE_SINGLE_COMMAND_LIST)
@@ -60,7 +63,7 @@ void MyImGuiRenderer::Init()
     if (!(rr.flags & MYIMGUI_CREATE_FLAG_DESCRIPTOR_POOL_FEEDING))
         submit = std::make_unique<SUBMIT>();
 
-    auto bmr = rr.device->CreateCommandAllocator(buma3d::hlp::init::CommandAllocatorDesc(rr.queue->GetDesc().type, buma3d::COMMAND_LIST_LEVEL_PRIMARY, buma3d::COMMAND_ALLOCATOR_FLAG_TRANSIENT), &allocator);
+    bmr = rr.device->CreateCommandAllocator(buma3d::hlp::init::CommandAllocatorDesc(rr.queue->GetDesc().type, buma3d::COMMAND_LIST_LEVEL_PRIMARY, buma3d::COMMAND_ALLOCATOR_FLAG_TRANSIENT), &allocator);
     assert(util::IsSucceeded(bmr));
     allocator->SetName("MyImGuiRenderer::allocator");
 
@@ -124,7 +127,7 @@ void MyImGuiRenderer::Draw(buma3d::IFramebuffer* _framebuffer, ImDrawData* _draw
         Set(args.mvp[2], 0.0f                 , 0.0f                    , 0.5f              , 0.0f);
         Set(args.mvp[3], (R + L) / (L - R)    , (T + B) / (B - T)       , 0.5f              , 1.0f);
 
-        args.push_constants.root_parameter_index       = 0;
+        args.push_constants.index                      = 0;
         args.push_constants.num32_bit_values_to_set    = sizeof(args.mvp) / 4;
         args.push_constants.src_data                   = args.mvp;
         args.push_constants.dst_offset_in_32bit_values = 0;
@@ -141,7 +144,6 @@ void MyImGuiRenderer::Draw(buma3d::IFramebuffer* _framebuffer, ImDrawData* _draw
         args.render_pass_begin.framebuffer      = _framebuffer;
         args.render_pass_begin.num_clear_values = 0;
         args.render_pass_begin.clear_values     = nullptr;
-
     }
 
     texid_descriptors_offset = 0;
@@ -171,37 +173,40 @@ void MyImGuiRenderer::RecordGuiCommands(buma3d::IFramebuffer* _framebuffer, buma
     auto rtv = _framebuffer->GetDesc().attachments[0]->As<buma3d::IRenderTargetView>();
     if (_current_state != b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE)
     {
-        args.barrier_desc.Reset();
-        args.barrier_desc.AddTextureBarrier(rtv, _current_state, b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE);
-        current_list->PipelineBarrier(args.barrier_desc.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT));
+        args.barrier_desc.Reset().AddTextureBarrier(rtv, _current_state, b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE)
+                                 .SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT);
+        current_list->PipelineBarrier(args.barrier_desc.Finalize().Get());
     }
 
     Draw(_framebuffer, _draw_data);
 
     if (_state_after != b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE)
     {
-        args.barrier_desc.Reset();
-        args.barrier_desc.AddTextureBarrier(rtv, b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE, _state_after);
-        current_list->PipelineBarrier(args.barrier_desc.Get(b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT, b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE));
+        args.barrier_desc.Reset().AddTextureBarrier(rtv, b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE, _state_after)
+                                 .SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT, b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE);
+        current_list->PipelineBarrier(args.barrier_desc.Get());
     }
 }
-void MyImGuiRenderer::AddSubmissionTo(util::SubmitInfo* _submit_info)
+void MyImGuiRenderer::AddSubmitInfoTo(util::SubmitDesc* _submit_info)
 {
     if (list == nullptr || current_list != list.Get())// 外部から指定されたコマンドリストの場合、送信する操作はありません。
         return;
 
-    _submit_info->AddCommandList(list.Get());
-    _submit_info->AddSignalFence(timeline_fence.Get(), timeline_fence_val.signal());
+    _submit_info->AddNewSubmitInfo()
+        .AddCommandList(list.Get())
+        .AddSignalFence(timeline_fence.Get(), timeline_fence_val.signal())
+        .Finalize();
     ++timeline_fence_val;
 }
 void MyImGuiRenderer::PrepareDraw(buma3d::ICommandList* _list, buma3d::IFramebuffer* _framebuffer, ImDrawData* _draw_data)
 {
     _list->InsertMarker("MyImGuiRenderer::PrepareDraw", nullptr);
-    _list->SetRootSignature(b::PIPELINE_BIND_POINT_GRAPHICS, rr.root_signature.Get());
+    _list->SetPipelineLayout(b::PIPELINE_BIND_POINT_GRAPHICS, rr.pipeline_layout.Get());
     _list->SetPipelineState(rr.pipeline_state_load.Get());
 
     _list->Push32BitConstants(b::PIPELINE_BIND_POINT_GRAPHICS, args.push_constants);
-    _list->BindDescriptorSet(b::PIPELINE_BIND_POINT_GRAPHICS, { rr.font_set.Get() });
+    b::IDescriptorSet* sets[] = { current_texid_descriptors->sampler_set.Get(), current_texid_descriptors->font_set.Get(), };
+    _list->BindDescriptorSets(b::PIPELINE_BIND_POINT_GRAPHICS, b::CMD_BIND_DESCRIPTOR_SETS{ 0, 2, sets });
     progress.has_bound_font_set = true;
 
     _list->BindVertexBufferViews(args.bind_vbv);
@@ -307,12 +312,12 @@ void MyImGuiRenderer::BeginDraw(buma3d::ICommandList* _list, buma3d::IFramebuffe
 
             if (draw_cmd.TextureId)
             {
-                _list->BindDescriptorSet(b::PIPELINE_BIND_POINT_GRAPHICS, { texid_sets_data[progress.texid_set_offset++].Get() });
+                _list->BindDescriptorSets(b::PIPELINE_BIND_POINT_GRAPHICS, { 1, 1, texid_sets_data[progress.texid_set_offset++].GetAddressOf() });
                 progress.has_bound_font_set = false;
             }
             else if (!progress.has_bound_font_set)
             {
-                _list->BindDescriptorSet(b::PIPELINE_BIND_POINT_GRAPHICS, { rr.font_set.Get() });
+                _list->BindDescriptorSets(b::PIPELINE_BIND_POINT_GRAPHICS, { 1, 1, current_texid_descriptors->font_set.GetAddressOf() });
                 progress.has_bound_font_set = true;
             }
 
@@ -387,7 +392,7 @@ void MyImGuiRenderer::UpdateDescriptorSets(ImDrawData* _draw_data)
         auto&& ud = update_desc.Get();
         if (ud.num_write_descriptor_sets != 0)
         {
-            auto bmr = rr.device->UpdateDescriptorSets(update_desc.Get());
+            auto bmr = descriptor_update->UpdateDescriptorSets(update_desc.Get());
             assert(util::IsSucceeded(bmr));
         }
         update_desc.Reset();
@@ -410,13 +415,15 @@ void MyImGuiRenderer::UpdateDescriptorSets(ImDrawData* _draw_data)
 
             if (draw_cmd.TextureId)
             {
-                auto&& write_set = update_desc.AddNewWriteDescriptorSets();
-                auto&& write_table = write_set.AddNewWriteDescriptorTable();
-                write_table.AddNewWriteDescriptorRange()
-                    .SetDstRange(0, 0, 1)
-                    .SetSrcView(0, reinterpret_cast<b::IShaderResourceView*>(draw_cmd.TextureId));
-                write_table.Finalize(1);
-                write_set.Finalize(texid_sets_data[num_texid_sets++].Get());
+                update_desc
+                    .AddNewWriteDescriptorSet()
+                    .SetDst(texid_sets_data[num_texid_sets++].Get())
+                        .AddNewWriteDescriptorBinding()
+                        .SetNumDescriptors(1)
+                        .SetDstBinding(0, 0)
+                        .SetSrcView(0, reinterpret_cast<b::IShaderResourceView*>(draw_cmd.TextureId))
+                        .Finalize()
+                    .Finalize();
             }
 
             if (num_texid_sets == max_sets_allocation_count)
@@ -443,32 +450,59 @@ void MyImGuiRenderer::EndDraw(buma3d::ICommandList* _list)
     _list->EndRenderPass({});
 }
 
-bool MyImGuiRenderer::TEXID_DESCRIPTORS::Init(RENDER_RESOURCE& _rr)
+bool MyImGuiRenderer::TEXID_DESCRIPTORS::Init(RENDER_RESOURCE& _rr, MyImGuiRenderer& _parent)
 {
     static const uint32_t DEFAULT_DESCRIPTOR_POOL_SIZE = 128;
-    b::DESCRIPTOR_POOL_DESC dpd{};
-    dpd.flags                       = b::DESCRIPTOR_POOL_FLAG_NONE;
-    dpd.max_sets_allocation_count   = DEFAULT_DESCRIPTOR_POOL_SIZE;
-    dpd.max_num_register_space      = 2;
 
-    b::DESCRIPTOR_POOL_SIZE sizes[] = {
-        { b::DESCRIPTOR_TYPE_SRV_TEXTURE, DEFAULT_DESCRIPTOR_POOL_SIZE }
-    };
-    dpd.num_pool_sizes              = _countof(sizes);
-    dpd.pool_sizes                  = sizes;
-    dpd.node_mask                   = b::B3D_DEFAULT_NODE_MASK;
-    
-    auto bmr = _rr.device->CreateDescriptorPool(dpd, &descriptor_pool);
-    RET_IF_FAILED(util::IsSucceeded(bmr));
+    auto sampler_layout = _rr.sampler_layout.Get();
+    auto texture_layout = _rr.texture_layout.Get();
+
+    // ヒープ/プールの作成
+    util::DescriptorSizes sizes;
+    sizes.IncrementSizes(sampler_layout, 1) // サンプラーは現在RENDER_RESOURCE::samplerのみ使用しているため1で十分です。
+         .IncrementSizes(texture_layout, 1/*font*/ + DEFAULT_DESCRIPTOR_POOL_SIZE)
+         .Finalize();
+
+    b::BMRESULT bmr;
+    bmr = _rr.device->CreateDescriptorHeap(sizes.GetAsHeapDesc(b::DESCRIPTOR_HEAP_FLAG_NONE, b::B3D_DEFAULT_NODE_MASK), &descriptor_heap);
+    BMR_RET_IF_FAILED(bmr);
+
+    bmr = _rr.device->CreateDescriptorPool(sizes.GetAsPoolDesc(descriptor_heap.Get(), sizes.GetMaxSetsByTotalMultiplyCount(), b::DESCRIPTOR_POOL_FLAG_NONE), &descriptor_pool);
+    BMR_RET_IF_FAILED(bmr);
+
+    descriptor_heap->SetName("MyImGuiRenderer::descriptor_heap");
     descriptor_pool->SetName("MyImGuiRenderer::descriptor_pool");
-    
-    texid_sets.resize(dpd.max_sets_allocation_count);
-    for (auto& i : texid_sets)
-    {
-        bmr = descriptor_pool->AllocateDescriptorSet(_rr.root_signature.Get(), &i);
-        RET_IF_FAILED(util::IsSucceeded(bmr));
-    }
-    
+
+
+    // 割り当て
+    util::DescriptorSetAllocateDesc allocate_desc(sizes.GetMaxSetsByTotalMultiplyCount());
+    allocate_desc
+        .SetNumDescriptorSets(sizes.GetMaxSetsByTotalMultiplyCount())
+        .SetDescriptorSetLayout(0, sampler_layout)
+        .SetDescriptorSetLayout(1, texture_layout);
+    for (uint32_t i = 0; i < DEFAULT_DESCRIPTOR_POOL_SIZE; i++)
+        allocate_desc.SetDescriptorSetLayout(2 + i, texture_layout);
+    allocate_desc.Finalize();
+
+    auto&& [num_sets, sets] = allocate_desc.GetDst();
+    bmr = descriptor_pool->AllocateDescriptorSets(allocate_desc.Get(), sets);
+    BMR_RET_IF_FAILED(bmr);
+
+    sampler_set = sets[0];
+    font_set    = sets[1];
+    texid_sets.resize(DEFAULT_DESCRIPTOR_POOL_SIZE);
+    auto texid_sets_data = texid_sets.data();
+    for (uint32_t i = 0; i < DEFAULT_DESCRIPTOR_POOL_SIZE; i++)
+        texid_sets_data[i] = sets[2 + i];
+
+
+    // デフォルトサンプラ、フォントテクスチャを書き込む
+    b::WRITE_DESCRIPTOR_BINDING sampler_binding{ 0, 0, 1, reinterpret_cast<b::IView* const*>(_rr.sampler.GetAddressOf()) };
+    b::WRITE_DESCRIPTOR_BINDING font_binding   { 0, 0, 1, reinterpret_cast<b::IView* const*>(_rr.font_srv.GetAddressOf()) };
+    b::WRITE_DESCRIPTOR_SET     write_sets[2]{ { sampler_set.Get(), 1, &sampler_binding }, { font_set.Get(), 1, &font_binding } };
+    bmr = _parent.descriptor_update->UpdateDescriptorSets(b::UPDATE_DESCRIPTOR_SET_DESC{ 2, write_sets });
+    BMR_RET_IF_FAILED(bmr);
+
     return true;
 }
 
@@ -560,6 +594,7 @@ bool MyImGuiViewportRenderer::DestroyWindow(ImGuiViewport* _vp)
 }
 bool MyImGuiViewportRenderer::SetWindowSize(ImGuiViewport* _vp, const ImVec2& _size)
 {
+    rr.device->WaitIdle();
     for (auto& i : framebuffers)
         i.Reset();
     swapchain->Resize({ (uint32_t)_size.x, (uint32_t)_size.y }, b::SWAP_CHAIN_FLAG_ALLOW_DISCARD_AFTER_PRESENT | b::SWAP_CHAIN_FLAG_DISABLE_VERTICAL_SYNC);
@@ -607,8 +642,8 @@ bool MyImGuiViewportRenderer::SwapBuffers(ImGuiViewport* _vp, void* _render_arg)
 void MyImGuiViewportRenderer::AddSubmitInfoTo(util::SubmitDesc* _submit_info)
 {
     auto&& si = _submit_info->AddNewSubmitInfo();
-    si.AddWaitFence(swapchain_fence->signal_fence.Get());
-    renderer->AddSubmissionTo(&si);
+    si.AddWaitFence(swapchain_fence->signal_fence.Get()).Finalize();
+    renderer->AddSubmitInfoTo(_submit_info);
 }
 
 
