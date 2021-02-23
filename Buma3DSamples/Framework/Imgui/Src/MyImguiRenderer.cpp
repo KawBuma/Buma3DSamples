@@ -580,6 +580,7 @@ bool MyImGuiViewportRenderer::CreateFramebuffers()
 
 bool MyImGuiViewportRenderer::DestroyWindow(ImGuiViewport* _vp)
 {
+    rr.device->WaitIdle();
     for (auto& i : framebuffers)
         i.Reset();
 
