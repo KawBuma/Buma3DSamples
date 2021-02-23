@@ -22,6 +22,7 @@ struct IResource
     virtual const buma3d::util::Ptr<buma3d::IResource>& GetB3DResource() const = 0;
 
     buma3d::BMRESULT             SetName(const char* _name)       { return GetB3DResource()->SetName(_name); }
+    const char*                  GetName()                        { return GetB3DResource()->GetName(); }
     const buma3d::RESOURCE_DESC& GetB3DDesc()               const { return GetB3DResource()->GetDesc(); }
 
 };

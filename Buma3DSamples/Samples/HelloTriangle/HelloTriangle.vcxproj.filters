@@ -13,6 +13,9 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
+    <Filter Include="Shader">
+      <UniqueIdentifier>{d1ad508b-32dd-4bc2-ad0c-8e6e0afcd1a8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inc\HelloTriangle.h">
@@ -24,6 +27,15 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Data\Shader\ShaderHeader.hlsli">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Data\Shader\PixelShader.hlsl">
+      <Filter>Shader</Filter>
+    </None>
+    <None Include="Data\Shader\VertexShader.hlsl">
+      <Filter>Shader</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\pch.cpp">

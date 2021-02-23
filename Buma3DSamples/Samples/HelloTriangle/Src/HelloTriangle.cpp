@@ -85,7 +85,7 @@ HelloTriangle::HelloTriangle()
     , cmd_fences            {}
     , render_complete_fence {}
     , heap_props            {}
-    , signature             {}
+    , pipeline_layout       {}
     , render_pass           {}
     , resource_heap         {}
     , vertex_buffer         {}
@@ -199,7 +199,7 @@ bool HelloTriangle::LoadAssets()
     };
     index = { 0,1,2 };
 
-    if (!CreateRootSignature())     return false;
+    if (!CreatePipelineLayout())    return false;
     if (!CreateRenderPass())        return false;
     if (!CreateFramebuffer())       return false;
     if (!CreateShaderModules())     return false;
@@ -224,22 +224,17 @@ bool HelloTriangle::LoadAssets()
     return true;
 }
 
-bool HelloTriangle::CreateRootSignature()
+bool HelloTriangle::CreatePipelineLayout()
 {
-    // ルートシグネチャの作成
-    b::ROOT_SIGNATURE_DESC rsdesc{};
-    //b::ROOT_PARAMETER parameters[1]{};
+    // このサンプルで使用するリソースはありません。
+    b::PIPELINE_LAYOUT_DESC pld{};
+    pld.flags               = b::PIPELINE_LAYOUT_FLAG_NONE;
+    pld.num_set_layouts     = 0;
+    pld.set_layouts         = nullptr;
+    pld.num_push_constants  = 0;
+    pld.push_constants      = nullptr;
 
-    rsdesc.flags                          = b::ROOT_SIGNATURE_FLAG_NONE;
-    rsdesc.raytracing_shader_visibilities = b::RAY_TRACING_SHADER_VISIBILITY_FLAG_NONE;
-    rsdesc.num_parameters                 = 0;
-    rsdesc.parameters                     = nullptr;
-    rsdesc.num_static_samplers            = 0;
-    rsdesc.static_samplers                = nullptr;
-    rsdesc.num_register_shifts            = 0;
-    rsdesc.register_shifts                = nullptr;
-
-    auto bmr = device->CreateRootSignature(rsdesc, &signature);
+    auto bmr = device->CreatePipelineLayout(pld, &pipeline_layout);
     assert(bmr == b::BMRESULT_SUCCEED);
     return bmr == b::BMRESULT_SUCCEED;
 }
@@ -326,18 +321,13 @@ bool HelloTriangle::CreateShaderModules()
     b::BMRESULT bmr{};
     shader_modules.resize(2);
     shader::LOAD_SHADER_DESC desc{};
-    desc.options.packMatricesInRowMajor     = true;        // Experimental: Decide how a matrix get packed
-    desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
-    desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
-    desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+    desc.options.pack_matrices_in_row_major = true;        // Experimental: Decide how a matrix get packed
+    desc.options.enable16bit_types          = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
+    desc.options.enable_debug_info          = false;       // Embed debug info into the binary
+    desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
 
-    desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
-    desc.options.shaderModel                = { 6, 2 };
-
-    desc.options.shiftAllTexturesBindings   = 0;
-    desc.options.shiftAllSamplersBindings   = 0;
-    desc.options.shiftAllCBuffersBindings   = 0;
-    desc.options.shiftAllUABuffersBindings  = 0;
+    desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
+    desc.options.shader_model               = { 6, 2 };
 
     auto&& loader = dr->GetShaderLoader();
     // vs
@@ -387,7 +377,7 @@ bool HelloTriangle::CreateGraphicsPipelines()
     {
         b::GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
 
-        pso_desc.root_signature       = signature.Get();
+        pso_desc.pipeline_layout      = pipeline_layout.Get();
         pso_desc.render_pass          = render_pass.Get();
         pso_desc.subpass              = 0;
         pso_desc.node_mask            = b::B3D_DEFAULT_NODE_MASK;
@@ -928,7 +918,7 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
         l->PipelineBarrier(barrier);
 
         l->SetPipelineState(pipeline.Get());
-        l->SetRootSignature(b::PIPELINE_BIND_POINT_GRAPHICS, signature.Get());
+        l->SetPipelineLayout(b::PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout.Get());
 
         static float sc = 0.f;
         static float sx = 0.f;
@@ -1001,22 +991,22 @@ void HelloTriangle::Render()
 
     // コマンドリストとフェンスを送信
     {
-        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
+        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         //PrepareFrame(back_buffer_index);
 
         // 待機フェンス
-        wait_fence_desc.Reset();
-        wait_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait);
-        wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
+        wait_fence_desc.Reset()
+                       .AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait())
+                       .AddFence(swapchain_fences->signal_fence.Get(), 0).Finalize();
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
         // コマンドリスト
         submit_info.command_lists_to_execute = cmd_lists_data[back_buffer_index].GetAddressOf();
 
         // シグナルフェンス
-        signal_fence_desc.Reset();
-        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal);
-        signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
+        signal_fence_desc.Reset()
+                         .AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal())
+                         .AddFence(render_complete_fence.Get(), 0).Finalize();
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
         bmr = command_queue->Submit(submit);
@@ -1025,11 +1015,8 @@ void HelloTriangle::Render()
 
     // バックバッファをプレゼント
     {
-        swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
-        swapchain_fences->signal_fence_to_cpu->Reset();
-
         present_info.wait_fence = render_complete_fence.Get();
-        bmr = swapchain->Present(present_info);
+        bmr = swapchain->Present(present_info, true);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
@@ -1095,11 +1082,13 @@ void HelloTriangle::Term()
     shader_modules = {};
     framebuffers = {};
     render_pass.Reset();
-    signature.Reset();
+    pipeline_layout.Reset();
     back_buffers = nullptr;
     swapchain.reset();
     command_queue.Reset();
     swapchain_fences = {};
+    render_complete_fence.Reset();
+    util_fence.Reset();
     cmd_fences = {};
 
     device.Reset();

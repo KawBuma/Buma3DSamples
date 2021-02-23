@@ -4,6 +4,8 @@
 
 #include <cassert>
 
+#include "Scenes.h" 
+
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
 #define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
 
@@ -14,6 +16,10 @@ constexpr bool USE_HOST_WRITABLE_HEAP = true;
 Camera g_cam{};
 
 namespace init = buma3d::hlp::init;
+namespace b = buma3d;
+
+template<typename T>
+using Ptr = buma3d::util::Ptr<T>;
 
 namespace buma
 {
@@ -38,13 +44,6 @@ buma3d::RESOURCE_FORMAT GetDefaultFormat(const tex::TEXTURE_DESC& _tex_desc)
     }
 }
 }// namespace tex
-
-
-namespace b = buma3d;
-
-template<typename T>
-using Ptr = buma3d::util::Ptr<T>;
-
 
 class HelloImGui::ResizeEvent : public IEvent
 {
@@ -78,58 +77,66 @@ private:
 
 
 HelloImGui::HelloImGui()
-    : ApplicationBase       ()
-    , platform              {}
-    , spwindow              {}
-    , window                {}
-    , device                {}
-    , quad                  {}
-    //, index                 {}
-    , cb_model              {}
-    , cb_scene              {}
-    , command_queue         {}
-    , timer                 {}
-    , swapchain             {}
-    , back_buffers          {}
-    , back_buffer_index     {}
-    , swapchain_fences      {}
-    , CBV_ALIGNMENT         {}
-    , vpiewport             {}
-    , scissor_rect          {}
-    , framebuffers          {}
-    , shader_modules        {}
-    , pipeline              {}
-    , cmd_allocator         {}
-    , cmd_lists             {}
-    , util_fence            {}
-    , fence_values          {}
-    , cmd_fences            {}
-    , render_complete_fence {}
-    , signature             {}
-    , descriptor_pool       {}
-    , descriptor_sets       {}
-    , render_pass           {}
-    , vertex_buffer         {}
-    , index_buffer          {}
-    , vertex_buffer_view    {}
-    , index_buffer_view     {}
-    , cb_heap               {}
-    , frame_cbs             {}
-    , texture               {}
-    , signal_fence_desc     {}
-    , wait_fence_desc       {}
-    , submit_info           {}
-    , submit                {}
-    , present_info          {}
-    , present_region        {}
-    , on_resize             {}
-    , on_resized            {}
-    , on_process_message    {}
-    , myimgui               {}
-    , myimgui_framebuffers  {}
-    , is_enabled_gui        {}
+    : ApplicationBase           ()
+    , platform                  {}
+    , spwindow                  {}
+    , window                    {}
+    , device                    {}
+    , quad                      {}
+    //, index                     {}
+    , cb_model                  {}
+    , cb_scene                  {}
+    , command_queue             {}
+    , timer                     {}
+    , swapchain                 {}
+    , back_buffers              {}
+    , back_buffer_index         {}
+    , swapchain_fences          {}
+    , CBV_ALIGNMENT             {}
+    , vpiewport                 {}
+    , scissor_rect              {}
+    , framebuffers              {}
+    , shader_modules            {}
+    , pipeline                  {}
+    , cmd_allocator             {}
+    , cmd_lists                 {}
+    , util_fence                {}
+    , fence_values              {}
+    , cmd_fences                {}
+    , buffer_layout             {}
+    , texture_layout            {}
+    , pipeline_layout           {}
+    , descriptor_heap           {}
+    , descriptor_pool           {}
+    , descriptor_update         {}
+    , buffer_descriptor_sets    {}
+    , texture_descriptor_set    {}
+    , render_pass               {}
+    , vertex_buffer             {}
+    , index_buffer              {}
+    , vertex_buffer_view        {}
+    , index_buffer_view         {}
+    , cb_heap                   {}
+    , frame_cbs                 {}
+    , texture                   {}
+    , signal_fence_desc         {}
+    , wait_fence_desc           {}
+    , submit_info               {}
+    , submit                    {}
+    , present_info              {}
+    , present_region            {}
+    , on_resize                 {}
+    , on_resized                {}
+    , on_process_message        {}
+    , myimgui                   {}
+    , myimgui_framebuffers      {}
+    , is_enabled_gui            {}
 {    
     g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
+
+    static const auto x = scne::GetScenesObjectType<scne::INode>();
+    auto scenes = scne::CreateScenes();
+
 }
 
 HelloImGui::~HelloImGui()
@@ -193,9 +200,9 @@ bool HelloImGui::Init()
 
     //g_cam.type = Camera::CameraType::firstperson;
     g_cam.type = Camera::CameraType::lookat;
-	g_cam.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
-	g_cam.setRotation(glm::vec3(0.0f));
-	g_cam.setRotationSpeed(0.5f);
+    g_cam.setPosition(glm::vec3(0.0f, 0.0f, -2.5f));
+    g_cam.setRotation(glm::vec3(0.0f));
+    g_cam.setRotationSpeed(0.5f);
     g_cam.setPerspective(60.0f, (float)settings.window_desc.width / (float)settings.window_desc.height, 1.0f, 256.0f);
 
     CBV_ALIGNMENT = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
@@ -239,34 +246,35 @@ bool HelloImGui::LoadAssets()
     auto aspect_ratio = window->GetAspectRatio();
     quad = {
           { { -1.0f , 1.0f, 0.0f, 1.f }, { 0.f, 0.f } }
-        , { {  1.0f,  1.0f, 0.0f, 1.f }, { 1.f, 0.f } }
-        , { { -1.0f, -1.0f, 0.0f, 1.f }, { 0.f, 1.f } }
-        , { {  1.0f, -1.0f, 0.0f, 1.f }, { 1.f, 1.f } }
+        , { {  3.0f,  1.0f, 0.0f, 1.f }, { 2.f, 0.f } }
+        , { { -1.0f, -3.0f, 0.0f, 1.f }, { 0.f, 2.f } }
+        , { {  1.0f, -1.0f, 0.0f, 0.f }, { 1.f, 1.f } }
     };
     //index = { 0,1,2,3 };
 
-    if (!CreateRootSignature())     return false;
-    if (!CreateDescriptorPool())    return false;
-    if (!AllocateDescriptorSets())  return false;
-    if (!CreateRenderPass())        return false;
-    if (!CreateFramebuffer())       return false;
-    if (!CreateShaderModules())     return false;
-    if (!CreateGraphicsPipelines()) return false;
-    if (!CreateCommandAllocator())  return false;
-    if (!CreateCommandLists())      return false;
-    if (!CreateFences())            return false;
+    if (!CreateDescriptorSetLayout())       return false;
+    if (!CreatePipelineLayout())            return false;
+    if (!CreateDescriptorHeapAndPool())     return false;
+    if (!AllocateDescriptorSets())          return false;
+    if (!CreateRenderPass())                return false;
+    if (!CreateFramebuffer())               return false;
+    if (!CreateShaderModules())             return false;
+    if (!CreateGraphicsPipelines())         return false;
+    if (!CreateCommandAllocator())          return false;
+    if (!CreateCommandLists())              return false;
+    if (!CreateFences())                    return false;
 
-    if (!CreateBuffers())               return false;
-    if (!CopyBuffers())                 return false;
-    if (!CreateBufferViews())           return false;
-    if (!CreateConstantBuffer())        return false;
-    if (!CreateConstantBufferView())    return false;
-    if (!LoadTextureData())             return false;
-    if (!CreateTextureResource())       return false;
-    if (!CopyDataToTexture())           return false;
-    if (!CreateShaderResourceView())    return false;
-    if (!CreateSampler())               return false;
-    if (!UpdateDescriptorSets())        return false;
+    if (!CreateBuffers())                   return false;
+    if (!CopyBuffers())                     return false;
+    if (!CreateBufferViews())               return false;
+    if (!CreateConstantBuffer())            return false;
+    if (!CreateConstantBufferView())        return false;
+    if (!LoadTextureData())                 return false;
+    if (!CreateTextureResource())           return false;
+    if (!CopyDataToTexture())               return false;
+    if (!CreateShaderResourceView())        return false;
+    if (!CreateSampler())                   return false;
+    if (!UpdateDescriptorSets())            return false;
 
     // 描画コマンドを記録
     for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
@@ -275,84 +283,84 @@ bool HelloImGui::LoadAssets()
     return true;
 }
 
-bool HelloImGui::CreateRootSignature()
+bool HelloImGui::CreateDescriptorSetLayout()
 {
-    util::RootSignatureDesc rsdesc{};
+    util::DescriptorSetLayoutDesc layout_desc(2);
+    // 定数バッファ用レイアウト。 space0 に設定します。
+    layout_desc
+        //            (descriptor_type       , base_shader_register, num_descriptors, visibility                 , flags                  )
+        .AddNewBinding(b::DESCRIPTOR_TYPE_CBV, 0                   , 1              , b::SHADER_VISIBILITY_VERTEX, b::DESCRIPTOR_FLAG_NONE) // model
+        .AddNewBinding(b::DESCRIPTOR_TYPE_CBV, 1                   , 1              , b::SHADER_VISIBILITY_VERTEX, b::DESCRIPTOR_FLAG_NONE) // scene
+        .SetFlags(b::DESCRIPTOR_SET_LAYOUT_FLAG_NONE)
+        .Finalize();
+    auto bmr = device->CreateDescriptorSetLayout(layout_desc.Get(), &buffer_layout);
+    BMR_RET_IF_FAILED(bmr);
 
-    // モデル定数
-    auto&& model_rp = rsdesc.AddNewRootParameter();
-    model_rp.SetShaderVisibility(b::SHADER_VISIBILITY_VERTEX);
-    model_rp.InitAsDescriptorTable();
-    //                type                  , num_descriptors , base_shader_register
-    model_rp.AddRange(b::DESCRIPTOR_TYPE_CBV, 1               , 0);
-
-    // シーン定数
-    auto&& scene_rp = rsdesc.AddNewRootParameter();
-    scene_rp.SetShaderVisibility(b::SHADER_VISIBILITY_VERTEX);
-    scene_rp.InitAsDescriptorTable();
-    scene_rp.AddRange(b::DESCRIPTOR_TYPE_CBV, 1, 0, 1);
-
-    // テクスチャ
-    auto&& tex_rp = rsdesc.AddNewRootParameter();
-    tex_rp.SetShaderVisibility(b::SHADER_VISIBILITY_ALL_GRAPHICS_COMPUTE);
-    tex_rp.InitAsDescriptorTable();
-    tex_rp.AddRange(b::DESCRIPTOR_TYPE_SRV_TEXTURE, 1, 0, 0);
-
-    // サンプラー
-    auto&& sampler_rp = rsdesc.AddNewRootParameter();
-    sampler_rp.SetShaderVisibility(b::SHADER_VISIBILITY_ALL_GRAPHICS_COMPUTE);
-    sampler_rp.InitAsDescriptorTable();
-    sampler_rp.AddRange(b::DESCRIPTOR_TYPE_SAMPLER, 1, 0, 0);
-
-    rsdesc.SetRegisterShift(b::SHADER_REGISTER_TYPE_T, 1, 0);// register(t0, space0) -> register(t1, space0)
-    rsdesc.SetRegisterShift(b::SHADER_REGISTER_TYPE_S, 2, 0);// register(s0, space0) -> register(s2, space0)
-
-    auto bmr = device->CreateRootSignature(rsdesc.Get(b::ROOT_SIGNATURE_FLAG_NONE), &signature);
+    // テクスチャ用レイアウト。 space1 に設定します。
+    layout_desc
+        .Reset()
+        .AddNewBinding(b::DESCRIPTOR_TYPE_SRV_TEXTURE, 0, 1, b::SHADER_VISIBILITY_ALL_GRAPHICS_COMPUTE, b::DESCRIPTOR_FLAG_NONE)
+        .AddNewBinding(b::DESCRIPTOR_TYPE_SAMPLER    , 1, 1, b::SHADER_VISIBILITY_ALL_GRAPHICS_COMPUTE, b::DESCRIPTOR_FLAG_NONE)
+        .SetFlags(b::DESCRIPTOR_SET_LAYOUT_FLAG_NONE)
+        .Finalize();
+    bmr = device->CreateDescriptorSetLayout(layout_desc.Get(), &texture_layout);
     BMR_RET_IF_FAILED(bmr);
 
     return true;
 }
-bool HelloImGui::CreateDescriptorPool()
+bool HelloImGui::CreatePipelineLayout()
 {
-    uint32_t max_num_register_space{};
-    std::vector<b::DESCRIPTOR_POOL_SIZE> pool_sizes;
+    util::PipelineLayoutDesc desc(2, 0);
+    desc
+        .SetNumLayouts(2)
+        .SetLayout(0, buffer_layout.Get())  // space0 モデル定数, シーン定数
+        .SetLayout(1, texture_layout.Get()) // space1 テクスチャ
+        .SetFlags(b::PIPELINE_LAYOUT_FLAG_NONE)
+        .Finalize();
 
-    if constexpr (false)
-    {
-        pool_sizes.resize(signature->GetDescriptorPoolRequirementSizes(BACK_BUFFER_COUNT, &max_num_register_space, nullptr));
-        signature->GetDescriptorPoolRequirementSizes(BACK_BUFFER_COUNT, &max_num_register_space, pool_sizes.data());
-    }
-    else
-    {
-        pool_sizes.resize(device->GetDescriptorPoolSizesAllocationInfo(1, signature.GetAddressOf(), &BACK_BUFFER_COUNT, &max_num_register_space, nullptr));
-        device->GetDescriptorPoolSizesAllocationInfo(1, signature.GetAddressOf(), &BACK_BUFFER_COUNT, &max_num_register_space, pool_sizes.data());
-    }
+    auto bmr = device->CreatePipelineLayout(desc.Get(), &pipeline_layout);
+    BMR_RET_IF_FAILED(bmr);
 
-    assert(pool_sizes[0].type == b::DESCRIPTOR_TYPE_CBV);
-    assert(pool_sizes[0].num_descriptors == 6);
+    return true;
+}
+bool HelloImGui::CreateDescriptorHeapAndPool()
+{
+    util::DescriptorSizes sizes;
+    sizes.IncrementSizes(buffer_layout.Get(), BACK_BUFFER_COUNT)
+         .IncrementSizes(texture_layout.Get(), 1)
+         .Finalize();
 
-    b::DESCRIPTOR_POOL_DESC pool_desc{};
-    pool_desc.flags                     = b::DESCRIPTOR_POOL_FLAG_COPY_SRC;
-    pool_desc.max_sets_allocation_count = BACK_BUFFER_COUNT;
-    pool_desc.max_num_register_space    = max_num_register_space;
+    b::BMRESULT bmr;
+    bmr = device->CreateDescriptorHeap(sizes.GetAsHeapDesc(b::DESCRIPTOR_HEAP_FLAG_NONE, b::B3D_DEFAULT_NODE_MASK), &descriptor_heap);
+    BMR_RET_IF_FAILED(bmr);
 
-    pool_desc.num_pool_sizes = (uint32_t)pool_sizes.size();
-    pool_desc.pool_sizes     = pool_sizes.data();
-    pool_desc.node_mask      = b::B3D_DEFAULT_NODE_MASK;
-
-    auto bmr = device->CreateDescriptorPool(pool_desc, &descriptor_pool);
+    bmr = device->CreateDescriptorPool(sizes.GetAsPoolDesc(descriptor_heap.Get(), sizes.GetMaxSetsByTotalMultiplyCount(), b::DESCRIPTOR_POOL_FLAG_NONE), &descriptor_pool);
     BMR_RET_IF_FAILED(bmr);
 
     return true;
 }
 bool HelloImGui::AllocateDescriptorSets()
 {
-    descriptor_sets.resize(BACK_BUFFER_COUNT);
-    for (auto& i : descriptor_sets)
-    {
-        auto bmr = descriptor_pool->AllocateDescriptorSet(signature.Get(), &i);
-        BMR_RET_IF_FAILED(bmr);
-    }
+    util::DescriptorSetAllocateDesc allocate_desc(BACK_BUFFER_COUNT + 1);
+
+    // buffer_descriptor_setsをBACK_BUFFER_COUNT数分割り当てます。
+
+    allocate_desc.SetNumDescriptorSets(BACK_BUFFER_COUNT + 1);
+    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
+        allocate_desc.SetDescriptorSetLayout(i, buffer_layout.Get());
+    allocate_desc.SetDescriptorSetLayout(BACK_BUFFER_COUNT, texture_layout.Get());
+    allocate_desc.Finalize();
+
+    auto&& [num_sets, dst_sets] = allocate_desc.GetDst();
+    auto bmr = descriptor_pool->AllocateDescriptorSets(allocate_desc.Get(), dst_sets);
+    BMR_RET_IF_FAILED(bmr);
+
+    buffer_descriptor_sets.resize(BACK_BUFFER_COUNT);
+    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
+        buffer_descriptor_sets[i] = dst_sets[i];
+
+    texture_descriptor_set = dst_sets[BACK_BUFFER_COUNT];
+
     return true;
 }
 bool HelloImGui::CreateRenderPass()
@@ -370,7 +378,7 @@ bool HelloImGui::CreateRenderPass()
 
     b::ATTACHMENT_REFERENCE color_attachment_ref{};
     color_attachment_ref.attachment_index             = 0;
-    color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE;
+    color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_WRITE;
     color_attachment_ref.stencil_state_at_pass        = {};
     color_attachment_ref.input_attachment_aspect_mask = b::TEXTURE_ASPECT_FLAG_COLOR;
 
@@ -438,18 +446,13 @@ bool HelloImGui::CreateShaderModules()
     b::BMRESULT bmr{};
     shader_modules.resize(2);
     shader::LOAD_SHADER_DESC desc{};
-    desc.options.packMatricesInRowMajor     = false;       // Experimental: Decide how a matrix get packed
-    desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
-    desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
-    desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+    desc.options.pack_matrices_in_row_major = false;       // Experimental: Decide how a matrix get packed
+    desc.options.enable16bit_types          = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
+    desc.options.enable_debug_info          = false;       // Embed debug info into the binary
+    desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
 
-    desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
-    desc.options.shaderModel                = { 6, 2 };
-
-    desc.options.shiftAllTexturesBindings   = 1;// register(t0, space0) -> register(t1, space0)
-    desc.options.shiftAllSamplersBindings   = 2;// register(s0, space0) -> register(s2, space0)
-    desc.options.shiftAllCBuffersBindings   = 0;
-    desc.options.shiftAllUABuffersBindings  = 0;
+    desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
+    desc.options.shader_model               = { 6, 2 };
 
     auto&& loader = dr->GetShaderLoader();
     // vs
@@ -499,7 +502,7 @@ bool HelloImGui::CreateGraphicsPipelines()
     {
         b::GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
 
-        pso_desc.root_signature       = signature.Get();
+        pso_desc.pipeline_layout      = pipeline_layout.Get();
         pso_desc.render_pass          = render_pass.Get();
         pso_desc.subpass              = 0;
         pso_desc.node_mask            = b::B3D_DEFAULT_NODE_MASK;
@@ -616,12 +619,12 @@ bool HelloImGui::CreateGraphicsPipelines()
         b::BLEND_STATE_DESC bs{};
         b::RENDER_TARGET_BLEND_DESC attachments{};
         {
-            attachments.is_enabled_blend    = false;
-            attachments.src_blend           = b::BLEND_FACTOR_ONE;
-            attachments.dst_blend           = b::BLEND_FACTOR_ONE;
+            attachments.is_enabled_blend    = true;
+            attachments.src_blend           = b::BLEND_FACTOR_SRC_ALPHA;
+            attachments.dst_blend           = b::BLEND_FACTOR_SRC_ALPHA_INVERTED;
             attachments.blend_op            = b::BLEND_OP_ADD;
             attachments.src_blend_alpha     = b::BLEND_FACTOR_ONE;
-            attachments.dst_blend_alpha     = b::BLEND_FACTOR_ONE;
+            attachments.dst_blend_alpha     = b::BLEND_FACTOR_ZERO;
             attachments.blend_op_alpha      = b::BLEND_OP_ADD;
             attachments.color_write_mask    = b::COLOR_WRITE_FLAG_ALL;
 
@@ -714,11 +717,6 @@ bool HelloImGui::CreateFences()
         BMR_RET_IF_FAILED(bmr);
         i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
     }
-
-    fd.type = b::FENCE_TYPE_BINARY_GPU_TO_GPU;
-    bmr = device->CreateFence(fd, &render_complete_fence);
-    BMR_RET_IF_FAILED(bmr);
-    render_complete_fence->SetName("render_complete_fence");
 
     return true;
 }
@@ -896,11 +894,13 @@ bool HelloImGui::CopyDataToTexture()
     copy_ctx.Begin();
     {
         util::PipelineBarrierDesc bd{};
-        util::TextureBarrierRange tex{};
+        util::TextureBarrierRange tex(&bd);
+        tex .SetTexture(texture.texture->GetB3DTexture().Get())
+            .AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels)
+            .Finalize();
 
-        tex.AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels);
-        bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_UNDEFINED, b::RESOURCE_STATE_COPY_DST_WRITE);
-        copy_ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COPY_RESOLVE));
+        bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_UNDEFINED, b::RESOURCE_STATE_COPY_DST_WRITE);
+        copy_ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COPY_RESOLVE).Finalize().Get());
 
         for (size_t i = 0; i < data_desc.num_mips; i++)
         {
@@ -916,14 +916,14 @@ bool HelloImGui::CopyDataToTexture()
         if (copy_ctx.GetCommandType() == b::COMMAND_TYPE_COPY_ONLY)
         {
             // 所有権をコピーキューから開放します。
-            bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
-                                 , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
-            copy_ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE));
+            bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
+                                      , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
+            copy_ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE).Finalize().Get());
         }
         else
         {
-            bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ);
-            copy_ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS));
+            bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ);
+            copy_ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS).Finalize().Get());
         }
     }
     copy_ctx.End(copy_ctx.GetGpuWaitFence());
@@ -935,11 +935,13 @@ bool HelloImGui::CopyDataToTexture()
         ctx.Begin();
         {
             util::PipelineBarrierDesc bd{};
-            util::TextureBarrierRange tex{};
-            tex.AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels);
-            bd.AddTextureBarrier(tex.Get(texture.texture->GetB3DTexture().Get()), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
-                                 , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
-            ctx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS));
+            util::TextureBarrierRange tex(&bd);
+            tex .SetTexture(texture.texture->GetB3DTexture().Get())
+                .AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels)
+                .Finalize();
+            bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
+                                      , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
+            ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS).Finalize().Get());
         }
         ctx.End(ctx.GetGpuWaitFence());
         BMR_RET_IF_FAILED(ctx.WaitOnCpu());
@@ -973,16 +975,16 @@ bool HelloImGui::CreateSampler()
     sd.filter.reduction_mode  = b::SAMPLER_FILTER_REDUCTION_MODE_STANDARD;
     sd.filter.max_anisotropy  = (uint32_t)dr->GetDeviceAdapterLimits().max_sampler_anisotropy;
     sd.filter.comparison_func = b::COMPARISON_FUNC_NEVER;
-    sd.texture.address.u  = b::TEXTURE_ADDRESS_MODE_WRAP;
-    sd.texture.address.v  = b::TEXTURE_ADDRESS_MODE_WRAP;
-    sd.texture.address.w  = b::TEXTURE_ADDRESS_MODE_WRAP;
+    sd.texture.address.u  = b::TEXTURE_ADDRESS_MODE_BORDER;
+    sd.texture.address.v  = b::TEXTURE_ADDRESS_MODE_BORDER;
+    sd.texture.address.w  = b::TEXTURE_ADDRESS_MODE_BORDER;
     sd.texture.sample.minification  = b::TEXTURE_SAMPLE_MODE_LINEAR;
     sd.texture.sample.magnification = b::TEXTURE_SAMPLE_MODE_LINEAR;
     sd.texture.sample.mip           = b::TEXTURE_SAMPLE_MODE_LINEAR;
     sd.mip_lod.min    = 0.f;
     sd.mip_lod.max    = FLT_MAX;
     sd.mip_lod.bias   = 0.f;
-    sd.border_color   = b::BORDER_COLOR_OPAQUE_BLACK_FLOAT;
+    sd.border_color   = b::BORDER_COLOR_TRANSPARENT_BLACK_FLOAT;
 
     auto bmr = device->CreateSampler(sd, &sampler);
     BMR_RET_IF_FAILED(bmr);
@@ -992,64 +994,26 @@ bool HelloImGui::CreateSampler()
 bool HelloImGui::UpdateDescriptorSets()
 {
     util::UpdateDescriptorSetDesc update_desc{};
-    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
+    for (uint32_t i_frame = 0; i_frame < BACK_BUFFER_COUNT; i_frame++)
     {
-        auto&& write_set = update_desc.AddNewWriteDescriptorSets();
-
-        // モデル定数
-        auto&& write_table_model_cb = write_set.AddNewWriteDescriptorTable();
-        write_table_model_cb.AddNewWriteDescriptorRange()
-            .SetDstRange(0, 0, 1)
-            .SetSrcView(0, frame_cbs[i].model_cbv.Get());
-        write_table_model_cb.Finalize(0);
-
-        // シーン定数
-        auto&& write_table_scene_cb = write_set.AddNewWriteDescriptorTable();
-        write_table_scene_cb.AddNewWriteDescriptorRange()
-            .SetDstRange(0, 0, 1)
-            .SetSrcView(0, frame_cbs[i].scene_cbv.Get());
-        write_table_scene_cb.Finalize(1);
-
-        if (i == 0)// 最初のセットのみに書き込みます。 
-        {
-            // テクスチャ
-            auto&& write_table_texture = write_set.AddNewWriteDescriptorTable();
-            write_table_texture.AddNewWriteDescriptorRange()
-                .SetDstRange(0, 0, 1)
-                .SetSrcView(0, texture.srv.Get());
-            write_table_texture.Finalize(2);
-
-            // サンプラー
-            auto&& write_table_sampler = write_set.AddNewWriteDescriptorTable();
-            write_table_sampler.AddNewWriteDescriptorRange()
-                .SetDstRange(0, 0, 1)
-                .SetSrcView(0, sampler.Get());
-            write_table_sampler.Finalize(3);
-        }
-
-        write_set.Finalize(descriptor_sets[i].Get());
+        update_desc.AddNewWriteDescriptorSet()
+            .SetDst(buffer_descriptor_sets[i_frame].Get())
+            .AddNewWriteDescriptorBinding().SetNumDescriptors(1).SetDstBinding(0, 0).SetSrcView(0, frame_cbs[i_frame].model_cbv.Get()).Finalize()
+            .AddNewWriteDescriptorBinding().SetNumDescriptors(1).SetDstBinding(1, 0).SetSrcView(0, frame_cbs[i_frame].scene_cbv.Get()).Finalize()
+            .Finalize();
     }
-
-    // テクスチャ、サンプラをコピー
-    for (uint32_t i = 1; i < BACK_BUFFER_COUNT; i++)
-    {
-        auto&& copy_set = update_desc.AddNewCopyDescriptorSets();
-
-        // テクスチャ
-        copy_set.AddNewCopyTable()
-            .SetRootParameterIndex(2, 2)
-            .AddRange(0, 0, 0, 0, 1);
-
-        // サンプラー
-        copy_set.AddNewCopyTable()
-            .SetRootParameterIndex(3, 3)
-            .AddRange(0, 0, 0, 0, 1);
-
-        copy_set.Finalize(descriptor_sets[0].Get(), descriptor_sets[i].Get());
-    }
+    update_desc.AddNewWriteDescriptorSet()
+        .SetDst(texture_descriptor_set.Get())
+        .AddNewWriteDescriptorBinding().SetNumDescriptors(1).SetDstBinding(0, 0).SetSrcView(0, texture.srv.Get()).Finalize()
+        .AddNewWriteDescriptorBinding().SetNumDescriptors(1).SetDstBinding(1, 0).SetSrcView(0, sampler.Get()).Finalize()
+        .Finalize();
 
     update_desc.Finalize();
-    auto bmr = device->UpdateDescriptorSets(update_desc.Get());
+
+    auto bmr = device->CreateDescriptorUpdate({}, &descriptor_update);
+    BMR_RET_IF_FAILED(bmr);
+
+    bmr = descriptor_update->UpdateDescriptorSets(update_desc.Get());
     BMR_RET_IF_FAILED(bmr);
 
     return true;
@@ -1063,6 +1027,7 @@ bool HelloImGui::InitMyImGui()
 
     auto data_win = static_cast<const b::SURFACE_PLATFORM_DATA_WINDOWS*>(swapchain->GetSurface()->GetDesc().platform_data.data);
     gui_cd.window_handle = data_win->hwnd;
+    gui_cd.flags         = gui::MYIMGUI_CREATE_FLAG_DESCRIPTOR_POOL_FEEDING /*| gui::MYIMGUI_CREATE_FLAG_USE_SINGLE_COMMAND_LIST*/;
 
     gui_cd.config_flags           = ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable | ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableSetMousePos;
     gui_cd.framebuffer_format     = swapchain->GetBuffers()[0].tex->GetDesc().texture.format_desc.format;
@@ -1115,14 +1080,17 @@ void HelloImGui::PrepareFrame(uint32_t _buffer_index)
         barrier.dst_stages           = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
         l->PipelineBarrier(barrier);
 
+        l->SetPipelineLayout(b::PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout.Get());
         l->SetPipelineState(pipeline.Get());
-        l->SetRootSignature(b::PIPELINE_BIND_POINT_GRAPHICS, signature.Get());
 
-        b::CMD_BIND_DESCRIPTOR_SET bind_sets{};
-        bind_sets.descriptor_set                 = descriptor_sets.data()[_buffer_index].Get();
-        bind_sets.num_dynamic_descriptor_offsets = 0;
-        bind_sets.dynamic_descriptor_offsets     = nullptr;
-        l->BindDescriptorSet(b::PIPELINE_BIND_POINT_GRAPHICS, bind_sets);
+        b::IDescriptorSet* sets[2] = { buffer_descriptor_sets[_buffer_index].Get(), texture_descriptor_set.Get() };
+        b::CMD_BIND_DESCRIPTOR_SETS bind_sets{};
+        bind_sets.first_set                         = 0;
+        bind_sets.num_descriptor_sets               = 2;
+        bind_sets.descriptor_sets                   = sets;
+        bind_sets.num_dynamic_descriptor_offsets    = 0;
+        bind_sets.dynamic_descriptor_offsets        = nullptr;
+        l->BindDescriptorSets(b::PIPELINE_BIND_POINT_GRAPHICS, bind_sets);
 
         l->BindVertexBufferViews({ 0, 1, vertex_buffer_view.GetAddressOf() });
         //l->BindIndexBufferView(index_buffer_view.Get());
@@ -1141,7 +1109,7 @@ void HelloImGui::PrepareFrame(uint32_t _buffer_index)
 
             ////             { index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location }
             //l->DrawIndexed({ 4                       , 1             , 0                   , 0                   , 0                       });            
-            l->Draw({ 4, 1, 0, 0 });
+            l->Draw({ 3, 1, 0, 0 });
         }
         l->EndRenderPass({});
     }
@@ -1237,7 +1205,7 @@ void HelloImGui::Update()
 void HelloImGui::MoveToNextFrame()
 {
     uint32_t next_buffer_index = 0;
-    auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index);
+    auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index, true);
     assert(bmr == b::BMRESULT_SUCCEED || bmr == b::BMRESULT_SUCCEED_NOT_READY);
 
     back_buffer_index = next_buffer_index;
@@ -1254,49 +1222,36 @@ void HelloImGui::Render()
 
     // コマンドリストとフェンスを送信
     {
-        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait, UINT32_MAX);
+        // 待機フェンス
+        //cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         //PrepareFrame(back_buffer_index);
 
-        // 待機フェンス
-        wait_fence_desc.Reset();
-        wait_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait);
-        wait_fence_desc.AddFence(swapchain_fences->signal_fence.Get(), 0);
+        wait_fence_desc.Reset().AddFence(swapchain_fences->signal_fence.Get(), 0).Finalize();
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
         // コマンドリスト
         submit_info.command_lists_to_execute = cmd_lists_data[back_buffer_index].GetAddressOf();
 
         // シグナルフェンス
-        signal_fence_desc.Reset();
-        signal_fence_desc.AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal);
-        signal_fence_desc.AddFence(render_complete_fence.Get(), 0);
+        signal_fence_desc.Reset().AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal()).Finalize();
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
+        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
         bmr = command_queue->Submit(submit);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
     if (is_enabled_gui)
     {
-        ImmediateContext ictx(ctx);
-        util::PipelineBarrierDesc bd{};
-        bd.AddTextureBarrier(back_buffers->data()[back_buffer_index].rtv.Get(), b::RESOURCE_STATE_PRESENT, b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE);
-        ictx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT));
-
-        myimgui->DrawGui(myimgui_framebuffers[back_buffer_index].Get());
-
-        bd.Reset();
-        bd.AddTextureBarrier(back_buffers->data()[back_buffer_index].rtv.Get(), b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE, b::RESOURCE_STATE_PRESENT);
-        ictx.PipelineBarrier(bd.Get(b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT, b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE));
+        myimgui->DrawGui(myimgui_framebuffers[back_buffer_index].Get(), b::RESOURCE_STATE_PRESENT, b::RESOURCE_STATE_PRESENT);
+        myimgui->SubmitCommands();
+        myimgui->PresentViewports();
     }
 
     // バックバッファをプレゼント
     {
-        swapchain_fences->signal_fence_to_cpu->Wait(0, UINT32_MAX);
-        swapchain_fences->signal_fence_to_cpu->Reset();
-
-        present_info.wait_fence = render_complete_fence.Get();
-        bmr = swapchain->Present(present_info);
+        present_info.wait_fence = nullptr;
+        bmr = swapchain->Present(present_info, true);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
@@ -1373,8 +1328,11 @@ void HelloImGui::Term()
         i->Reset(b::COMMAND_ALLOCATOR_RESET_FLAG_RELEASE_RESOURCES);
     cmd_lists = {};
     cmd_allocator = {};
-    descriptor_sets = {};
+    buffer_descriptor_sets = {};
+    texture_descriptor_set.Reset();
     descriptor_pool.Reset();
+    descriptor_heap.Reset();
+    descriptor_update.Reset();
     copy_ctx.Reset();
     ctx.Reset();
     for (auto& i : frame_cbs)
@@ -1396,7 +1354,9 @@ void HelloImGui::Term()
     shader_modules = {};
     framebuffers = {};
     render_pass.Reset();
-    signature.Reset();
+    pipeline_layout.Reset();
+    buffer_layout.Reset();
+    texture_layout.Reset();
     back_buffers = nullptr;
     swapchain.reset();
     command_queue.Reset();

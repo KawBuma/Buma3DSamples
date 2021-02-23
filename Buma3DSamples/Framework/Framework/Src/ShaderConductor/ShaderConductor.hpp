@@ -167,6 +167,15 @@ namespace ShaderConductor
             std::function<Blob(const char* includeName)> loadIncludeCallback;
         };
 
+        struct RegisterShift
+        {
+            uint32_t space;
+            int shiftTexturesBindings;
+            int shiftSamplersBindings;
+            int shiftCBuffersBindings;
+            int shiftUABuffersBindings;
+        };
+
         struct Options
         {
             bool packMatricesInRowMajor = true; // Experimental: Decide how a matrix get packed
@@ -182,6 +191,9 @@ namespace ShaderConductor
             int shiftAllSamplersBindings = 0;
             int shiftAllCBuffersBindings = 0;
             int shiftAllUABuffersBindings = 0;
+
+            const RegisterShift* registerShifts = nullptr;
+            uint32_t numRegisterShifts = 0;
         };
 
         struct TargetDesc

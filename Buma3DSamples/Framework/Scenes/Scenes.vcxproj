@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{b68e67ab-72bc-4a8b-88d2-523e3592aa75}</ProjectGuid>
+    <RootNamespace>Scenes</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)\..\TextureLoads\Inc;$(ProjectDir)\Inc;$(ProjectDir)\Src;$(ProjectDir)\Src\External\glTF-SDK\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalDependencies>GLTFSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+    <Lib>
+      <AdditionalLibraryDirectories>$(ProjectDir)\Src\External\glTF-SDK\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\External\rapidjson\include;$(ProjectDir)\..\TextureLoads\Inc;$(ProjectDir)\Inc;$(ProjectDir)\Src;$(ProjectDir)\Src\External\glTF-SDK\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <AdditionalOptions>/source-charset: utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>
+      </SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalDependencies>GLTFSDK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+    <Lib>
+      <AdditionalLibraryDirectories>$(ProjectDir)\Src\External\glTF-SDK\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="Inc\Scenes.h" />
+    <ClInclude Include="Inc\ScenesLoader.h" />
+    <ClInclude Include="Src\Components\AABBComponent.h" />
+    <ClInclude Include="Src\Components\BufferComponent.h" />
+    <ClInclude Include="Src\Components\BufferViewComponent.h" />
+    <ClInclude Include="Src\Components\CameraComponent.h" />
+    <ClInclude Include="Src\Components\IndexBufferComponent.h" />
+    <ClInclude Include="Src\Components\IndexLayoutComponent.h" />
+    <ClInclude Include="Src\Components\LightComponent.h" />
+    <ClInclude Include="Src\Components\LightPropertyComponent.h" />
+    <ClInclude Include="Src\Components\MaterialComponent.h" />
+    <ClInclude Include="Src\Components\MaterialPropertyComponent.h" />
+    <ClInclude Include="Src\Components\MeshComponent.h" />
+    <ClInclude Include="Src\Components\Node.h" />
+    <ClInclude Include="Src\Components\SamplerComponent.h" />
+    <ClInclude Include="Src\Components\SubmeshComponent.h" />
+    <ClInclude Include="Src\Components\TextureComponent.h" />
+    <ClInclude Include="Src\Components\TransformComponent.h" />
+    <ClInclude Include="Src\Components\ValueComponent.h" />
+    <ClInclude Include="Src\Components\VertexBufferComponent.h" />
+    <ClInclude Include="Src\Components\VertexElementComponent.h" />
+    <ClInclude Include="Src\Components\VertexLayoutComponent.h" />
+    <None Include="Src\Components\_comptemp.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <ClInclude Include="Src\Loader\ScenesLoaderGltf.h" />
+    <ClInclude Include="Src\pch.h" />
+    <ClInclude Include="Src\Scene.h" />
+    <ClInclude Include="Src\ScenesImpl.h" />
+    <ClInclude Include="Src\ScenesObject.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Src\Components\AABBComponent.cpp" />
+    <ClCompile Include="Src\Components\BufferComponent.cpp" />
+    <ClCompile Include="Src\Components\BufferViewComponent.cpp" />
+    <ClCompile Include="Src\Components\CameraComponent.cpp" />
+    <ClCompile Include="Src\Components\IndexBufferComponent.cpp" />
+    <ClCompile Include="Src\Components\IndexLayoutComponent.cpp" />
+    <ClCompile Include="Src\Components\LightComponent.cpp" />
+    <ClCompile Include="Src\Components\LightPropertyComponent.cpp" />
+    <ClCompile Include="Src\Components\MaterialComponent.cpp" />
+    <ClCompile Include="Src\Components\MaterialPropertyComponent.cpp" />
+    <ClCompile Include="Src\Components\MeshComponent.cpp" />
+    <ClCompile Include="Src\Components\Node.cpp" />
+    <ClCompile Include="Src\Components\SamplerComponent.cpp" />
+    <ClCompile Include="Src\Components\SubmeshComponent.cpp" />
+    <ClCompile Include="Src\Components\TextureComponent.cpp" />
+    <ClCompile Include="Src\Components\TransformComponent.cpp" />
+    <ClCompile Include="Src\Components\ValueComponent.cpp" />
+    <ClCompile Include="Src\Components\VertexBufferComponent.cpp" />
+    <ClCompile Include="Src\Components\VertexElementComponent.cpp" />
+    <ClCompile Include="Src\Components\VertexLayoutComponent.cpp" />
+    <None Include="Src\Components\_comptemp.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <ClCompile Include="Src\Loader\ScenesLoaderGltf.cpp" />
+    <ClCompile Include="Src\pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Src\Scene.cpp" />
+    <ClCompile Include="Src\ScenesImpl.cpp" />
+    <ClCompile Include="Src\ScenesObject.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\..\..\packages\glm.0.9.9.800\build\native\glm.targets" Condition="Exists('..\..\..\packages\glm.0.9.9.800\build\native\glm.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>このプロジェクトは、このコンピューター上にない NuGet パッケージを参照しています。それらのパッケージをダウンロードするには、[NuGet パッケージの復元] を使用します。詳細については、http://go.microsoft.com/fwlink/?LinkID=322105 を参照してください。見つからないファイルは {0} です。</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\..\..\packages\glm.0.9.9.800\build\native\glm.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\..\..\packages\glm.0.9.9.800\build\native\glm.targets'))" />
+  </Target>
+</Project>

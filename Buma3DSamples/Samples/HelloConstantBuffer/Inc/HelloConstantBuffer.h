@@ -27,7 +27,9 @@ public:
     bool Init() override;
     bool InitSwapChain();
     bool LoadAssets();
-    bool CreateRootSignature();
+    bool CreateDescriptorSetLayout();
+    bool CreatePipelineLayout();
+    bool CreateDescriptorHeap();
     bool CreateDescriptorPool();
     bool AllocateDescriptorSets();
     bool CreateRenderPass();
@@ -45,7 +47,7 @@ public:
     bool CreateBufferViews();
     bool CreateConstantBuffer();
     bool CreateConstantBufferView();
-    bool WriteDescriptorSet();
+    bool UpdateDescriptorSet();
 
     void Tick() override;
     void Update();
@@ -60,15 +62,6 @@ public:
 
 private:
     void PrepareFrame(uint32_t buffer_index);
-
-private:
-    struct FENCE_VALUES {
-        FENCE_VALUES& operator++()    { ++wait; ++signal; return *this; } 
-        FENCE_VALUES  operator++(int) { auto tmp = *this; wait++; signal++; return tmp; }
-        uint64_t wait   = 0;
-        uint64_t signal = 1;
-    };
-    enum SCF { PRESENT_COMPLETE, RENDER_COMPLETE, SWAPCHAIN_FENCE_NUM };
 
 private:
     struct VERTEX {
@@ -123,12 +116,14 @@ private:
     std::vector<buma3d::util::Ptr<buma3d::ICommandList>>        cmd_lists;
 
     buma3d::util::Ptr<buma3d::IFence>                           util_fence;
-    FENCE_VALUES                                                fence_values[BACK_BUFFER_COUNT];
+    util::FENCE_VALUES                                          fence_values[BACK_BUFFER_COUNT];
     std::vector<buma3d::util::Ptr<buma3d::IFence>>              cmd_fences;
-    buma3d::util::Ptr<buma3d::IFence>                           render_complete_fence;
 
-    buma3d::util::Ptr<buma3d::IRootSignature>                   signature;
+    buma3d::util::Ptr<buma3d::IDescriptorSetLayout>             descriptor_set_layout;
+    buma3d::util::Ptr<buma3d::IPipelineLayout>                  pipeline_layout;
+    buma3d::util::Ptr<buma3d::IDescriptorHeap>                  descriptor_heap;
     buma3d::util::Ptr<buma3d::IDescriptorPool>                  descriptor_pool;
+    buma3d::util::Ptr<buma3d::IDescriptorUpdate>                descriptor_update;
     std::vector<buma3d::util::Ptr<buma3d::IDescriptorSet>>      descriptor_sets;
 
     buma3d::util::Ptr<buma3d::IRenderPass>                      render_pass;

@@ -24,7 +24,7 @@ struct VERTEX_BUFFER_CONSTANT
 {
     float4x4 ProjectionMatrix;
 };
-[[vk::push_constant]] ConstantBuffer<VERTEX_BUFFER_CONSTANT> constant : register(b0, space0);
+[[vk::push_constant]] ConstantBuffer<VERTEX_BUFFER_CONSTANT> constant : register(b1, space0);
 
 
 struct VS_INPUT
@@ -105,13 +105,11 @@ public:
     bool BuildTextureAtlas();
     void CopyDataToTexture(size_t _aligned_row_pitch, size_t _texture_height, void* _mem);
     bool CreateShaderResourceView();
-    bool CreateRootSignature();
+    bool CreateDescriptorSetLayouts();
+    bool CreatePipelineLayout();
     bool CreateRenderPass();
     bool CreateShaderModules();
     bool CreateGraphicsPipelines();
-    bool CreateFontDescriptorPool();
-    bool AllocateFontDescriptorSet();
-    bool WriteFontSrv();
 
     void OnProcessMessage(ProcessMessageEventArgs* _args);
 
@@ -120,10 +118,24 @@ public:
     RENDER_RESOURCE& GetRenderResource() { return rr; }
 
     void NewFrame();
-    void DrawGui(buma3d::IFramebuffer* _framebuffer);
-
+    void DrawGui(buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after);
+    void RecordGuiCommands(buma3d::ICommandList* _list, buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after);
+    void SubmitCommands();
+    void PresentViewports();
     void Destroy();
 
+    // (Optional) Platform functions (e.g. Win32, GLFW, SDL2)
+    //   N = ImGui::NewFrame()                        ~ beginning of the dear imgui frame: read info from platform/OS windows (latest size/position)
+    //   F = ImGui::Begin(), ImGui::EndFrame()        ~ during the dear imgui frame
+    //   U = ImGui::UpdatePlatformWindows()           ~ after the dear imgui frame: create and update all platform/OS windows
+    //   R = ImGui::RenderPlatformWindowsDefault()    ~ render
+    //   D = ImGui::DestroyPlatformWindows()          ~ shutdown
+    // 一般的な考え方は、NewFrame()が現在のPlatform/OSの状態を読み取り、UpdatePlatformWindows()がそれに書き込むというものです。
+    // 
+    // 関数は、2つのimgui_impl_xxxxファイルを組み合わせることができるように設計されています。1つはプラットフォーム（〜ウィンドウ/入力処理）用、もう1つはレンダラー用です。
+    // カスタムエンジンバックエンドは、多くの場合、プラットフォームインターフェイスとレンダラーインターフェイスの両方を提供するため、すべての機能を使用する必要はありません。
+    // プラットフォーム関数は通常、他の方法で呼び出されるDestroyを除いて、対応するレンダラーの前に呼び出されます。
+    // 
     // CreateWindow  : // . . U . . スワップチェーン、フレームバッファーなどを作成します（Platform_CreateWindowの後に呼び出されます）
     // DestroyWindow : // N . U . D スワップチェーン、フレームバッファなどを破棄します（Platform_DestroyWindowの前に呼び出されます）
     // SetWindowSize : // . . U . . スワップチェーン、フレームバッファーなどのサイズを変更します（Platform_SetWindowSizeの後に呼び出されます）
@@ -204,15 +216,14 @@ bool MyImGui::MyImGuiImpl::Init(const MYIMGUI_CREATE_DESC& _desc)
     RET_IF_FAILED(CreateSampler());
     RET_IF_FAILED(BuildTextureAtlas());
     RET_IF_FAILED(CreateShaderResourceView());
-    RET_IF_FAILED(CreateRootSignature());
+    RET_IF_FAILED(CreateDescriptorSetLayouts());
+    RET_IF_FAILED(CreatePipelineLayout());
     RET_IF_FAILED(CreateRenderPass());
     RET_IF_FAILED(CreateShaderModules());
     RET_IF_FAILED(CreateGraphicsPipelines());
-    RET_IF_FAILED(CreateFontDescriptorPool());
-    RET_IF_FAILED(AllocateFontDescriptorSet());
-    RET_IF_FAILED(WriteFontSrv());
+    rr.flags = desc.flags;
 
-    renderer = std::make_unique<MyImGuiRenderer>(rr);
+    renderer = std::make_unique<MyImGuiRenderer>(rr, /*viewport*/false, /*primary*/true);
     return true;
 }
 
@@ -244,7 +255,7 @@ bool MyImGui::MyImGuiImpl::BuildTextureAtlas()
 {
     auto&& io = ImGui::GetIO();
 
-    ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\Cica-Regular.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
+    ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\Meiryo.ttc", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     IM_ASSERT(font != NULL);
 
     // アライメントのためにpixel_dataのデータをmemにコピー
@@ -287,20 +298,24 @@ void MyImGui::MyImGuiImpl::CopyDataToTexture(size_t _aligned_row_pitch, size_t _
 
     ctx.Begin();
     {
-        util::TextureBarrierRange br{};
         util::PipelineBarrierDesc pb{};
+        util::TextureBarrierRange br(&pb);
         auto ft = rr.font_texture->GetB3DTexture().Get();
-        br.AddSubresRange(buma3d::TEXTURE_ASPECT_FLAG_COLOR, 0, 0);
+        br.AddSubresRange(buma3d::TEXTURE_ASPECT_FLAG_COLOR, 0, 0).SetTexture(ft).Finalize();
 
-        pb.AddTextureBarrier(br.Get(ft), buma3d::RESOURCE_STATE_UNDEFINED, buma3d::RESOURCE_STATE_COPY_DST_WRITE);
-        ctx.PipelineBarrier(pb.Get(buma3d::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, buma3d::PIPELINE_STAGE_FLAG_COPY_RESOLVE));
+        pb.AddTextureBarrierRange(&br.Get(), buma3d::RESOURCE_STATE_UNDEFINED, buma3d::RESOURCE_STATE_COPY_DST_WRITE)
+          .SetPipelineStageFalgs(buma3d::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, buma3d::PIPELINE_STAGE_FLAG_COPY_RESOLVE)
+          .Finalize();
+        ctx.PipelineBarrier(pb.Get());
 
-        ctx.CopyDataToTexture(rr.font_texture->GetB3DTexture().Get(), 0, 0, _aligned_row_pitch, _texture_height, _aligned_row_pitch * _texture_height, _mem);
+        ctx.CopyDataToTexture(ft, 0, 0, _aligned_row_pitch, _texture_height, _aligned_row_pitch * _texture_height, _mem);
         //ctx.GenerateMips(*font_texture);
 
-        pb.Reset();
-        pb.AddTextureBarrier(br.Get(ft), buma3d::RESOURCE_STATE_COPY_DST_WRITE, buma3d::RESOURCE_STATE_SHADER_READ);
-        ctx.PipelineBarrier(pb.Get(buma3d::PIPELINE_STAGE_FLAG_COPY_RESOLVE, buma3d::PIPELINE_STAGE_FLAG_PIXEL_SHADER));
+        pb.Reset()
+          .AddTextureBarrierRange(&br.Get(), buma3d::RESOURCE_STATE_COPY_DST_WRITE, buma3d::RESOURCE_STATE_SHADER_READ)
+          .SetPipelineStageFalgs(buma3d::PIPELINE_STAGE_FLAG_COPY_RESOLVE, buma3d::PIPELINE_STAGE_FLAG_PIXEL_SHADER)
+          .Finalize();
+        ctx.PipelineBarrier(pb.Get());
     }
     ctx.End(ctx.GetGpuWaitFence());
     ctx.WaitOnCpu();
@@ -325,27 +340,45 @@ bool MyImGui::MyImGuiImpl::CreateShaderResourceView()
 
     return true;
 }
-bool MyImGui::MyImGuiImpl::CreateRootSignature()
+bool MyImGui::MyImGuiImpl::CreateDescriptorSetLayouts()
 {
-    util::RootSignatureDesc rootsig_desc{};
-    {        
-        auto&& matrix_cb = rootsig_desc.AddNewRootParameter();
-        matrix_cb.InitAsPush32BitConstants(sizeof(float[4][4]) / 4, 0, 0);
-        matrix_cb.SetShaderVisibility(buma3d::SHADER_VISIBILITY_VERTEX);
-
-        rootsig_desc.SetRegisterShift(buma3d::SHADER_REGISTER_TYPE_T, 1, 1);
-        auto&& font_or_user_texture = rootsig_desc.AddNewRootParameter();
-        font_or_user_texture.InitAsDescriptorTable();
-        font_or_user_texture.AddRange(buma3d::DESCRIPTOR_TYPE_SRV_TEXTURE, 1, 0, 1, buma3d::DESCRIPTOR_FLAG_NONE);// フォントまたはImGui::Image用
-        font_or_user_texture.SetShaderVisibility(buma3d::SHADER_VISIBILITY_PIXEL);
-
-        rootsig_desc.SetRegisterShift(buma3d::SHADER_REGISTER_TYPE_S, 2, 0);
-        rootsig_desc.AddStaticSampler(0, 0, rr.sampler.Get(), buma3d::SHADER_VISIBILITY_PIXEL);
-    }
-
-    auto bmr = rr.device->CreateRootSignature(rootsig_desc.Get(buma3d::ROOT_SIGNATURE_FLAG_NONE), &rr.root_signature);
+    util::DescriptorSetLayoutDesc layout_desc(2);
+    // サンプラー用レイアウト。 space0 に設定します。
+    layout_desc
+        .AddNewBinding(b::DESCRIPTOR_TYPE_SAMPLER, 0, 1, b::SHADER_VISIBILITY_PIXEL, b::DESCRIPTOR_FLAG_NONE)
+        .SetFlags(b::DESCRIPTOR_SET_LAYOUT_FLAG_NONE)
+        .Finalize();
+    auto bmr = rr.device->CreateDescriptorSetLayout(layout_desc.Get(), &rr.sampler_layout);
     BMR_RET_IF_FAILED(bmr);
-    rr.root_signature->SetName("MyImGui::MyImGuiImpl::rr.root_signature");
+
+    // テクスチャ用レイアウト。 space1 に設定します。
+    layout_desc
+        .Reset()
+        .AddNewBinding(b::DESCRIPTOR_TYPE_SRV_TEXTURE, 0, 1, b::SHADER_VISIBILITY_PIXEL, b::DESCRIPTOR_FLAG_NONE)
+        .SetFlags(b::DESCRIPTOR_SET_LAYOUT_FLAG_NONE)
+        .Finalize();
+    bmr = rr.device->CreateDescriptorSetLayout(layout_desc.Get(), &rr.texture_layout);
+    BMR_RET_IF_FAILED(bmr);
+
+    rr.sampler_layout->SetName("MyImGui::MyImGuiImpl::rr.sampler_layout");
+    rr.texture_layout->SetName("MyImGui::MyImGuiImpl::rr.texture_layout");
+
+    return true;
+}
+bool MyImGui::MyImGuiImpl::CreatePipelineLayout()
+{
+    util::PipelineLayoutDesc desc(2, 0);
+    desc
+        .SetNumLayouts(2)
+        .AddNewPushConstantParameter(sizeof(float[4][4]) / 4, 1, buma3d::SHADER_VISIBILITY_VERTEX, 0)   // space0 プッシュ定数
+        .SetLayout(0, rr.sampler_layout.Get())                                                          // space0 サンプラー
+        .SetLayout(1, rr.texture_layout.Get())                                                          // space1 テクスチャ
+        .SetFlags(b::PIPELINE_LAYOUT_FLAG_NONE)
+        .Finalize();
+    auto bmr = rr.device->CreatePipelineLayout(desc.Get(), &rr.pipeline_layout);
+    BMR_RET_IF_FAILED(bmr);
+
+    rr.pipeline_layout->SetName("MyImGui::MyImGuiImpl::rr.pipeline_layout");
 
     return true;
 }
@@ -416,18 +449,13 @@ bool MyImGui::MyImGuiImpl::CreateShaderModules()
 {
     b::BMRESULT bmr{};
     shader::LOAD_SHADER_DESC desc{};
-    desc.options.packMatricesInRowMajor     = false;       // Experimental: Decide how a matrix get packed
-    desc.options.enable16bitTypes           = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
-    desc.options.enableDebugInfo            = false;       // Embed debug info into the binary
-    desc.options.disableOptimizations       = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
+    desc.options.pack_matrices_in_row_major = false;       // Experimental: Decide how a matrix get packed
+    desc.options.enable16bit_types          = false;       // Enable 16-bit types, such as half, uint16_t. Requires shader model 6.2+
+    desc.options.enable_debug_info          = false;       // Embed debug info into the binary
+    desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
 
-    desc.options.optimizationLevel          = 3; // 0 to 3, no optimization to most optimization
-    desc.options.shaderModel                = { 6, 2 };
-
-    desc.options.shiftAllTexturesBindings   = 1;// register(t0, space0) -> register(t1, space0)
-    desc.options.shiftAllSamplersBindings   = 2;// register(s0, space0) -> register(s2, space0)
-    desc.options.shiftAllCBuffersBindings   = 0;
-    desc.options.shiftAllUABuffersBindings  = 0;
+    desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
+    desc.options.shader_model               = { 6, 2 };
 
     auto&& loader = rr.dr->GetShaderLoader();
     // vs
@@ -473,7 +501,7 @@ bool MyImGui::MyImGuiImpl::CreateGraphicsPipelines()
     b::BMRESULT bmr{};
     b::GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
 
-    pso_desc.root_signature       = rr.root_signature.Get();
+    pso_desc.pipeline_layout      = rr.pipeline_layout.Get();
     pso_desc.render_pass          = rr.render_pass_load.Get();
     pso_desc.subpass              = 0;
     pso_desc.node_mask            = b::B3D_DEFAULT_NODE_MASK;
@@ -634,50 +662,6 @@ bool MyImGui::MyImGuiImpl::CreateGraphicsPipelines()
 
     return true;
 }
-bool MyImGui::MyImGuiImpl::CreateFontDescriptorPool()
-{
-    b::DESCRIPTOR_POOL_DESC dpd{};
-    dpd.flags                       = b::DESCRIPTOR_POOL_FLAG_NONE;
-    dpd.max_sets_allocation_count   = 1;
-    dpd.max_num_register_space      = 2;
-
-    b::DESCRIPTOR_POOL_SIZE size{ b::DESCRIPTOR_TYPE_SRV_TEXTURE, 1 };
-    dpd.num_pool_sizes              = 1;
-    dpd.pool_sizes                  = &size;
-    dpd.node_mask                   = b::B3D_DEFAULT_NODE_MASK;
-
-    auto bmr = rr.device->CreateDescriptorPool(dpd, &rr.font_pool);
-    BMR_RET_IF_FAILED(bmr);
-    rr.font_pool->SetName("MyImGui::MyImGuiImpl::rr.font_pool");
-
-    return true;
-}
-bool MyImGui::MyImGuiImpl::AllocateFontDescriptorSet()
-{
-    auto bmr = rr.font_pool->AllocateDescriptorSet(rr.root_signature.Get(), &rr.font_set);
-    BMR_RET_IF_FAILED(bmr);
-    rr.font_set->SetName("MyImGui::MyImGuiImpl::rr.font_set");
-
-    return true;
-}
-bool MyImGui::MyImGuiImpl::WriteFontSrv()
-{
-    util::UpdateDescriptorSetDesc update_desc{};
-    {
-        auto&& write_set   = update_desc.AddNewWriteDescriptorSets();
-
-        auto&& write_table = write_set.AddNewWriteDescriptorTable();
-        write_table.AddNewWriteDescriptorRange().SetDstRange(0, 0, 1).SetSrcView(0, rr.font_srv.Get());
-        write_table.Finalize(1);
-
-        write_set.Finalize(rr.font_set.Get());
-    }
-    update_desc.Finalize();
-    auto bmr = rr.device->UpdateDescriptorSets(update_desc.Get());
-    BMR_RET_IF_FAILED(bmr);
-
-    return true;
-}
 
 void MyImGui::MyImGuiImpl::OnProcessMessage(ProcessMessageEventArgs* _args)
 {
@@ -695,28 +679,84 @@ buma3d::BMRESULT MyImGui::MyImGuiImpl::CreateFramebuffer(buma3d::IView* _rtv, bu
 
 void MyImGui::MyImGuiImpl::NewFrame()
 {
+    rr.barriers.Reset();
+    rr.submit.Reset();
     ImGui::SetCurrentContext(ctx);
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 }
-void MyImGui::MyImGuiImpl::DrawGui(buma3d::IFramebuffer* _framebuffer)
+void MyImGui::MyImGuiImpl::DrawGui(buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after)
+{
+    renderer->BeginRecord();
+    RecordGuiCommands(renderer->GetCommandList(), _framebuffer, _current_state, _state_after);
+    renderer->EndRecord();
+}
+void MyImGui::MyImGuiImpl::RecordGuiCommands(buma3d::ICommandList* _list, buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after)
 {
     ImGui::Render();
+
+    if (auto draw_data = ImGui::GetDrawData())
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        //if (draw_data->CmdListsCount != 0)
+        {
+            renderer->BeginRecord(_list);
+            renderer->RecordGuiCommands(_framebuffer, _current_state, _state_after, draw_data);
+            renderer->EndRecord(_list);
+        }
+    }
 
     if (desc.config_flags & ImGuiConfigFlags_ViewportsEnable)
     {
         ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
+
+        auto viewport_list = desc.flags & MYIMGUI_CREATE_FLAG_USE_SINGLE_COMMAND_LIST ? _list : nullptr/*renderer固有のコマンドリストが使用されます。*/;
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        for (int i = 1; i < platform_io.Viewports.Size; i++)
+        {
+            ImGuiViewport* viewport = platform_io.Viewports[i];
+            if (viewport->Flags & ImGuiViewportFlags_Minimized)
+                continue;
+            if (platform_io.Platform_RenderWindow) platform_io.Platform_RenderWindow(viewport, nullptr);
+            if (platform_io.Renderer_RenderWindow) platform_io.Renderer_RenderWindow(viewport, viewport_list);
+        }
     }
+}
 
-    ImGuiIO& io = ImGui::GetIO();
-    ImDrawData* draw_data = ImGui::GetDrawData();
+void MyImGui::MyImGuiImpl::SubmitCommands()
+{
+    renderer->AddSubmitInfoTo(&rr.submit);
 
-    // Check if there is anything to render.
-    if (!draw_data || draw_data->CmdListsCount == 0)
-        return;
+    if (desc.config_flags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        for (int i = 1; i < platform_io.Viewports.Size; i++)
+        {
+            ImGuiViewport* viewport = platform_io.Viewports[i];
+            if (viewport->Flags & ImGuiViewportFlags_Minimized)
+                continue;
+            auto renderer = static_cast<MyImGuiViewportRenderer*>(viewport->RendererUserData);
+            renderer->AddSubmitInfoTo(&rr.submit);
+        }
+    }
+    auto bmr = rr.queue->Submit(rr.submit.Finalize().Get());
+    assert(util::IsSucceeded(bmr));
+}
 
-    renderer->Draw(_framebuffer, draw_data);
+void MyImGui::MyImGuiImpl::PresentViewports()
+{
+    if (desc.config_flags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        for (int i = 1; i < platform_io.Viewports.Size; i++)
+        {
+            ImGuiViewport* viewport = platform_io.Viewports[i];
+            if (viewport->Flags & ImGuiViewportFlags_Minimized)
+                continue;
+            if (platform_io.Platform_SwapBuffers) platform_io.Platform_SwapBuffers(viewport, nullptr);
+            if (platform_io.Renderer_SwapBuffers) platform_io.Renderer_SwapBuffers(viewport, nullptr);
+        }
+    }
 }
 
 void MyImGui::MyImGuiImpl::Destroy()
@@ -803,9 +843,25 @@ void MyImGui::NewFrame()
     impl->NewFrame();
 }
 
-void MyImGui::DrawGui(buma3d::IFramebuffer* _framebuffer)
+void MyImGui::DrawGui(buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after)
 {
-    impl->DrawGui(_framebuffer);
+    impl->DrawGui(_framebuffer, _current_state, _state_after);
+}
+
+void MyImGui::RecordGuiCommands(buma3d::ICommandList* _list, buma3d::IFramebuffer* _framebuffer, buma3d::RESOURCE_STATE _current_state, buma3d::RESOURCE_STATE _state_after)
+{
+    assert(impl->desc.flags & MYIMGUI_CREATE_FLAG_DESCRIPTOR_POOL_FEEDING);
+    impl->RecordGuiCommands(_list, _framebuffer, _current_state, _state_after);
+}
+
+void MyImGui::SubmitCommands()
+{
+    impl->SubmitCommands();
+}
+
+void MyImGui::PresentViewports()
+{
+    impl->PresentViewports();
 }
 
 void MyImGui::Destroy()

@@ -1,9 +1,10 @@
 #pragma once
-
-// プラットフォーム: アプリケーションを起動する。
-// アプリケーション: プラットフォームに対して必要な情報を与え、ウィンドウ等を準備してもらう。
-// ウィンドウ      : プラットフォーム固有の画面の生成と処理(ウィンドウプロシージャなど)を実行する。 
-// フレームワーク  : これらを統括しユーザーに提供する。
+#include <memory>
+#include <vector>
+#include <string>
+#include "Buma3D.h"
+#include "Util/Buma3DPtr.h"
+#include "ResourceHeapProperties.h"
 
 namespace buma
 {

@@ -18,19 +18,21 @@ namespace gui
 
 struct RENDER_RESOURCE
 {
+    using MYIMGUI_CREATE_FLAGS = uint32_t;
+    MYIMGUI_CREATE_FLAGS                            flags;
     std::shared_ptr<DeviceResources>                dr;
     buma3d::util::Ptr<buma3d::IDevice>              device;
     buma3d::util::Ptr<buma3d::ICommandQueue>        queue;
-    buma3d::SUBMIT_INFO                             submit_info;
-    buma3d::SUBMIT_DESC                             submit_desc;
+    util::PipelineBarrierDesc                       barriers;
+    util::SubmitDesc                                submit;
     buma3d::util::Ptr<buma3d::ISamplerView>         sampler;
     std::shared_ptr<buma::res::IResourceTexture>    font_texture;
     buma3d::util::Ptr<buma3d::IShaderResourceView>  font_srv;
-    buma3d::util::Ptr<buma3d::IDescriptorPool>      font_pool;
-    buma3d::util::Ptr<buma3d::IDescriptorSet>       font_set;
     buma3d::util::Ptr<buma3d::IShaderModule>        vs;
     buma3d::util::Ptr<buma3d::IShaderModule>        ps;
-    buma3d::util::Ptr<buma3d::IRootSignature>       root_signature;
+    buma3d::util::Ptr<buma3d::IDescriptorSetLayout> sampler_layout;
+    buma3d::util::Ptr<buma3d::IDescriptorSetLayout> texture_layout;
+    buma3d::util::Ptr<buma3d::IPipelineLayout>      pipeline_layout;
     buma3d::util::Ptr<buma3d::IPipelineState>       pipeline_state_load;
     buma3d::util::Ptr<buma3d::IRenderPass>          render_pass_load;
 };
