@@ -69,7 +69,8 @@ public:
     bool WaitForGpu();
 
 protected:
-    bool InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir);
+    bool LoadB3D(INTERNAL_API_TYPE _type, const char* _library_dir);
+    bool InitB3D();
     bool PickAdapter();
     bool CreateDevice();
     bool GetCommandQueues();
