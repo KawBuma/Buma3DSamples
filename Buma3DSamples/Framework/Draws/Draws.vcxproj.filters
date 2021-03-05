@@ -99,6 +99,9 @@
     <ClInclude Include="Src\PipelineDescription.h">
       <Filter>Sources\Material</Filter>
     </ClInclude>
+    <ClInclude Include="Src\RenderResources.h">
+      <Filter>Sources\Material</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Src\Draws.cpp">
@@ -159,6 +162,9 @@
       <Filter>Sources\Material</Filter>
     </ClCompile>
     <ClCompile Include="Src\PipelineDescription.cpp">
+      <Filter>Sources\Material</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\RenderResources.cpp">
       <Filter>Sources\Material</Filter>
     </ClCompile>
   </ItemGroup>

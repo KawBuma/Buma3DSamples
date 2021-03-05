@@ -38,7 +38,6 @@ public:
     MATERIAL_SHADING_MODEL                                  GetShadingModel()                   const { return shading_model; }
 
     const MATERIAL_PARAMETERS_LAYOUT&                       GetParametersLayout()               const { return layout; }
-    const std::vector<shader::REGISTER_SHIFT>&              GetParametersRegisterShift()        const { return register_shifts; }
 
     const buma3d::GRAPHICS_PIPELINE_STATE_DESC&             GetPsoDesc()                        const { return pso_desc; }
 
@@ -57,7 +56,6 @@ private:
     MATERIAL_BLEND_MODE                                                                 blend_mode;
     MATERIAL_SHADING_MODEL                                                              shading_model;
     MATERIAL_PARAMETERS_LAYOUT                                                          layout;
-    std::vector<shader::REGISTER_SHIFT>                                                 register_shifts;
 
     buma3d::GRAPHICS_PIPELINE_STATE_DESC                                                pso_desc;
     buma3d::RASTERIZATION_STATE_DESC                                                    rasterization_state;

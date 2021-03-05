@@ -40,26 +40,6 @@ using VertTangentT    = glm::vec4;
 using VertColorT      = glm::vec4;
 using VertTexcoordT   = glm::vec2;
 
-
-struct IDrawsInstance;
-
-struct IDrawsObject;
-
-struct IDrawsResource;
-struct IDrawsSampler;
-struct IDrawsTexture;
-struct IDrawsBuffer;
-struct IDrawsVertexBuffer;
-struct IDrawsIndexBuffer;
-
-struct IDrawsMaterialParameters;    // declare parameters value,sampler,texture
-struct IDrawsMaterial;              // represents material 
-struct IDrawsMaterialConstant;      // set parameters value
-struct IDrawsMaterialInstance;      // set parameters sampler,texture
-struct IDrawsMeshData;
-struct IDrawsMesh;
-struct IDrawsStaticMesh;
-
 /*
                         *** BASE PASS SHADER SIGNATURE ***
 // **RESERVED**
@@ -82,8 +62,26 @@ Texture2D<float4>           ambient                : register(t4, space2);
 // MATERIAL_PARAMETER_VALUE
 StructuredBuffer<>          material_buffer        : register(t0, space2);
 
-
 */
+
+struct IDrawsInstance;
+
+struct IDrawsObject;
+
+struct IDrawsResource;
+struct IDrawsSampler;
+struct IDrawsTexture;
+struct IDrawsBuffer;
+struct IDrawsVertexBuffer;
+struct IDrawsIndexBuffer;
+
+struct IDrawsMaterialParameters;    // declare parameters value,sampler,texture
+struct IDrawsMaterial;              // represents material 
+struct IDrawsMaterialConstant;      // set parameters value
+struct IDrawsMaterialInstance;      // set parameters sampler,texture
+struct IDrawsMeshData;
+struct IDrawsMesh;
+struct IDrawsStaticMesh;
 
 struct IDrawsScene;
 struct IDrawsSceneComponent;
@@ -404,20 +402,6 @@ struct MATERIAL_PARAMETERS_CREATE_DESC
         MATERIAL_SAMPLER_PARAMETER* sampler;    // 配列の要素順にパラメーターが宣言されます。 
         MATERIAL_TEXTURE_PARAMETER* texture;    // 配列の要素順にパラメーターが宣言されます。 
     } parameters;
-};
-
-struct DESCRIPTOR_SET_LAYOUT_BINDING
-{
-    SHADER_VISIBILITY visibility;
-    // DESCRIPTOR_TYPE type;
-    uint32_t base_shader_register;
-    uint32_t num_descriptors;
-};
-
-struct DESCRIPTOR_SET_LAYOUT
-{
-    // uint32_t register_space;
-
 };
 
 struct MATERIAL_SHADER

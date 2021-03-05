@@ -7,13 +7,13 @@ namespace draws
 {
 
 DrawsMaterialParameters::DrawsMaterialParameters()
-    : ref_count { 1 }
+    : ref_count {}
     , ins       {}
     , type      {}
     , value     {}
     , sampler   {}
     , texture   {}
-    , parameter {}
+    , layout    {}
 {
 
 }
@@ -49,43 +49,47 @@ bool DrawsMaterialParameters::Init(DrawsInstance* _ins, const MATERIAL_PARAMETER
         return false;
     }
 
-    if (!CreateDescriptorSet())
+    if (!CreateDescriptorSetLayout())
         return false;
 
     return true;
 }
 
-bool DrawsMaterialParameters::CreateDescriptorSet()
+bool DrawsMaterialParameters::CreateDescriptorSetLayout()
 {
-    // TODO: buma3d::IDescriptorSetLayout, buma3d::IRootSignature2 の、Vulkanライクなバインディングのインターフェースをbuma3dに実装します。
-    //       現状RootParameterをIDrawsMaterialParametersすることでこれをエミュレーションしています。
-    parameter = std::make_unique<util::RootParameter>();
-
-    auto AddRanges = [&](buma3d::DESCRIPTOR_TYPE _type, auto&& _value, uint32_t _register_space, buma3d::DEPENDENCY_FLAGS _flags)
+    util::DescriptorSetLayoutDesc layout_desc;
+    auto AddRanges = [&](buma3d::DESCRIPTOR_TYPE _type, auto&& _value, buma3d::DESCRIPTOR_FLAGS _flags)
     {
         uint32_t register_offset = 0;
         for (auto& i : *_value)
         {
             // i.visibility;
             // i.array_size;
-            parameter->AddRange(_type, 1, register_offset, _register_space, _flags);
+            layout_desc.AddNewBinding(_type, register_offset, 1, buma3d::SHADER_VISIBILITY_ALL_GRAPHICS_COMPUTE, _flags);
             register_offset += 1;
         }
     };
     switch (type)
     {
     case buma::draws::MATERIAL_PARAMETER_TYPE_VALUE:
-        AddRanges(buma3d::DESCRIPTOR_TYPE_SRV_BUFFER, value, REGISTER_SPACE_VALUE_PARAMETER, buma3d::DESCRIPTOR_FLAG_NONE);
+        AddRanges(buma3d::DESCRIPTOR_TYPE_SRV_BUFFER, value, buma3d::DESCRIPTOR_FLAG_NONE);
         break;
     case buma::draws::MATERIAL_PARAMETER_TYPE_SAMPLER:
-        AddRanges(buma3d::DESCRIPTOR_TYPE_SAMPLER, sampler, REGISTER_SPACE_SAMPLER_PARAMETER, buma3d::DESCRIPTOR_FLAG_NONE);
+        AddRanges(buma3d::DESCRIPTOR_TYPE_SAMPLER, sampler, buma3d::DESCRIPTOR_FLAG_NONE);
         break;
     case buma::draws::MATERIAL_PARAMETER_TYPE_TEXTURE:
-        AddRanges(buma3d::DESCRIPTOR_TYPE_SRV_TEXTURE, texture, REGISTER_SPACE_TEXTURE_PARAMETER, buma3d::DESCRIPTOR_FLAG_NONE);
+        AddRanges(buma3d::DESCRIPTOR_TYPE_SRV_TEXTURE, texture, buma3d::DESCRIPTOR_FLAG_NONE);
         break;
     default:
         break;
     }
+    layout_desc.SetFlags(buma3d::DESCRIPTOR_SET_LAYOUT_FLAG_NONE);
+    layout_desc.Finalize();
+
+    auto bmr = ins->GetDR()->GetDevice()->CreateDescriptorSetLayout(layout_desc.Get(), &layout);
+    BMR_ASSERT(bmr);
+    if (util::IsFailed(bmr))
+        return false;
 
     return true;
 }

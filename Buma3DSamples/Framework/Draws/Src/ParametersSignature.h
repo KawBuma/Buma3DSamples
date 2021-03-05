@@ -14,11 +14,11 @@ public:
     bool CreateSignature(const MATERIAL_PARAMETERS_LAYOUT& _layout);
     ~ParametersSignature();
 
-    const buma3d::util::Ptr<buma3d::IRootSignature>& GetSignature() const { return signature; }
+    const buma3d::util::Ptr<buma3d::IPipelineLayout>& GetSignature() const { return pipeline_layout; }
 
 private:
     DrawsInstance*                              ins;
-    buma3d::util::Ptr<buma3d::IRootSignature>   signature;
+    buma3d::util::Ptr<buma3d::IPipelineLayout>  pipeline_layout;
 
 };
 

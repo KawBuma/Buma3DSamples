@@ -114,6 +114,7 @@
     <ClInclude Include="Src\ParametersSignatureCache.h" />
     <ClInclude Include="Src\pch.h" />
     <ClInclude Include="Src\PipelineDescription.h" />
+    <ClInclude Include="Src\RenderResources.h" />
     <ClInclude Include="Src\Utils\MaterialParametersLayout.h" />
     <ClInclude Include="Src\Utils\ScopedRef.h" />
     <None Include="Src\_drawstmp.h">
@@ -145,6 +146,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Src\PipelineDescription.cpp" />
+    <ClCompile Include="Src\RenderResources.cpp" />
     <None Include="Src\_drawstmp.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>

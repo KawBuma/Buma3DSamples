@@ -120,7 +120,6 @@ void MaterialPerPassShader::PerpareLinkDesc(buma::shader::LIBRARY_LINK_DESC& _de
     _desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
     _desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
     _desc.options.shader_model               = { 6, 2 };
-    _desc.options.register_shifts            = &material->GetParametersRegisterShift();
 }
 
 void MaterialPerPassShader::ComposeModules(buma::shader::LIBRARY_LINK_DESC& _desc)

@@ -64,7 +64,6 @@ bool MaterialShader::CreateLibrary()
     desc.options.disable_optimizations      = false;       // Force to turn off optimizations. Ignore optimizationLevel below.
     desc.options.optimization_level         = 3; // 0 to 3, no optimization to most optimization
     desc.options.shader_model               = { 6, 2 };
-    desc.options.register_shifts            = &material->GetParametersRegisterShift();
 
     desc.entry_point = nullptr;
     desc.filename    = nullptr;

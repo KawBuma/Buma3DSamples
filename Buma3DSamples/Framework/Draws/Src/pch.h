@@ -16,6 +16,7 @@
 
 // From Framework
 #include "Utils.h"
+#include "B3DDescHelpers.h"
 #include "FormatUtils.h"
 #include "B3DInit.h"
 #include "DeviceResources.h"
@@ -72,6 +73,7 @@ class DrawsRenderer;
 }// namespace draws
 
 #include "Utils/ScopedRef.h"
+#include "RenderResources.h"
 #include "Utils/MaterialParametersLayout.h"
 #include "ParametersSignature.h"
 #include "ParametersSignatureCache.h"

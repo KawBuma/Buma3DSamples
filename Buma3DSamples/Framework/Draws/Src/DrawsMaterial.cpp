@@ -112,11 +112,11 @@ bool DrawsMaterial::PrepareGraphicsPipelineDesc()
 {
     auto&& p = ins->GetPipelineDescription();
 
-    pso_desc.root_signature = signature->GetSignature().Get();
-    pso_desc.render_pass    = nullptr; // MaterialPerPassPipelineによって設定します。
-    pso_desc.subpass        = 0;
-    pso_desc.node_mask      = b::B3D_DEFAULT_NODE_MASK;
-    pso_desc.flags          = b::PIPELINE_STATE_FLAG_NONE;
+    pso_desc.pipeline_layout    = signature->GetSignature().Get();
+    pso_desc.render_pass        = nullptr; // MaterialPerPassPipelineによって設定します。
+    pso_desc.subpass            = 0;
+    pso_desc.node_mask          = b::B3D_DEFAULT_NODE_MASK;
+    pso_desc.flags              = b::PIPELINE_STATE_FLAG_NONE;
 
     // input_assembly_state 
     pso_desc.input_assembly_state = &input_assembly;
