@@ -8,7 +8,7 @@ namespace shader
 struct SIGNATURE_PARAMETER_DESC;
 std::unique_ptr<util::InputLayoutDesc> CreateInputLayoutDesc(const std::vector<std::shared_ptr<SIGNATURE_PARAMETER_DESC>>& _descs);
 
-#pragma region declarations
+#pragma region definitions
 
 enum PRIMITIVE_TOPOLOGY
 {
@@ -391,7 +391,7 @@ enum PARAMETER_FLAG : uint32_t
 };
 using PARAMETER_FLAGS = uint32_t;
 
-#pragma endregion declarations
+#pragma endregion definitions
 
 #pragma region structures
 
