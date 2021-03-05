@@ -259,10 +259,13 @@ void BufferPageAllocator::ChangeMainPage(size_t _aligned_size_in_bytes, size_t _
 
 #pragma endregion BufferPageAllocator
 
-#pragma region UploadBuffer
+#pragma region StagingBufferPool
 
-StagingBufferPool::StagingBufferPool(std::shared_ptr<DeviceResources> _dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _heap_prop_flags, buma3d::BUFFER_USAGE_FLAGS _usage_flags)
-    : dr                        { _dr }
+StagingBufferPool::StagingBufferPool(std::shared_ptr<DeviceResources> _dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _heap_prop_flags, buma3d::BUFFER_USAGE_FLAGS _usage_flags, const size_t _min_page_size)
+    : MIN_PAGE_SIZE             { _min_page_size }
+    , ALLOCATOR_INDEX_SHIFT     { util::Log2(MIN_PAGE_SIZE) }
+    , ALLOCATOR_POOL_COUNT      { sizeof(size_t) * 8 - ALLOCATOR_INDEX_SHIFT }
+    , dr                        { _dr }
     , need_flush                {}
     , need_invalidate           {}
     , heap_prop                 {}
@@ -271,6 +274,8 @@ StagingBufferPool::StagingBufferPool(std::shared_ptr<DeviceResources> _dr, buma3
     , buffer_page_allocators    {}
     , limits                    { _dr->GetDeviceAdapterLimits() }
 {
+    assert((MIN_PAGE_SIZE& (MIN_PAGE_SIZE - 1)) == 0, "MIN_PAGE_SIZE size must be a power of 2");
+
     // READ_BACKとUPLAODは同時に行いません。
     BUMA_ASSERT((_heap_prop_flags& (buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE | buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE))
                 != (buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE | buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE));
@@ -304,6 +309,7 @@ StagingBufferPool::StagingBufferPool(std::shared_ptr<DeviceResources> _dr, buma3
         throw std::runtime_error("StagingBufferPool: heap_prop not found.");
 
     int counter = 0;
+    buffer_page_allocators.resize(ALLOCATOR_POOL_COUNT);
     for (auto&& i : buffer_page_allocators)
     {
         auto page_size = GetPageSizeFromPoolIndex(counter);
@@ -370,8 +376,7 @@ size_t StagingBufferPool::GetPageSizeFromPoolIndex(size_t _x)
     return std::max<size_t>(MIN_PAGE_SIZE, size_t(1) << (_x + ALLOCATOR_INDEX_SHIFT));
 }
 
-
-#pragma endregion UploadBuffer
+#pragma endregion StagingBufferPool
 
 
 }// namespace buma
