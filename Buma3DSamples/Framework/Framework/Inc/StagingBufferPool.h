@@ -66,16 +66,11 @@ public:
 
     void Reset();
 
-    // 新しいページ(ID3D12Resource)を作成します
     std::shared_ptr<BufferPage> MakeAndGetNewBufferPage();
-    // 新しいページ(ID3D12Resource)を作成します
     void                        MakeNewBufferPage();
-    // 指定サイズを確保可能なページを返します
     std::shared_ptr<BufferPage> FindAllocatablePage     (size_t _aligned_size_in_bytes, size_t _alignment);
-    // main_buffer_pageを入れ替えます                                                          
-    void                        ChangeMainPage          (size_t _aligned_size_in_bytes, size_t _alignment);
-    // 指定サイズの領域を割り当たBUFFER_ALLOCATION_PARTを返します
-    BUFFER_ALLOCATION_PART      Allocate                (size_t _size_in_bytes, size_t _alignment);
+    void                        ChangeMainPage          (size_t _aligned_size_in_bytes, size_t _alignment); // main_buffer_pageを入れ替えます
+    BUFFER_ALLOCATION_PART      Allocate                (size_t _size_in_bytes, size_t _alignment);         // 指定サイズの領域を割り当たBUFFER_ALLOCATION_PARTを返します
 
     const size_t                GetPageCount            () const { return buffer_pages.size(); }
     const size_t                GetTotalBufferSize      () const { return buffer_page_allocation_size * buffer_pages.size(); }
@@ -95,19 +90,13 @@ private:
 
 };
 
-
 class StagingBufferPool
 {
     friend class BufferPage;
     friend class BufferPageAllocator;
 
-    static constexpr size_t MIN_PAGE_SIZE           = util::Mib(128);
-    static constexpr size_t ALLOCATOR_INDEX_SHIFT   = util::Log2Cexpr<size_t>(MIN_PAGE_SIZE);
-    static constexpr size_t ALLOCATOR_POOL_COUNT    = sizeof(size_t) * 8 - ALLOCATOR_INDEX_SHIFT;
-    static_assert((MIN_PAGE_SIZE & (MIN_PAGE_SIZE - 1)) == 0, "MIN_PAGE_SIZE size must be a power of 2");
-
 public:
-    StagingBufferPool(std::shared_ptr<DeviceResources> _dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _heap_prop_flags, buma3d::BUFFER_USAGE_FLAGS _usage_flags);
+    StagingBufferPool(std::shared_ptr<DeviceResources> _dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAGS _heap_prop_flags, buma3d::BUFFER_USAGE_FLAGS _usage_flags, const size_t _min_page_size = util::Mib(128));
     ~StagingBufferPool();
 
     BUFFER_ALLOCATION_PART AllocateBufferPart(size_t _size_in_bytes, size_t _alignment);
@@ -134,14 +123,19 @@ private:
     size_t GetPageSizeFromPoolIndex(size_t _x);
 
 private:
-    std::shared_ptr<DeviceResources>        dr;
-    bool                                    need_flush;
-    bool                                    need_invalidate;
-    const buma3d::RESOURCE_HEAP_PROPERTIES* heap_prop;
-    buma3d::BUFFER_USAGE_FLAGS              usage_flags;
-    buma3d::util::Ptr<buma3d::IDevice>      device;
-    std::unique_ptr<BufferPageAllocator>    buffer_page_allocators[ALLOCATOR_POOL_COUNT];
-    const buma3d::DEVICE_ADAPTER_LIMITS&    limits;
+    const size_t MIN_PAGE_SIZE;
+    const size_t ALLOCATOR_INDEX_SHIFT;
+    const size_t ALLOCATOR_POOL_COUNT;
+
+private:
+    std::shared_ptr<DeviceResources>                    dr;
+    bool                                                need_flush;
+    bool                                                need_invalidate;
+    const buma3d::RESOURCE_HEAP_PROPERTIES*             heap_prop;
+    buma3d::BUFFER_USAGE_FLAGS                          usage_flags;
+    buma3d::util::Ptr<buma3d::IDevice>                  device;
+    std::vector<std::unique_ptr<BufferPageAllocator>>   buffer_page_allocators;
+    const buma3d::DEVICE_ADAPTER_LIMITS&                limits;
 
 };
 

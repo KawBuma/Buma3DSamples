@@ -58,8 +58,8 @@ DeviceResources::DeviceResources()
     , factory                                           {}
     , adapter                                           {}
     , device                                            {}
-    , cmd_queues                                        {}         
-    //, gpu_timer_pools                                   {}    
+    , cmd_queues                                        {}
+    //, gpu_timer_pools                                   {}
     , shader_laoder                                     {}
     , resource_heaps_allocator                          {}
     , resource_create                                   {}
@@ -83,7 +83,9 @@ DeviceResources::~DeviceResources()
 bool DeviceResources::Init(const DEVICE_RESOURCE_DESC& _desc)
 {
     desc = _desc;
-    if (!InitB3D(desc.type, desc.library_dir.c_str()))  return false;
+    pfn = std::make_unique<B3D_PFN>();
+    if (!LoadB3D(desc.type, desc.library_dir.c_str()))  return false;
+    if (!InitB3D())                                     return false;
     if (!PickAdapter())                                 return false;
     if (!CreateDevice())                                return false;
     if (!GetCommandQueues())                            return false;
@@ -96,58 +98,38 @@ bool DeviceResources::Init(const DEVICE_RESOURCE_DESC& _desc)
     return true;
 }
 
-bool DeviceResources::InitB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
+bool DeviceResources::LoadB3D(INTERNAL_API_TYPE _type, const char* _library_dir)
 {
-    pfn = std::make_unique<B3D_PFN>();
-
-    std::string path;
-    ConvertBackShashToSlash(GetCurrentDir(&path));
-
 #ifdef _DEBUG
-    const char* CONFIG = "Debug";
     const char* BUILD = "_Debug.dll";
 #else
-    const char* CONFIG = "Release";
     const char* BUILD = "_Release.dll";
 #endif // _DEBUG
 
-    if (strlen(_library_dir) != 0)
+    std::string path;
+    const bool has_dir = strlen(_library_dir) != 0;
+    if (has_dir)
         path += _library_dir;
     else
-        path += "/External/Buma3D/Project/";
+        GetCurrentDir(&path);
 
-    // dllを読み込む
     switch (_type)
     {
-    case buma::INTERNAL_API_TYPE_D3D12:
-        if (strlen(_library_dir) == 0)
-        {
-            path += "D3D12/v16/DLLBuild/";
-            path += CONFIG;
-            path += "/x64/Out/";
-        }
-        path = path + "Buma3D_D3D12_DLL" + BUILD;
-        ConvertSlashToBackShash(&path);
-        pfn->b3d_module = LoadLibraryA(path.c_str());
-        break;
-
-    case buma::INTERNAL_API_TYPE_VULKAN:
-        if (strlen(_library_dir) == 0)
-        {
-            path += "Vulkan/v16/DLLBuild/";
-            path += CONFIG;
-            path += "/x64/Out/";
-        }
-        path = path + "Buma3D_Vulkan_DLL" + BUILD;
-        ConvertSlashToBackShash(&path);
-        pfn->b3d_module = LoadLibraryA(path.c_str());
-        break;
-
+    case buma::INTERNAL_API_TYPE_D3D12  : path.append("Buma3D_D3D12_DLL") .append(BUILD); break;
+    case buma::INTERNAL_API_TYPE_VULKAN : path.append("Buma3D_Vulkan_DLL").append(BUILD); break;
     default:
         break;
     }
-    assert(pfn->b3d_module != NULL);
+    ConvertSlashToBackShash(&path);
 
+    // dllを読み込む
+    pfn->b3d_module = LoadLibraryA(path.c_str());
+    assert(pfn->b3d_module != NULL);
+    return pfn->b3d_module != NULL;
+}
+
+bool DeviceResources::InitB3D()
+{    
     pfn->Buma3DInitialize               = (buma3d::PFN_Buma3DInitialize)              GetProcAddress(pfn->b3d_module, "Buma3DInitialize");
     pfn->Buma3DGetInternalHeaderVersion = (buma3d::PFN_Buma3DGetInternalHeaderVersion)GetProcAddress(pfn->b3d_module, "Buma3DGetInternalHeaderVersion");
     pfn->Buma3DCreateDeviceFactory      = (buma3d::PFN_Buma3DCreateDeviceFactory)     GetProcAddress(pfn->b3d_module, "Buma3DCreateDeviceFactory");

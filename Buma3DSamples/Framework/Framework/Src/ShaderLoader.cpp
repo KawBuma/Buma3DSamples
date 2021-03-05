@@ -207,7 +207,7 @@ void ShaderLoader::LinkLibrary(INTERNAL_API_TYPE _type, const LIBRARY_LINK_DESC&
     SCC::Options opt{};
     PrepareOptions(opt, _desc.options, _type, shifts, _desc.link.stage);
 
-    std::vector<SCC::ModuleDesc>  modules;
+    std::vector<SCC::ModuleDesc> modules;
     std::vector<const SCC::ModuleDesc*> pmodules;
     PrepareModules(modules, pmodules, _desc);
 

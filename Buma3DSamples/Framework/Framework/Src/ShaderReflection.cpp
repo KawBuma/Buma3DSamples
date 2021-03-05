@@ -57,7 +57,7 @@ static void CreateDxcReflectionFromBlob(const std::vector<uint8_t>& _buffer, Com
     dxc_module = NULL;
 }
 
-static const buma3d::RESOURCE_FORMAT format_table[4][buma::shader::REGISTER_COMPONENT_TYPE_FLOAT32] =
+static const buma3d::RESOURCE_FORMAT FORMAT_TABLE[4][buma::shader::REGISTER_COMPONENT_TYPE_FLOAT32] =
 {
       { buma3d::RESOURCE_FORMAT_R32_UINT            , buma3d::RESOURCE_FORMAT_R32_SINT             , buma3d::RESOURCE_FORMAT_R32_FLOAT            }
     , { buma3d::RESOURCE_FORMAT_R32G32_UINT         , buma3d::RESOURCE_FORMAT_R32G32_SINT          , buma3d::RESOURCE_FORMAT_R32G32_FLOAT         }
@@ -74,10 +74,10 @@ buma3d::RESOURCE_FORMAT DetermineDXGIFormat(buma::shader::SIGNATURE_PARAMETER_DE
 {
     switch (_desc.mask)
     {
-    case MASK_X    : return format_table[0][_desc.component_type - 1];
-    case MASK_XY   : return format_table[1][_desc.component_type - 1];
-    case MASK_XYZ  : return format_table[2][_desc.component_type - 1];
-    case MASK_XYZW : return format_table[3][_desc.component_type - 1];
+    case MASK_X    : return FORMAT_TABLE[0][_desc.component_type - 1];
+    case MASK_XY   : return FORMAT_TABLE[1][_desc.component_type - 1];
+    case MASK_XYZ  : return FORMAT_TABLE[2][_desc.component_type - 1];
+    case MASK_XYZW : return FORMAT_TABLE[3][_desc.component_type - 1];
 
     default:
         return buma3d::RESOURCE_FORMAT_UNKNOWN;
@@ -117,8 +117,8 @@ std::unique_ptr<util::InputLayoutDesc> CreateInputLayoutDesc(const std::vector<s
 }
 
 
-}
-}
+}// namespace shader
+}// namespace buma
 
 namespace buma
 {
@@ -839,24 +839,20 @@ ShaderReflectionVariable::ShaderReflectionVariable()
     , reflection_types              {}
     , interface_slots               {}
 {
-
 }
 
 ShaderReflectionVariable::~ShaderReflectionVariable()
 {
-
 }
 
 
 ShaderReflectionConstantBuffer::ShaderReflectionConstantBuffer()
     :desc{}
 {
-
 }
 
 ShaderReflectionConstantBuffer::~ShaderReflectionConstantBuffer()
 {
-
 }
 
 

@@ -23,6 +23,7 @@
 #include <fstream>
 #include <algorithm>
 #include <mutex>
+#include <filesystem>
 
 #include <spdlog/spdlog.h>
 
