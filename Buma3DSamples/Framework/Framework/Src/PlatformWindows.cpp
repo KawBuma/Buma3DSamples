@@ -11,8 +11,6 @@ class ConsoleSession
 {
 public:
     ConsoleSession()
-        //: ofs("./log.txt", std::ios::out | std::ios::trunc, std::ios::_Default_open_prot)
-        //, stream{}
         : stream{}
     {
     }
@@ -24,8 +22,6 @@ public:
 
     void Begin()
     {
-        //if (true) return;
-
         auto res = AllocConsole();
         assert(res);
 
@@ -36,15 +32,14 @@ public:
 
     void End()
     {
-        //if (true) return;
-
+        if (!stream)
+            return;
         auto res = FreeConsole();
         assert(res != 0);
         fclose(stream);
-        //ofs.close();
+        stream = nullptr;
     }
 
-    //std::ofstream ofs;
 private:
     FILE* stream;
 
@@ -59,47 +54,38 @@ void B3D_APIENTRY PlatformWindows::B3DMessageCallback(buma3d::DEBUG_MESSAGE_SEVE
 
     static const char* SEVERITIES[]
     {
-       "[ INFO"
-     , "[ WARNING"
-     , "[ ERROR"
-     , "[ CORRUPTION"
-     , "[ OTHER"
+          "[ INFO"
+        , "[ WARNING"
+        , "[ ERROR"
+        , "[ CORRUPTION"
+        , "[ OTHER"
     };
-
     static const char* CATEGORIES[]
     {
-       ", UNKNOWN ] "
-     , ", MISCELLANEOUS ] "
-     , ", INITIALIZATION ] "
-     , ", CLEANUP ] "
-     , ", COMPILATION ] "
-     , ", STATE_CREATION ] "
-     , ", STATE_SETTING ] "
-     , ", STATE_GETTING ] "
-     , ", RESOURCE_MANIPULATION ] "
-     , ", EXECUTION ] "
-     , ", SHADER ] "
-     , ", B3D ] "
-     , ", B3D_DETAILS ] "
-     , ", PERFORMANCE ] "
+          ", UNKNOWN ] "
+        , ", MISCELLANEOUS ] "
+        , ", INITIALIZATION ] "
+        , ", CLEANUP ] "
+        , ", COMPILATION ] "
+        , ", STATE_CREATION ] "
+        , ", STATE_SETTING ] "
+        , ", STATE_GETTING ] "
+        , ", RESOURCE_MANIPULATION ] "
+        , ", EXECUTION ] "
+        , ", SHADER ] "
+        , ", B3D ] "
+        , ", B3D_DETAILS ] "
+        , ", PERFORMANCE ] "
     };
 
     debug::ILogger* logger = (debug::ILogger*)(_user_data);
     std::stringstream ss;
-
-    //if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
-    //    ss << "\n\n";
-    //else if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_WARNING)
-    //    ss << ("\n");
 
     ss << SEVERITIES[_sev];
     DWORD i = 0;
     if (_BitScanForward(&i, _category))
         ss << CATEGORIES[i];
     ss << _msg;
-
-    //if (_sev == buma3d::DEBUG_MESSAGE_SEVERITY_ERROR)
-    //    ss << "\n";
 
     switch (_sev)
     {
