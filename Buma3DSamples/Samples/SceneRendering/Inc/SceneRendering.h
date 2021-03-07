@@ -156,7 +156,6 @@ private:
     std::shared_ptr<ProcessMessageEvent>                        on_process_message;
 
     DeferredContext                                             copy_ctx;
-    DeferredContext                                             ctx;
 
     std::unique_ptr<gui::MyImGui>                               myimgui;
     buma3d::util::Ptr<buma3d::IFramebuffer>                     myimgui_framebuffers[BACK_BUFFER_COUNT];

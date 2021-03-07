@@ -12,9 +12,8 @@
 namespace /*anonymous*/
 {
 
-std::vector<float>* g_fpss                 = nullptr;
-bool                g_first                = true;
-constexpr bool      USE_HOST_WRITABLE_HEAP = true;
+std::vector<float>* g_fpss  = nullptr;
+bool                g_first = true;
 
 Camera g_cam{};
 
@@ -205,7 +204,6 @@ bool SceneRendering::Init()
 
     command_queue = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
     auto&& copy_ques = dr->GetCommandQueues(b::COMMAND_TYPE_COPY_ONLY);
-    if (!ctx.Init(dr, command_queue))                                           return false;
     if (!copy_ctx.Init(dr, copy_ques.empty() ? command_queue : copy_ques[0]))   return false;
     if (!LoadAssets())                                                          return false;
 
@@ -793,10 +791,7 @@ bool SceneRendering::CreateConstantBuffer()
     auto rc = dr->GetResourceCreate();
     for (auto& i : frame_cbs)
     {
-        if constexpr (USE_HOST_WRITABLE_HEAP)
-            i.constant_buffer = rc->CreateBuffer(cb_desc, b::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE);
-        else
-            i.constant_buffer = rc->CreateBuffer(cb_desc, b::RESOURCE_HEAP_PROPERTY_FLAG_DEVICE_LOCAL);
+        i.constant_buffer = rc->CreateBuffer(cb_desc, b::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE);
         RET_IF_FAILED(i.constant_buffer);
     }
 
@@ -808,30 +803,12 @@ bool SceneRendering::CreateConstantBuffer()
     cb_scene.view_proj = g_cam.matrices.perspective * g_cam.matrices.view;
 
     // 定数データを送信
-    if constexpr (USE_HOST_WRITABLE_HEAP)
+    for (auto& i : frame_cbs)
     {
-        for (auto& i : frame_cbs)
-        {
-            i.mapped_data[0] = i.constant_buffer->GetMppedData();
-            i.mapped_data[1] = i.constant_buffer->GetMppedDataAs<uint8_t>(util::AlignUp(sizeof(CB_MODEL), CBV_ALIGNMENT));
-            memcpy(i.mapped_data[0], &cb_model, sizeof(CB_MODEL));
-            memcpy(i.mapped_data[1], &cb_scene, sizeof(CB_SCENE));
-        }
-    }
-    else
-    {
-        ImmediateContext ictx(copy_ctx);
-        {
-            util::PipelineBarrierDesc barrier{};
-            for (auto& i : frame_cbs)
-            {
-                ictx.CopyDataToBuffer(i.constant_buffer->GetB3DBuffer().Get(), 0
-                                     , sizeof(cb_model), &cb_model);
-
-                ictx.CopyDataToBuffer(i.constant_buffer->GetB3DBuffer().Get(), util::AlignUp(sizeof(CB_MODEL), CBV_ALIGNMENT)
-                                     , sizeof(cb_scene), &cb_scene);
-            }
-        }
+        i.mapped_data[0] = i.constant_buffer->GetMppedData();
+        i.mapped_data[1] = i.constant_buffer->GetMppedDataAs<uint8_t>(util::AlignUp(sizeof(CB_MODEL), CBV_ALIGNMENT));
+        memcpy(i.mapped_data[0], &cb_model, sizeof(CB_MODEL));
+        memcpy(i.mapped_data[1], &cb_scene, sizeof(CB_SCENE));
     }
 
     return true;
@@ -907,15 +884,22 @@ bool SceneRendering::CopyDataToTexture()
     // コピーキューから開放された所有権をグラフィックキューで取得します。
     if (copy_ctx.GetCommandType() == b::COMMAND_TYPE_COPY_ONLY)
     {
-        ctx.Begin();
+        cmd_allocator[0]->Reset(b::COMMAND_ALLOCATOR_RESET_FLAG_NONE);
+        auto&& list = cmd_lists[0].Get();
+        list->BeginRecord(b::COMMAND_LIST_BEGIN_DESC{ b::COMMAND_LIST_BEGIN_FLAG_ONE_TIME_SUBMIT });
         {
             bd.Reset();
             bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
                                       , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
-            ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS).Finalize().Get());
+            list->PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS).Finalize().Get());
         }
-        ctx.End(ctx.GetGpuWaitFence());
-        BMR_RET_IF_FAILED(ctx.WaitOnCpu());
+        list->EndRecord();
+
+        util::SubmitDesc submit;
+        submit.AddNewSubmitInfo().AddCommandList(list).AddSignalFence(cmd_fences[0].Get(), fence_values[0].signal()).Finalize();
+        command_queue->Submit(submit.Finalize().Get());
+        cmd_fences[0]->Wait(fence_values[0].signal(), UINT32_MAX);
+        ++fence_values[0];
     }
 
     return true;
@@ -1145,22 +1129,8 @@ void SceneRendering::Update()
         g_cam.update(timer.GetElapsedSecondsF());
         cb_scene.view_proj = g_cam.matrices.perspective * g_cam.matrices.view;
     }
+    memcpy(frame_cbs[back_buffer_index].mapped_data[1], &cb_scene, sizeof(CB_SCENE));
 
-    {
-        if constexpr (USE_HOST_WRITABLE_HEAP)
-        {
-            memcpy(frame_cbs[back_buffer_index].mapped_data[1], &cb_scene, sizeof(CB_SCENE));
-        }
-        else
-        {
-            ctx.Begin();
-            ctx.CopyDataToBuffer(frame_cbs[back_buffer_index].constant_buffer->GetB3DBuffer().Get(), util::AlignUp(sizeof(CB_MODEL), CBV_ALIGNMENT)
-                                    , util::AlignUp(sizeof(CB_SCENE), CBV_ALIGNMENT)
-                                    , &cb_scene);
-            ctx.End(ctx.GetGpuWaitFence());
-            ctx.WaitOnCpu();
-        }
-    }
 }
 
 void SceneRendering::MoveToNextFrame()
@@ -1297,7 +1267,6 @@ void SceneRendering::Term()
     descriptor_heap.Reset();
     descriptor_update.Reset();
     copy_ctx.Reset();
-    ctx.Reset();
     for (auto& i : frame_cbs)
     {
         i.model_cbv.Reset();
