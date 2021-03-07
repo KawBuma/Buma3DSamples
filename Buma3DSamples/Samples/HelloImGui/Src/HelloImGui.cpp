@@ -156,7 +156,7 @@ bool HelloImGui::Prepare(PlatformBase& _platform)
 
     if (!PrepareSettings()) return false;
     settings.window_desc.need_window    = true;
-    settings.window_desc.name           = "Buma3DSamples - HelloImGui";
+    settings.window_desc.name           = "Buma3DSamples - HelloImGui | Press F3 to show ImGui windows";
 
     spwindow = platform->GetWindow();
     window = spwindow.get();
@@ -1006,6 +1006,7 @@ bool HelloImGui::InitMyImGui()
     result = CreateMyImGuiFramebuffers();
     RET_IF_FAILED(result);
 
+    is_enabled_gui = true;
     return true;
 }
 bool HelloImGui::CreateMyImGuiFramebuffers()
@@ -1124,6 +1125,7 @@ void HelloImGui::Update()
         }
     }
 
+    if (!is_enabled_gui || (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) && !ImGui::IsAnyItemHovered()))
     {
         auto&& key = platform->GetInputs()->GetKey();
         g_cam.keys.up       = key.W.press_count;
