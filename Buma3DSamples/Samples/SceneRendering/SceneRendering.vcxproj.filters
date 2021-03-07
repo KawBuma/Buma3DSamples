@@ -24,6 +24,9 @@
     <ClInclude Include="Src\pch.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="Inc\RenderingScene.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -42,6 +45,9 @@
       <Filter>Sources</Filter>
     </ClCompile>
     <ClCompile Include="Src\SceneRendering.cpp">
+      <Filter>Sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Src\RenderingScene.cpp">
       <Filter>Sources</Filter>
     </ClCompile>
   </ItemGroup>

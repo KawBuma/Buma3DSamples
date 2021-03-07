@@ -39,6 +39,7 @@
 
 #include "imgui.h"
 #include "MyImgui.h"
+#include "RenderingScene.h"
 #include "SceneRendering.h"
 
 #endif //PCH_H

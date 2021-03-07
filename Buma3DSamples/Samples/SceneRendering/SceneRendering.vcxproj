@@ -96,6 +96,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Inc\RenderingScene.h" />
     <ClInclude Include="Inc\SceneRendering.h" />
     <ClInclude Include="Src\pch.h" />
   </ItemGroup>
@@ -111,6 +112,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Src\RenderingScene.cpp" />
     <ClCompile Include="Src\SceneRendering.cpp" />
   </ItemGroup>
   <ItemGroup>
