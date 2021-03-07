@@ -150,7 +150,7 @@ private:
     std::shared_ptr<ResizeEvent>                                on_resize;
     std::shared_ptr<BufferResizedEvent>                         on_resized;
 
-    DeferredContext ctx{};
+    DeferredContext                                             ctx;
 
 };
 

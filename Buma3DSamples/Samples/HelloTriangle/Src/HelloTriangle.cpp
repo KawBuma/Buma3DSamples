@@ -6,10 +6,21 @@
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
 #define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
 
-std::vector<float>* g_fpss;
-bool g_first = true;
+namespace /*anonymous*/
+{
+
+std::vector<float>* g_fpss  = nullptr;
+bool                g_first = true;
+
+}// namespace /*anonymous*/
+
 
 namespace init = buma3d::hlp::init;
+namespace b = buma3d;
+
+template<typename T>
+using Ptr = buma3d::util::Ptr<T>;
+
 
 namespace buma
 {
@@ -33,12 +44,6 @@ const buma3d::RESOURCE_HEAP_PROPERTIES* FindDeviceLocalHeap(const std::vector<bu
     }
     return nullptr;
 }
-
-namespace b = buma3d;
-
-template<typename T>
-using Ptr = buma3d::util::Ptr<T>;
-
 
 class HelloTriangle::ResizeEvent : public IEvent
 {
@@ -163,6 +168,28 @@ bool HelloTriangle::Init()
     command_queue   = dr->GetCommandQueues(b::COMMAND_TYPE_DIRECT)[0];
     if (!LoadAssets()) return false;
 
+    if (!CreatePipelineLayout())    return false;
+    if (!CreateRenderPass())        return false;
+    if (!CreateFramebuffer())       return false;
+    if (!CreateShaderModules())     return false;
+    if (!CreateGraphicsPipelines()) return false;
+    if (!CreateCommandAllocator())  return false;
+    if (!CreateCommandLists())      return false;
+    if (!CreateFences())            return false;
+
+    b::RESOURCE_HEAP_ALLOCATION_INFO         heap_alloc_info{};
+    std::vector<b::RESOURCE_ALLOCATION_INFO> alloc_infos;
+    if (!CreateBuffers())                                   return false;
+    if (!CreateHeaps(&heap_alloc_info, &alloc_infos))       return false;
+    if (!BindResourceHeaps(&heap_alloc_info, &alloc_infos)) return false;
+    if (!CreateBuffersForCopy())                            return false;
+    if (!CopyBuffers())                                     return false;
+    if (!CreateBufferViews())                               return false;
+
+    // 描画コマンドを記録
+    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
+        PrepareFrame(i);
+
     return true;
 }
 
@@ -199,30 +226,10 @@ bool HelloTriangle::LoadAssets()
     };
     index = { 0,1,2 };
 
-    if (!CreatePipelineLayout())    return false;
-    if (!CreateRenderPass())        return false;
-    if (!CreateFramebuffer())       return false;
-    if (!CreateShaderModules())     return false;
-    if (!CreateGraphicsPipelines()) return false;
-    if (!CreateCommandAllocator())  return false;
-    if (!CreateCommandLists())      return false;
-    if (!CreateFences())            return false;
-
-    b::RESOURCE_HEAP_ALLOCATION_INFO         heap_alloc_info{};
-    std::vector<b::RESOURCE_ALLOCATION_INFO> alloc_infos;
-    if (!CreateBuffers())                                   return false;
-    if (!CreateHeaps(&heap_alloc_info, &alloc_infos))       return false;
-    if (!BindResourceHeaps(&heap_alloc_info, &alloc_infos)) return false;
-    if (!CreateBuffersForCopy())                            return false;
-    if (!CopyBuffers())                                     return false;
-    if (!CreateBufferViews())                               return false;
-
-    // 描画コマンドを記録
-    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
-        PrepareFrame(i);
-
     return true;
 }
+
+#pragma region preparing Buma3D objects
 
 bool HelloTriangle::CreatePipelineLayout()
 {
@@ -242,6 +249,7 @@ bool HelloTriangle::CreateRenderPass()
 {
     b::RENDER_PASS_DESC render_pass_desc{};
 
+    // このサンプルで使用するアタッチメントはスワップチェインのバックバッファのみです。
     b::ATTACHMENT_DESC attachment{};
     attachment.flags        = b::ATTACHMENT_FLAG_NONE;
     attachment.format       = (*back_buffers)[0].rtv->GetDesc().view.format;
@@ -251,12 +259,14 @@ bool HelloTriangle::CreateRenderPass()
     attachment.begin_state  = b::RESOURCE_STATE_COLOR_ATTACHMENT_WRITE;
     attachment.end_state    = b::RESOURCE_STATE_PRESENT;
 
+    // 所定のサブパス内でアタッチメントがどのような状態となるかについて記述します。
     b::ATTACHMENT_REFERENCE color_attachment_ref{};
     color_attachment_ref.attachment_index             = 0;
-    color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_READ_WRITE;
+    color_attachment_ref.state_at_pass                = b::RESOURCE_STATE_COLOR_ATTACHMENT_WRITE;
     color_attachment_ref.stencil_state_at_pass        = {};
     color_attachment_ref.input_attachment_aspect_mask = b::TEXTURE_ASPECT_FLAG_COLOR;
 
+    // サブパスで使用するアタッチメントと追加の情報を記述します。
     b::SUBPASS_DESC subpass_desc{};
     subpass_desc.flags                          = b::SUBPASS_FLAG_NONE;
     subpass_desc.pipeline_bind_point            = b::PIPELINE_BIND_POINT_GRAPHICS;
@@ -266,21 +276,22 @@ bool HelloTriangle::CreateRenderPass()
     subpass_desc.resolve_attachments            = nullptr;
     subpass_desc.depth_stencil_attachment       = nullptr;
 
+    // 実行とメモリアクセスの依存関係を記述します。
     b::SUBPASS_DEPENDENCY dependencies[] = { {},{} };
-    dependencies[0].src_subpass                 = b::B3D_SUBPASS_EXTERNAL;
+    dependencies[0].src_subpass                 = b::B3D_SUBPASS_EXTERNAL;  // レンダーパス開始前->サブパス0 間の依存関係
     dependencies[0].dst_subpass                 = 0;
     dependencies[0].src_stage_mask              = b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE;
     dependencies[0].dst_stage_mask              = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
     dependencies[0].src_access                  = b::RESOURCE_ACCESS_FLAG_NONE;
-    dependencies[0].dst_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_READ | b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
+    dependencies[0].dst_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
     dependencies[0].dependency_flags            = b::DEPENDENCY_FLAG_NONE;
     dependencies[0].view_offset                 = 0;
-
-    dependencies[1].src_subpass                 = 0;
+    
+    dependencies[1].src_subpass                 = 0;                        // サブパス0->レンダーパス終了後 間の依存関係
     dependencies[1].dst_subpass                 = b::B3D_SUBPASS_EXTERNAL;
     dependencies[1].src_stage_mask              = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
     dependencies[1].dst_stage_mask              = b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE;
-    dependencies[1].src_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_READ | b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
+    dependencies[1].src_access                  = b::RESOURCE_ACCESS_FLAG_COLOR_ATTACHMENT_WRITE;
     dependencies[1].dst_access                  = b::RESOURCE_ACCESS_FLAG_NONE;
     dependencies[1].dependency_flags            = b::DEPENDENCY_FLAG_NONE;
     dependencies[1].view_offset                 = 0;
@@ -428,7 +439,6 @@ bool HelloTriangle::CreateGraphicsPipelines()
         }
 
         pso_desc.tessellation_state   = nullptr;
-        pso_desc.viewport_state       = nullptr;
 
         b::RASTERIZATION_STATE_DESC rs{};
         {
@@ -447,7 +457,7 @@ bool HelloTriangle::CreateGraphicsPipelines()
             pso_desc.rasterization_state  = &rs;
         }
 
-        pso_desc.stream_output        = nullptr;
+        pso_desc.stream_output = nullptr;
 
         b::MULTISAMPLE_STATE_DESC ms{};
         {
@@ -545,7 +555,7 @@ bool HelloTriangle::CreateCommandAllocator()
         b::COMMAND_ALLOCATOR_DESC cad{};
         cad.type    = b::COMMAND_TYPE_DIRECT;
         cad.level   = b::COMMAND_LIST_LEVEL_PRIMARY;
-        cad.flags   = b::COMMAND_ALLOCATOR_FLAG_NONE | b::COMMAND_ALLOCATOR_FLAG_TRANSIENT;
+        cad.flags   = b::COMMAND_ALLOCATOR_FLAG_NONE;
 
         auto bmr = device->CreateCommandAllocator(cad, &i);
         BMR_RET_IF_FAILED(bmr);
@@ -573,29 +583,36 @@ bool HelloTriangle::CreateCommandLists()
 }
 bool HelloTriangle::CreateFences()
 {
-    cmd_fences.resize(BACK_BUFFER_COUNT);
+    b::BMRESULT bmr;
     b::FENCE_DESC fd{};
     fd.flags         = b::FENCE_FLAG_NONE;
     fd.initial_value = 0;
 
     fd.type = b::FENCE_TYPE_BINARY_GPU_TO_CPU;
-    auto bmr = device->CreateFence(fd, &util_fence);
-    BMR_RET_IF_FAILED(bmr);
-    util_fence->SetName("util_fence");
+    {
+        bmr = device->CreateFence(fd, &util_fence);
+        BMR_RET_IF_FAILED(bmr);
+        util_fence->SetName("util_fence");
+    }
 
     fd.type = b::FENCE_TYPE_TIMELINE;
-    uint32_t cnt = 0;
-    for (auto& i : cmd_fences)
     {
-        bmr = device->CreateFence(fd, &i);
-        BMR_RET_IF_FAILED(bmr);
-        i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
+        cmd_fences.resize(BACK_BUFFER_COUNT);
+        uint32_t cnt = 0;
+        for (auto& i : cmd_fences)
+        {
+            bmr = device->CreateFence(fd, &i);
+            BMR_RET_IF_FAILED(bmr);
+            i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
+        }
     }
 
     fd.type = b::FENCE_TYPE_BINARY_GPU_TO_GPU;
-    bmr = device->CreateFence(fd, &render_complete_fence);
-    BMR_RET_IF_FAILED(bmr);
-    render_complete_fence->SetName("render_complete_fence");
+    {
+        bmr = device->CreateFence(fd, &render_complete_fence);
+        BMR_RET_IF_FAILED(bmr);
+        render_complete_fence->SetName("render_complete_fence");
+    }
 
     return true;
 }
@@ -744,6 +761,8 @@ bool HelloTriangle::CopyBuffers()
     BMR_RET_IF_FAILED(bmr);
 
     // コピー宛先、ソースそれぞれにバリアを張る
+    // NOTE: リソースはコマンドリストで初回使用される際に、適切な状態への遷移が暗黙的に行われます。
+    //       ここで記録しているコマンドはICommandQueue::Submit()で送信する際の初回の要素(SUBMIT_INFO::command_lists_to_execute[0])のため、実際はこのようなバリアをスキップすることは有効です。
     b::CMD_PIPELINE_BARRIER barreir{};
     b::BUFFER_BARRIER_DESC buffer_barreirs[4]{};
     {
@@ -798,27 +817,10 @@ bool HelloTriangle::CopyBuffers()
         l->CopyBufferRegion(copy_buffer);
     }
 
-    // 頂点バッファ、インデックスバッファとして使用するバリアを用意
-    {
-        buffer_barreirs[0].buffer       = vertex_buffer.Get();
-        buffer_barreirs[0].src_state    = b::RESOURCE_STATE_COPY_DST_WRITE;
-        buffer_barreirs[0].dst_state    = b::RESOURCE_STATE_UNDEFINED;
 
-        buffer_barreirs[1] = buffer_barreirs[0];
-        buffer_barreirs[1].buffer       = index_buffer.Get();
-        buffer_barreirs[1].src_state    = b::RESOURCE_STATE_COPY_DST_WRITE;
-        buffer_barreirs[1].dst_state    = b::RESOURCE_STATE_UNDEFINED;
+    // NOTE: D3D12ではコマンド実行完了後に、リソースが暗黙的にCOMMON状態へ遷移します。 また、Vulkanにはバッファには明確な「状態」がありません。 そのためD3D12の仕様に従う限りはバリアをスキップできます。
+    //       次回コマンドリストで初回使用される際に、インデックスと頂点バッファ状態への遷移が暗黙的に行われます: (COPY_DST -> COMMON) -> VERTEX/INDEX_READ への遷移
 
-        barreir.src_stages              = b::PIPELINE_STAGE_FLAG_COPY_RESOLVE;
-        barreir.dst_stages              = b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE;
-        barreir.dependency_flags        = b::DEPENDENCY_FLAG_NONE;
-        barreir.num_buffer_barriers     = 2;
-        barreir.buffer_barriers         = buffer_barreirs;
-        barreir.num_texture_barriers    = 0;
-        barreir.texture_barriers        = nullptr;
-
-        l->PipelineBarrier(barreir);
-    }
 
     // 記録を終了
     bmr = l->EndRecord();
@@ -860,7 +862,6 @@ bool HelloTriangle::CreateBufferViews()
     // 頂点バッファビューを作成
     {
         b::VERTEX_BUFFER_VIEW_DESC vbvdesc{};
-
         uint64_t buffer_offset      = 0;
         uint32_t sizes_in_bytes     = vertex_buffer->GetDesc().buffer.size_in_bytes;
         uint32_t strides_in_bytes   = sizeof(VERTEX);
@@ -886,6 +887,8 @@ bool HelloTriangle::CreateBufferViews()
 
     return true;
 }
+
+#pragma endregion preparing Buma3D objects
 
 void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
 {
@@ -913,8 +916,8 @@ void HelloTriangle::PrepareFrame(uint32_t _buffer_index)
         barrier.buffer_barriers      = nullptr;
         barrier.num_texture_barriers = 1;
         barrier.texture_barriers     = &tb;
-        barrier.src_stages           = b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE;
-        barrier.dst_stages           = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;
+        barrier.src_stages           = b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE;              // パイプラインの可能な限り早い段階で遷移を行います。
+        barrier.dst_stages           = b::PIPELINE_STAGE_FLAG_COLOR_ATTACHMENT_OUTPUT;  // 書き込みアクセス発生前までにはカラーアタッチメントへの遷移が行われます。
         l->PipelineBarrier(barrier);
 
         l->SetPipelineState(pipeline.Get());
@@ -970,6 +973,8 @@ void HelloTriangle::Update()
 
 void HelloTriangle::MoveToNextFrame()
 {
+    // プレゼント可能となるバッファのインデックスを取得します。
+    // 加えてフェンスにシグナル操作を行います。取得されたインデックスのバッファが利用可能となるタイミングを通知します。
     uint32_t next_buffer_index = 0;
     auto bmr = swapchain->AcquireNextBuffer(UINT32_MAX, &next_buffer_index);
     assert(bmr == b::BMRESULT_SUCCEED || bmr == b::BMRESULT_SUCCEED_NOT_READY);
@@ -986,49 +991,53 @@ void HelloTriangle::Render()
     auto cmd_fences_data = cmd_fences.data();
     b::BMRESULT bmr{};
 
-    //if (timer.IsOneSecElapsed())
-    //    SetWindowTextA(hwnd, std::string("FPS: " + std::to_string(timer.GetFramesPerSecond())).c_str());
-
-    // コマンドリストとフェンスを送信
+    // 送信情報を準備
     {
-        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
-        //PrepareFrame(back_buffer_index);
-
         // 待機フェンス
-        wait_fence_desc.Reset()
-                       .AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].wait())
-                       .AddFence(swapchain_fences->signal_fence.Get(), 0).Finalize();
+        // MoveToNextFrame()でacquireしたバッファが利用可能となるまでGPUで待機します。
+        wait_fence_desc.Reset().AddFence(swapchain_fences->signal_fence.Get(), 0).Finalize();
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
         // コマンドリスト
         submit_info.command_lists_to_execute = cmd_lists_data[back_buffer_index].GetAddressOf();
 
         // シグナルフェンス
+        // コマンドリストの実行を通知するフェンスと、スワップチェイン用のrender_complete_fenceをGPUでシグナルします。
         signal_fence_desc.Reset()
                          .AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal())
                          .AddFence(render_complete_fence.Get(), 0).Finalize();
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
+    }
 
+    // コマンドリストとフェンスを送信
+    {
+        // acquireしたバックバッファに対するコマンドリストの実行完了をCPUで待機し、必要に応じて再記録します。
+        cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
+        if constexpr (false)
+            PrepareFrame(back_buffer_index);
+
+        // 記録したコマンドを実行
         bmr = command_queue->Submit(submit);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
     // バックバッファをプレゼント
     {
+        // render_complete_fenceのシグナルをGPUで待機します。
         present_info.wait_fence = render_complete_fence.Get();
         bmr = swapchain->Present(present_info, true);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
 
-    //platform->GetLogger()->LogInfo("framed");
+    // cmd_fencesのフェンス値を増加
     fence_values[back_buffer_index]++;
 }
 
 void HelloTriangle::OnResize(ResizeEventArgs* _args)
 {
     command_queue->WaitIdle();
-    framebuffers = {};
-    back_buffers = {};
+    framebuffers.clear();
+    back_buffers = nullptr;
 }
 
 void HelloTriangle::OnResized(BufferResizedEventArgs* _args)
@@ -1036,8 +1045,12 @@ void HelloTriangle::OnResized(BufferResizedEventArgs* _args)
     back_buffers     = &swapchain->GetBuffers();
     swapchain_fences = &swapchain->GetPresentCompleteFences();
 
+    auto args = static_cast<ResizeEventArgs*>(_args);
+    vpiewport       = {   0, 0  ,  (float)args->size.width, (float)args->size.height, b::B3D_VIEWPORT_MIN_DEPTH, b::B3D_VIEWPORT_MAX_DEPTH };
+    scissor_rect    = { { 0, 0 },        {args->size.width,        args->size.height} };
+
     CreateFramebuffer();
-    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
+    for (uint32_t i = 0; i < BACK_BUFFER_COUNT; i++)
         PrepareFrame(i);
 
     Update();
@@ -1055,17 +1068,8 @@ void HelloTriangle::Term()
         for (auto& i : *g_fpss)
             res += i;
         std::stringstream ss;
-        ss << "\nprof result: average fps";
+        ss << "prof result: average fps ";
         ss << (res / size) << std::endl;
-
-        //ss << 100.f * ((res / size) / 5000.f);
-        //ss << "% vs. 5000fps" << std::endl;
-
-        //ss << 100.f * ((res / size) / 6000.f);
-        //ss << "% vs. 6000fps" << std::endl;
-
-        //ss << 100.f * ((res / size) / 7000.f);
-        //ss << "% vs. 7000fps" << std::endl << std::endl;
 
         platform->GetLogger()->LogInfo(ss.str().c_str());
     }

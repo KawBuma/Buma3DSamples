@@ -7,11 +7,16 @@
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
 #define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
 
-std::vector<float>* g_fpss = nullptr;
-bool g_first = true;
-constexpr bool USE_HOST_WRITABLE_HEAP = true;
+namespace /*anonymous*/
+{
+
+std::vector<float>* g_fpss                 = nullptr;
+bool                g_first                = true;
+constexpr bool      USE_HOST_WRITABLE_HEAP = true;
 
 Camera g_cam{};
+
+}// namespace /*anonymous*/
 
 namespace init = buma3d::hlp::init;
 namespace b = buma3d;
@@ -71,7 +76,6 @@ HelloTexture::HelloTexture()
     , window                    {}
     , device                    {}
     , quad                      {}
-    //, index                     {}
     , cb_model                  {}
     , cb_scene                  {}
     , command_queue             {}
@@ -102,9 +106,7 @@ HelloTexture::HelloTexture()
     , texture_descriptor_sets   {}
     , render_pass               {}
     , vertex_buffer             {}
-    , index_buffer              {}
     , vertex_buffer_view        {}
-    , index_buffer_view         {}
     , cb_heap                   {}
     , frame_cbs                 {}
     , texture                   {}
@@ -124,7 +126,6 @@ HelloTexture::~HelloTexture()
 {
     delete g_fpss;
     g_fpss = nullptr;
-    //Term();
 }
 
 HelloTexture* HelloTexture::Create()
@@ -191,6 +192,34 @@ bool HelloTexture::Init()
     if (!copy_ctx.Init(dr, copy_ques.empty() ? command_queue : copy_ques[0]))   return false;
     if (!LoadAssets())                                                          return false;
 
+    if (!CreateDescriptorSetLayout())       return false;
+    if (!CreatePipelineLayout())            return false;
+    if (!CreateDescriptorHeap())            return false;
+    if (!CreateDescriptorPools())           return false;
+    if (!AllocateDescriptorSets())          return false;
+    if (!CreateRenderPass())                return false;
+    if (!CreateFramebuffer())               return false;
+    if (!CreateShaderModules())             return false;
+    if (!CreateGraphicsPipelines())         return false;
+    if (!CreateCommandAllocator())          return false;
+    if (!CreateCommandLists())              return false;
+    if (!CreateFences())                    return false;
+
+    if (!CreateBuffers())                   return false;
+    if (!CopyBuffers())                     return false;
+    if (!CreateBufferViews())               return false;
+    if (!CreateConstantBuffer())            return false;
+    if (!CreateConstantBufferView())        return false;
+    if (!CreateTextureResource())           return false;
+    if (!CopyDataToTexture())               return false;
+    if (!CreateShaderResourceView())        return false;
+    if (!CreateSampler())                   return false;
+    if (!UpdateDescriptorSets())            return false;
+
+    // 描画コマンドを記録
+    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
+        PrepareFrame(i);
+
     return true;
 }
 
@@ -226,36 +255,22 @@ bool HelloTexture::LoadAssets()
         , { { -1.0f, -1.0f, 0.0f, 1.f }, { 0.f, 1.f } }
         , { {  1.0f, -1.0f, 0.0f, 1.f }, { 1.f, 1.f } }
     };
-    //index = { 0,1,2,3 };
 
-    if (!CreateDescriptorSetLayout())       return false;
-    if (!CreatePipelineLayout())            return false;
-    if (!CreateDescriptorHeap())            return false;
-    if (!CreateDescriptorPools())           return false;
-    if (!AllocateDescriptorSets())          return false;
-    if (!CreateRenderPass())                return false;
-    if (!CreateFramebuffer())               return false;
-    if (!CreateShaderModules())             return false;
-    if (!CreateGraphicsPipelines())         return false;
-    if (!CreateCommandAllocator())          return false;
-    if (!CreateCommandLists())              return false;
-    if (!CreateFences())                    return false;
+    if (!LoadTextureData())
+        return false;
 
-    if (!CreateBuffers())                   return false;
-    if (!CopyBuffers())                     return false;
-    if (!CreateBufferViews())               return false;
-    if (!CreateConstantBuffer())            return false;
-    if (!CreateConstantBufferView())        return false;
-    if (!LoadTextureData())                 return false;
-    if (!CreateTextureResource())           return false;
-    if (!CopyDataToTexture())               return false;
-    if (!CreateShaderResourceView())        return false;
-    if (!CreateSampler())                   return false;
-    if (!UpdateDescriptorSets())            return false;
-
-    // 描画コマンドを記録
-    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
-        PrepareFrame(i);
+    return true;
+}
+bool HelloTexture::LoadTextureData()
+{
+    tex::TEXTURE_CREATE_DESC texdesc{};
+    auto path = AssetPath("UV_Grid_Sm.jpg");
+    texdesc.filename    = path.c_str();
+    texdesc.mip_count   = 0;
+    texdesc.row_pitch_alignment   = dr->GetDeviceAdapterLimits().buffer_copy_row_pitch_alignment;
+    texdesc.slice_pitch_alignment = dr->GetDeviceAdapterLimits().buffer_copy_offset_alignment;
+    texture.data = tex::CreateTexturesFromFile(texdesc);
+    RET_IF_FAILED(texture.data);
 
     return true;
 }
@@ -288,8 +303,7 @@ bool HelloTexture::CreateDescriptorSetLayout()
 bool HelloTexture::CreatePipelineLayout()
 {
     util::PipelineLayoutDesc desc(2, 0);
-    desc
-        .SetNumLayouts(2)
+    desc.SetNumLayouts(2)
         .SetLayout(0, buffer_layout.Get())  // space0 モデル定数, シーン定数
         .SetLayout(1, texture_layout.Get()) // space1 テクスチャ
         .SetFlags(b::PIPELINE_LAYOUT_FLAG_NONE)
@@ -303,10 +317,9 @@ bool HelloTexture::CreatePipelineLayout()
 bool HelloTexture::CreateDescriptorHeap()
 {
     util::DescriptorSizes sizes;
-    sizes
-        .IncrementSizes(buffer_layout.Get(), BACK_BUFFER_COUNT)
-        .IncrementSizes(texture_layout.Get(), BACK_BUFFER_COUNT)
-        .Finalize();
+    sizes.IncrementSizes(buffer_layout.Get(), BACK_BUFFER_COUNT)
+         .IncrementSizes(texture_layout.Get(), BACK_BUFFER_COUNT)
+         .Finalize();
 
     auto bmr = device->CreateDescriptorHeap(sizes.GetAsHeapDesc(b::DESCRIPTOR_HEAP_FLAG_NONE, b::B3D_DEFAULT_NODE_MASK), &descriptor_heap);
     BMR_RET_IF_FAILED(bmr);
@@ -315,17 +328,17 @@ bool HelloTexture::CreateDescriptorHeap()
 }
 bool HelloTexture::CreateDescriptorPools()
 {
-    b::BMRESULT bmr;
     util::DescriptorSizes sizes;
-
     sizes.IncrementSizes(buffer_layout.Get(), BACK_BUFFER_COUNT)
          .IncrementSizes(texture_layout.Get(), BACK_BUFFER_COUNT - 1)
          .Finalize();
+
+    b::BMRESULT bmr;
     bmr = device->CreateDescriptorPool(sizes.GetAsPoolDesc(descriptor_heap.Get(), sizes.GetMaxSetsByTotalMultiplyCount(), b::DESCRIPTOR_POOL_FLAG_NONE), &descriptor_pool);
     BMR_RET_IF_FAILED(bmr);
 
     // DESCRIPTOR_POOL_FLAG_COPY_SRCフラグで作成されたプールから割り当てたディスクリプタセットはコピーソースとして使用可能です。
-    // デモンストレーションのため、今回はテクスチャディスクリプタセットのフレーム0番目をコピー可能プールから割り当てます。
+    // デモンストレーションのため、今回はフレーム0番目のテクスチャディスクリプタセットをコピー可能プールから割り当てます。
     // (このサンプルにおいてテクスチャとサンプラーは可変でないため、実際にはフレーム毎にディスクリプタセットを割り当てる必要はありません。)
     sizes.Reset()
          .IncrementSizes(texture_layout.Get(), 1)
@@ -588,7 +601,7 @@ bool HelloTexture::CreateGraphicsPipelines()
             pso_desc.rasterization_state  = &rs;
         }
 
-        pso_desc.stream_output        = nullptr;
+        pso_desc.stream_output = nullptr;
 
         b::MULTISAMPLE_STATE_DESC ms{};
         {
@@ -714,23 +727,28 @@ bool HelloTexture::CreateCommandLists()
 }
 bool HelloTexture::CreateFences()
 {
-    cmd_fences.resize(BACK_BUFFER_COUNT);
+    b::BMRESULT bmr;
     b::FENCE_DESC fd{};
     fd.flags         = b::FENCE_FLAG_NONE;
     fd.initial_value = 0;
 
     fd.type = b::FENCE_TYPE_BINARY_GPU_TO_CPU;
-    auto bmr = device->CreateFence(fd, &util_fence);
-    BMR_RET_IF_FAILED(bmr);
-    util_fence->SetName("util_fence");
+    {
+        bmr = device->CreateFence(fd, &util_fence);
+        BMR_RET_IF_FAILED(bmr);
+        util_fence->SetName("util_fence");
+    }
 
     fd.type = b::FENCE_TYPE_TIMELINE;
-    uint32_t cnt = 0;
-    for (auto& i : cmd_fences)
     {
-        bmr = device->CreateFence(fd, &i);
-        BMR_RET_IF_FAILED(bmr);
-        i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
+        cmd_fences.resize(BACK_BUFFER_COUNT);
+        uint32_t cnt = 0;
+        for (auto& i : cmd_fences)
+        {
+            bmr = device->CreateFence(fd, &i);
+            BMR_RET_IF_FAILED(bmr);
+            i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
+        }
     }
 
     return true;
@@ -747,20 +765,12 @@ bool HelloTexture::CreateBuffers()
         vertex_buffer->SetName("Vertex buffer");
     }
 
-    //// インデックスバッファを作成
-    //{
-    //    index_buffer = rc->CreateBuffer(init::BufferResourceDesc(sizeof(decltype(index)::value_type) * index.size(), init::BUF_COPYABLE_FLAGS | b::BUFFER_USAGE_FLAG_INDEX_BUFFER), buma3d::RESOURCE_HEAP_PROPERTY_FLAG_DEVICE_LOCAL);
-    //    RET_IF_FAILED(index_buffer);
-    //    index_buffer->SetName("Vertex buffer");
-    //}
-
     return true;
 }
 bool HelloTexture::CopyBuffers()
 {
     copy_ctx.Begin();
     copy_ctx.CopyDataToBuffer(vertex_buffer->GetB3DBuffer().Get(), 0, sizeof(VERTEX) * quad.size(), quad.data());
-    //copy_ctx.CopyDataToBuffer(index_buffer->GetB3DBuffer().Get(), 0, sizeof(decltype(index)::value_type) * index.size(), index.data());
     copy_ctx.End(copy_ctx.GetGpuWaitFence());
     BMR_RET_IF_FAILED(copy_ctx.WaitOnCpu());
 
@@ -785,17 +795,6 @@ bool HelloTexture::CreateBufferViews()
         BMR_RET_IF_FAILED(bmr);
     }
 
-    //// インデックスバッファビューを作成
-    //{
-    //    b::INDEX_BUFFER_VIEW_DESC ibvdesc{};
-    //    ibvdesc.buffer_offset   = 0;
-    //    ibvdesc.size_in_bytes   = index_buffer->GetB3DDesc().buffer.size_in_bytes;
-    //    ibvdesc.index_type      = b::INDEX_TYPE_UINT16;
-
-    //    bmr = device->CreateIndexBufferView(index_buffer->GetB3DBuffer().Get(), ibvdesc, &index_buffer_view);
-    //    BMR_RET_IF_FAILED(bmr);
-    //}
-
     return true;
 }
 bool HelloTexture::CreateConstantBuffer()
@@ -813,13 +812,9 @@ bool HelloTexture::CreateConstantBuffer()
     for (auto& i : frame_cbs)
     {
         if constexpr (USE_HOST_WRITABLE_HEAP)
-        {
             i.constant_buffer = rc->CreateBuffer(cb_desc, b::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE);
-        }
         else
-        {
             i.constant_buffer = rc->CreateBuffer(cb_desc, b::RESOURCE_HEAP_PROPERTY_FLAG_DEVICE_LOCAL);
-        }
         RET_IF_FAILED(i.constant_buffer);
     }
 
@@ -853,10 +848,7 @@ bool HelloTexture::CreateConstantBuffer()
 
                 ictx.CopyDataToBuffer(i.constant_buffer->GetB3DBuffer().Get(), util::AlignUp(sizeof(CB_MODEL), CBV_ALIGNMENT)
                                      , sizeof(cb_scene), &cb_scene);
-
-                //barrier.AddBufferBarrier(init::BufferBarrierDesc(i.constant_buffer.Get(), b::RESOURCE_STATE_UNDEFINED, b::RESOURCE_STATE_CONSTANT_READ));
             }
-            //ctx.PipelineBarrier(barrier.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE));
         }
     }
 
@@ -880,19 +872,6 @@ bool HelloTexture::CreateConstantBufferView()
 
     return true;
 }
-bool HelloTexture::LoadTextureData()
-{
-    tex::TEXTURE_CREATE_DESC texdesc{};
-    auto path = AssetPath("UV_Grid_Sm.jpg");
-    texdesc.filename    = path.c_str();
-    texdesc.mip_count   = 0;
-    texdesc.row_pitch_alignment   = dr->GetDeviceAdapterLimits().buffer_copy_row_pitch_alignment;
-    texdesc.slice_pitch_alignment = dr->GetDeviceAdapterLimits().buffer_copy_offset_alignment;
-    texture.data = tex::CreateTexturesFromFile(texdesc);
-    RET_IF_FAILED(texture.data);
-
-    return true;
-}
 bool HelloTexture::CreateTextureResource()
 {
     auto&& data_desc = texture.data->GetDesc();
@@ -906,14 +885,14 @@ bool HelloTexture::CreateTextureResource()
 bool HelloTexture::CopyDataToTexture()
 {
     auto&& data_desc = texture.data->GetDesc();
+    util::PipelineBarrierDesc bd{};
+    util::TextureBarrierRange tex(&bd);
+    tex .SetTexture(texture.texture->GetB3DTexture().Get())
+        .AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels)
+        .Finalize();
+
     copy_ctx.Begin();
     {
-        util::PipelineBarrierDesc bd{};
-        util::TextureBarrierRange tex(&bd);
-        tex .SetTexture(texture.texture->GetB3DTexture().Get())
-            .AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels)
-            .Finalize();
-
         bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_UNDEFINED, b::RESOURCE_STATE_COPY_DST_WRITE);
         copy_ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_COPY_RESOLVE).Finalize().Get());
 
@@ -923,7 +902,6 @@ bool HelloTexture::CopyDataToTexture()
             copy_ctx.CopyDataToTexture(texture.texture->GetB3DTexture().Get(), (uint32_t)i, 0
                                        , tex_data->layout.row_pitch
                                        , tex_data->extent.h
-                                     //, tex_data->layout.slice_pitch / tex_data->layout.texel_size
                                        , tex_data->total_size, tex_data->data);
         }
 
@@ -949,12 +927,7 @@ bool HelloTexture::CopyDataToTexture()
     {
         ctx.Begin();
         {
-            util::PipelineBarrierDesc bd{};
-            util::TextureBarrierRange tex(&bd);
-            tex .SetTexture(texture.texture->GetB3DTexture().Get())
-                .AddSubresRange(b::TEXTURE_ASPECT_FLAG_COLOR, 0, 0, 1, texture.texture->GetB3DDesc().texture.mip_levels)
-                .Finalize();
-
+            bd.Reset();
             bd.AddTextureBarrierRange(&tex.Get(), b::RESOURCE_STATE_COPY_DST_WRITE, b::RESOURCE_STATE_SHADER_READ
                                       , b::RESOURCE_BARRIER_FLAG_OWNERSHIP_TRANSFER, b::COMMAND_TYPE_COPY_ONLY, b::COMMAND_TYPE_DIRECT);
             ctx.PipelineBarrier(bd.SetPipelineStageFalgs(b::PIPELINE_STAGE_FLAG_TOP_OF_PIPE, b::PIPELINE_STAGE_FLAG_ALL_GRAPHICS).Finalize().Get());
@@ -1090,7 +1063,6 @@ void HelloTexture::PrepareFrame(uint32_t _buffer_index)
         l->BindDescriptorSets(b::PIPELINE_BIND_POINT_GRAPHICS, bind_sets);
 
         l->BindVertexBufferViews({ 0, 1, vertex_buffer_view.GetAddressOf() });
-        //l->BindIndexBufferView(index_buffer_view.Get());
 
         static float sc = 0.f;
         static float sx = 0.f;
@@ -1103,9 +1075,6 @@ void HelloTexture::PrepareFrame(uint32_t _buffer_index)
         {
             l->SetViewports(1, &vpiewport);
             l->SetScissorRects(1, &scissor_rect);
-
-            ////             { index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location }
-            //l->DrawIndexed({ 4                       , 1             , 0                   , 0                   , 0                       });            
             l->Draw({ 4, 1, 0, 0 });
         }
         l->EndRenderPass({});
@@ -1148,40 +1117,31 @@ void HelloTexture::Update()
         auto&& mouse = platform->GetInputs()->GetMouse();
         auto dx = (float)mouse.x.delta;
         auto dy = (float)mouse.y.delta;
-        if (mouse.buttons.left.press_count)
-            g_cam.rotate(glm::vec3(dy * g_cam.rotationSpeed, dx * g_cam.rotationSpeed, 0.0f));
-
-        if (mouse.buttons.right.press_count)
-            g_cam.translate(glm::vec3(-0.0f, 0.0f, dy * .005f));
-
-        if (mouse.buttons.middle.press_count)
-            g_cam.translate(glm::vec3(dx * 0.005f, -dy * 0.005f, 0.0f));
-
         auto wheel_delta = static_cast<float>(mouse.rot.delta) * 0.005f;
-        if (wheel_delta != 0.f)
-            g_cam.translate(glm::vec3(0.0f, 0.0f, wheel_delta));
+        if (mouse.buttons.left.press_count)     g_cam.rotate   (glm::vec3(dy * g_cam.rotationSpeed, dx * g_cam.rotationSpeed, 0.0f));
+        if (mouse.buttons.right.press_count)    g_cam.translate(glm::vec3(-0.0f      , 0.0f        , dy * 0.005f));
+        if (mouse.buttons.middle.press_count)   g_cam.translate(glm::vec3(dx * 0.005f, -dy * 0.005f, 0.0f       ));
+        if (wheel_delta != 0.f)                 g_cam.translate(glm::vec3(0.0f       , 0.0f        , wheel_delta));
 
-        auto dirty = g_cam.dirty;
         g_cam.update(timer.GetElapsedSecondsF());
-        //if (g_cam.updated || dirty)
-        {
-            cb_scene.view_proj = g_cam.matrices.perspective * g_cam.matrices.view;
-            if constexpr (USE_HOST_WRITABLE_HEAP)
-            {
-                memcpy(frame_cbs[back_buffer_index].mapped_data[1], &cb_scene, sizeof(CB_SCENE));
-            }
-            else
-            {
-                ctx.Begin();
-                ctx.CopyDataToBuffer(frame_cbs[back_buffer_index].constant_buffer->GetB3DBuffer().Get(), util::AlignUp(sizeof(CB_MODEL), CBV_ALIGNMENT)
-                                     , util::AlignUp(sizeof(CB_SCENE), CBV_ALIGNMENT)
-                                     , &cb_scene);
-                ctx.End(ctx.GetGpuWaitFence());
-                ctx.WaitOnCpu();
-            }
-        }
+        cb_scene.view_proj = g_cam.matrices.perspective * g_cam.matrices.view;
     }
 
+    {
+        if constexpr (USE_HOST_WRITABLE_HEAP)
+        {
+            memcpy(frame_cbs[back_buffer_index].mapped_data[1], &cb_scene, sizeof(CB_SCENE));
+        }
+        else
+        {
+            ctx.Begin();
+            ctx.CopyDataToBuffer(frame_cbs[back_buffer_index].constant_buffer->GetB3DBuffer().Get(), util::AlignUp(sizeof(CB_MODEL), CBV_ALIGNMENT)
+                                    , util::AlignUp(sizeof(CB_SCENE), CBV_ALIGNMENT)
+                                    , &cb_scene);
+            ctx.End(ctx.GetGpuWaitFence());
+            ctx.WaitOnCpu();
+        }
+    }
 }
 
 void HelloTexture::MoveToNextFrame()
@@ -1202,12 +1162,9 @@ void HelloTexture::Render()
     auto cmd_fences_data = cmd_fences.data();
     b::BMRESULT bmr{};
 
-    // コマンドリストとフェンスを送信
+    // 送信情報の準備
     {
         // 待機フェンス
-        //cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
-        //PrepareFrame(back_buffer_index);
-
         wait_fence_desc.Reset().AddFence(swapchain_fences->signal_fence.Get(), 0).Finalize();
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
@@ -1217,8 +1174,13 @@ void HelloTexture::Render()
         // シグナルフェンス
         signal_fence_desc.Reset().AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal()).Finalize();
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
+    }
 
+    // コマンドリストとフェンスを送信
+    {
         cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
+        //PrepareFrame(back_buffer_index);
+
         bmr = command_queue->Submit(submit);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
@@ -1236,8 +1198,8 @@ void HelloTexture::Render()
 void HelloTexture::OnResize(ResizeEventArgs* _args)
 {
     command_queue->WaitIdle();
-    framebuffers = {};
-    back_buffers = {};
+    framebuffers.clear();
+    back_buffers = nullptr;
 }
 
 void HelloTexture::OnResized(BufferResizedEventArgs* _args)
@@ -1270,7 +1232,7 @@ void HelloTexture::Term()
         for (auto& i : *g_fpss)
             res += i;
         std::stringstream ss;
-        ss << "\nprof result: average fps";
+        ss << "prof result: average fps ";
         ss << (res / size) << std::endl;
 
         platform->GetLogger()->LogInfo(ss.str().c_str());
@@ -1300,9 +1262,7 @@ void HelloTexture::Term()
     cb_model = {};
     cb_scene = {};
     vertex_buffer_view.Reset();
-    index_buffer_view.Reset();
     vertex_buffer.reset();
-    index_buffer.reset();
     texture = {};
     pipeline.Reset();
     shader_modules = {};

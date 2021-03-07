@@ -21,6 +21,7 @@ public:
     bool Init() override;
     bool InitSwapChain();
     bool LoadAssets();
+    bool LoadTextureData();
     bool CreateDescriptorSetLayout();
     bool CreatePipelineLayout();
     bool CreateDescriptorHeap();
@@ -38,7 +39,6 @@ public:
     bool CreateBufferViews();
     bool CreateConstantBuffer();
     bool CreateConstantBufferView();
-    bool LoadTextureData();
     bool CreateTextureResource();
     bool CopyDataToTexture();
     bool CreateShaderResourceView();
@@ -64,14 +64,13 @@ private:
         buma3d::FLOAT4 position;
         buma3d::FLOAT2 uv;
     };
-    std::vector<VERTEX>     quad;
-    //std::vector<uint16_t>   index;
+    std::vector<VERTEX> quad;
 
     struct CB_MODEL // register(b0, space0);
     {
         glm::mat4 model;
     };
-    struct CB_SCENE // register(b0, space1);
+    struct CB_SCENE // register(b1, space0);
     {
         glm::mat4 view_proj;
     };
@@ -135,9 +134,7 @@ private:
 
     buma3d::util::Ptr<buma3d::IRenderPass>                      render_pass;
     std::shared_ptr<buma::res::IResourceBuffer>                 vertex_buffer;
-    std::shared_ptr<buma::res::IResourceBuffer>                 index_buffer;
     buma3d::util::Ptr<buma3d::IVertexBufferView>                vertex_buffer_view;
-    buma3d::util::Ptr<buma3d::IIndexBufferView>                 index_buffer_view;
 
     RESOURCE_HEAP_ALLOCATION                                    cb_heap;
     FRAME_CB                                                    frame_cbs[BACK_BUFFER_COUNT];

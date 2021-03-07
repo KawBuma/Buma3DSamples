@@ -7,11 +7,16 @@
 #define BMR_RET_IF_FAILED(x) if (x >= buma3d::BMRESULT_FAILED) { assert(false && #x); return false; }
 #define RET_IF_FAILED(x) if (!(x)) { assert(false && #x); return false; }
 
-std::vector<float>* g_fpss = nullptr;
-bool g_first = true;
-constexpr bool USE_HOST_WRITABLE_HEAP = true;
+namespace /*anonymous*/
+{
+
+std::vector<float>* g_fpss                 = nullptr;
+bool                g_first                = true;
+constexpr bool      USE_HOST_WRITABLE_HEAP = true;
 
 Camera g_cam{};
+
+}// namespace /*anonymous*/
 
 namespace init = buma3d::hlp::init;
 namespace b = buma3d;
@@ -93,6 +98,7 @@ HelloConstantBuffer::HelloConstantBuffer()
     , present_region        {}
     , on_resize             {}
     , on_resized            {}
+    , ctx                   {}
 {
     g_fpss = new std::remove_pointer_t<decltype(g_fpss)>;
 }
@@ -164,6 +170,35 @@ bool HelloConstantBuffer::Init()
     if (!ctx.Init(dr, command_queue))   return false;
     if (!LoadAssets())                  return false;
 
+    if (!CreateDescriptorSetLayout())   return false;
+    if (!CreatePipelineLayout())        return false;
+    if (!CreateDescriptorHeap())        return false;
+    if (!CreateDescriptorPool())        return false;
+    if (!AllocateDescriptorSets())      return false;
+    if (!CreateRenderPass())            return false;
+    if (!CreateFramebuffer())           return false;
+    if (!CreateShaderModules())         return false;
+    if (!CreateGraphicsPipelines())     return false;
+    if (!CreateCommandAllocator())      return false;
+    if (!CreateCommandLists())          return false;
+    if (!CreateFences())                return false;
+
+    b::RESOURCE_HEAP_ALLOCATION_INFO         heap_alloc_info{};
+    std::vector<b::RESOURCE_ALLOCATION_INFO> alloc_infos;
+    if (!CreateBuffers())                                   return false;
+    if (!CreateHeaps(&heap_alloc_info, &alloc_infos))       return false;
+    if (!BindResourceHeaps(&heap_alloc_info, &alloc_infos)) return false;
+    if (!CreateBuffersForCopy())                            return false;
+    if (!CopyBuffers())                                     return false;
+    if (!CreateBufferViews())                               return false;
+    if (!CreateConstantBuffer())                            return false;
+    if (!CreateConstantBufferView())                        return false;
+    if (!UpdateDescriptorSet())                             return false;
+
+    // 描画コマンドを記録
+    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
+        PrepareFrame(i);
+
     return true;
 }
 
@@ -200,41 +235,12 @@ bool HelloConstantBuffer::LoadAssets()
     };
     index = { 0,1,2 };
 
-    if (!CreateDescriptorSetLayout())   return false;
-    if (!CreatePipelineLayout())        return false;
-    if (!CreateDescriptorHeap())        return false;
-    if (!CreateDescriptorPool())        return false;
-    if (!AllocateDescriptorSets())      return false;
-    if (!CreateRenderPass())            return false;
-    if (!CreateFramebuffer())           return false;
-    if (!CreateShaderModules())         return false;
-    if (!CreateGraphicsPipelines())     return false;
-    if (!CreateCommandAllocator())      return false;
-    if (!CreateCommandLists())          return false;
-    if (!CreateFences())                return false;
-
-    b::RESOURCE_HEAP_ALLOCATION_INFO         heap_alloc_info{};
-    std::vector<b::RESOURCE_ALLOCATION_INFO> alloc_infos;
-    if (!CreateBuffers())                                   return false;
-    if (!CreateHeaps(&heap_alloc_info, &alloc_infos))       return false;
-    if (!BindResourceHeaps(&heap_alloc_info, &alloc_infos)) return false;
-    if (!CreateBuffersForCopy())                            return false;
-    if (!CopyBuffers())                                     return false;
-    if (!CreateBufferViews())                               return false;
-    if (!CreateConstantBuffer())                            return false;
-    if (!CreateConstantBufferView())                        return false;
-    if (!UpdateDescriptorSet())                             return false;
-
-    // 描画コマンドを記録
-    for (size_t i = 0; i < BACK_BUFFER_COUNT; i++)
-        PrepareFrame(i);
-
     return true;
 }
 
 bool HelloConstantBuffer::CreateDescriptorSetLayout()
 {
-    // 頂点シェーダーに可視の register(b0, space*) を割り当てます。
+    // 頂点シェーダーに可視の register(b0, space*) を割り当てます。 register space はパイプラインレイアウトの作成時に決定されます。
     buma3d::DESCRIPTOR_SET_LAYOUT_BINDING bindings[1]{};
     bindings[0].descriptor_type      = b::DESCRIPTOR_TYPE_CBV;
     bindings[0].flags                = b::DESCRIPTOR_FLAG_NONE;
@@ -274,6 +280,7 @@ bool HelloConstantBuffer::CreatePipelineLayout()
 }
 bool HelloConstantBuffer::CreateDescriptorHeap()
 {
+    // コマンドリストに現在セットされる各ディスクリプタセットの親ヒープは同一でなければなりません。
     b::DESCRIPTOR_HEAP_SIZE heap_sizes[] = {
          { b::DESCRIPTOR_TYPE_CBV, 2 * BACK_BUFFER_COUNT }
     };
@@ -290,6 +297,7 @@ bool HelloConstantBuffer::CreateDescriptorHeap()
 }
 bool HelloConstantBuffer::CreateDescriptorPool()
 {
+    // モデル定数、シーン定数のディスクリプタを各バックバッファにそれぞれ割り当てます。
     b::DESCRIPTOR_POOL_SIZE pool_sizes[] = {
          { b::DESCRIPTOR_TYPE_CBV, 2 * BACK_BUFFER_COUNT }
     };
@@ -631,7 +639,7 @@ bool HelloConstantBuffer::CreateCommandAllocator()
         b::COMMAND_ALLOCATOR_DESC cad{};
         cad.type    = b::COMMAND_TYPE_DIRECT;
         cad.level   = b::COMMAND_LIST_LEVEL_PRIMARY;
-        cad.flags   = b::COMMAND_ALLOCATOR_FLAG_NONE /*| b::COMMAND_ALLOCATOR_FLAG_TRANSIENT*/;
+        cad.flags   = b::COMMAND_ALLOCATOR_FLAG_NONE;
 
         auto bmr = device->CreateCommandAllocator(cad, &i);
         BMR_RET_IF_FAILED(bmr);
@@ -659,23 +667,28 @@ bool HelloConstantBuffer::CreateCommandLists()
 }
 bool HelloConstantBuffer::CreateFences()
 {
-    cmd_fences.resize(BACK_BUFFER_COUNT);
+    b::BMRESULT bmr;
     b::FENCE_DESC fd{};
     fd.flags         = b::FENCE_FLAG_NONE;
     fd.initial_value = 0;
 
     fd.type = b::FENCE_TYPE_BINARY_GPU_TO_CPU;
-    auto bmr = device->CreateFence(fd, &util_fence);
-    BMR_RET_IF_FAILED(bmr);
-    util_fence->SetName("util_fence");
+    {
+        bmr = device->CreateFence(fd, &util_fence);
+        BMR_RET_IF_FAILED(bmr);
+        util_fence->SetName("util_fence");
+    }
 
     fd.type = b::FENCE_TYPE_TIMELINE;
-    uint32_t cnt = 0;
-    for (auto& i : cmd_fences)
     {
-        bmr = device->CreateFence(fd, &i);
-        BMR_RET_IF_FAILED(bmr);
-        i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
+        cmd_fences.resize(BACK_BUFFER_COUNT);
+        uint32_t cnt = 0;
+        for (auto& i : cmd_fences)
+        {
+            bmr = device->CreateFence(fd, &i);
+            BMR_RET_IF_FAILED(bmr);
+            i->SetName(std::string("cmd_fences" + std::to_string(cnt++)).c_str());
+        }
     }
 
     return true;
@@ -823,39 +836,6 @@ bool HelloConstantBuffer::CopyBuffers()
     bmr = l->BeginRecord(begin);
     BMR_RET_IF_FAILED(bmr);
 
-    // コピー宛先、ソースそれぞれにバリアを張る
-    b::CMD_PIPELINE_BARRIER barreir{};
-    b::BUFFER_BARRIER_DESC buffer_barreirs[4]{};
-    {
-        buffer_barreirs[0].src_queue_type = b::COMMAND_TYPE_DIRECT;
-        buffer_barreirs[0].dst_queue_type = b::COMMAND_TYPE_DIRECT;
-        buffer_barreirs[0].barrier_flags  = b::RESOURCE_BARRIER_FLAG_NONE;
-
-        buffer_barreirs[0].buffer         = vertex_buffer.Get();
-        buffer_barreirs[0].src_state      = b::RESOURCE_STATE_UNDEFINED;
-        buffer_barreirs[0].dst_state      = b::RESOURCE_STATE_COPY_DST_WRITE;
-
-        buffer_barreirs[1] = buffer_barreirs[0];
-        buffer_barreirs[1].buffer         = vertex_buffer_src.Get();
-        buffer_barreirs[1].src_state      = b::RESOURCE_STATE_HOST_READ_WRITE;
-        buffer_barreirs[1].dst_state      = b::RESOURCE_STATE_COPY_SRC_READ;
-
-        buffer_barreirs[2] = buffer_barreirs[0];
-        buffer_barreirs[3] = buffer_barreirs[1];
-        buffer_barreirs[2].buffer         = index_buffer.Get();
-        buffer_barreirs[3].buffer         = index_buffer_src.Get();
-
-        barreir.src_stages           = b::PIPELINE_STAGE_FLAG_HOST;
-        barreir.dst_stages           = b::PIPELINE_STAGE_FLAG_COPY_RESOLVE;
-        barreir.dependency_flags     = b::DEPENDENCY_FLAG_NONE;
-        barreir.num_buffer_barriers  = _countof(buffer_barreirs);
-        barreir.buffer_barriers      = buffer_barreirs;
-        barreir.num_texture_barriers = 0;
-        barreir.texture_barriers     = nullptr;
-
-        l->PipelineBarrier(barreir);
-    }
-
     // バッファをコピー
     b::CMD_COPY_BUFFER_REGION copy_buffer{};
     b::BUFFER_COPY_REGION copy_region{};
@@ -876,28 +856,6 @@ bool HelloConstantBuffer::CopyBuffers()
         copy_buffer.src_buffer      = index_buffer_src.Get();
         copy_buffer.dst_buffer      = index_buffer.Get();
         l->CopyBufferRegion(copy_buffer);
-    }
-
-    // 頂点バッファ、インデックスバッファとして使用するバリアを用意
-    {
-        buffer_barreirs[0].buffer       = vertex_buffer.Get();
-        buffer_barreirs[0].src_state    = b::RESOURCE_STATE_COPY_DST_WRITE;
-        buffer_barreirs[0].dst_state    = b::RESOURCE_STATE_UNDEFINED;
-
-        buffer_barreirs[1] = buffer_barreirs[0];
-        buffer_barreirs[1].buffer       = index_buffer.Get();
-        buffer_barreirs[1].src_state    = b::RESOURCE_STATE_COPY_DST_WRITE;
-        buffer_barreirs[1].dst_state    = b::RESOURCE_STATE_UNDEFINED;
-
-        barreir.src_stages              = b::PIPELINE_STAGE_FLAG_COPY_RESOLVE;
-        barreir.dst_stages              = b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE;
-        barreir.dependency_flags        = b::DEPENDENCY_FLAG_NONE;
-        barreir.num_buffer_barriers     = 2;
-        barreir.buffer_barriers         = buffer_barreirs;
-        barreir.num_texture_barriers    = 0;
-        barreir.texture_barriers        = nullptr;
-
-        l->PipelineBarrier(barreir);
     }
 
     // 記録を終了
@@ -1056,10 +1014,7 @@ bool HelloConstantBuffer::CreateConstantBuffer()
 
                 ictx.CopyDataToBuffer(i.constant_buffer.Get(), util::AlignUp(sizeof(CB_MODEL), cbv_alignment)
                                      , sizeof(cb_scene), &cb_scene);
-
-                //barrier.AddBufferBarrier(init::BufferBarrierDesc(i.constant_buffer.Get(), b::RESOURCE_STATE_UNDEFINED, b::RESOURCE_STATE_CONSTANT_READ));
             }
-            //ctx.PipelineBarrier(barrier.Get(b::PIPELINE_STAGE_FLAG_COPY_RESOLVE, b::PIPELINE_STAGE_FLAG_BOTTOM_OF_PIPE));
         }
     }
 
@@ -1216,6 +1171,7 @@ void HelloConstantBuffer::Update()
     // 次のバックバッファを取得
     MoveToNextFrame();
 
+    // カメラを更新
     {
         auto&& key = platform->GetInputs()->GetKey();
         g_cam.keys.up       = key.W.press_count;
@@ -1241,26 +1197,25 @@ void HelloConstantBuffer::Update()
 
         auto dirty = g_cam.dirty;
         g_cam.update(timer.GetElapsedSecondsF());
-        //if (g_cam.updated || dirty)
-        {
-            cb_scene.view_proj = g_cam.matrices.perspective * g_cam.matrices.view;
-            if constexpr (USE_HOST_WRITABLE_HEAP)
-            {
-                memcpy(frame_cbs[back_buffer_index].mapped_data[1], &cb_scene, sizeof(CB_SCENE));
-            }
-            else
-            {
-                ctx.Begin();
-                auto cbv_alignment = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
+        cb_scene.view_proj = g_cam.matrices.perspective * g_cam.matrices.view;
+    }
 
-                ctx.CopyDataToBuffer(frame_cbs[back_buffer_index].constant_buffer.Get(), util::AlignUp(sizeof(CB_MODEL), cbv_alignment)
-                                     , util::AlignUp(sizeof(CB_SCENE), cbv_alignment)
-                                     , &cb_scene);
-                ctx.End(ctx.GetGpuWaitFence());
-                ctx.WaitOnCpu();
-                ctx.MakeVisible();
-            }
-        }
+    // シーン定数バッファを更新
+    if constexpr (USE_HOST_WRITABLE_HEAP)
+    {
+        memcpy(frame_cbs[back_buffer_index].mapped_data[1], &cb_scene, sizeof(CB_SCENE));
+    }
+    else
+    {
+        ctx.Begin();
+        auto cbv_alignment = dr->GetDeviceAdapterLimits().min_constant_buffer_offset_alignment;
+
+        ctx.CopyDataToBuffer(frame_cbs[back_buffer_index].constant_buffer.Get(), util::AlignUp(sizeof(CB_MODEL), cbv_alignment)
+                                , util::AlignUp(sizeof(CB_SCENE), cbv_alignment)
+                                , &cb_scene);
+        ctx.End(ctx.GetGpuWaitFence());
+        ctx.WaitOnCpu();
+        ctx.MakeVisible();
     }
 
 }
@@ -1283,12 +1238,9 @@ void HelloConstantBuffer::Render()
     auto cmd_fences_data = cmd_fences.data();
     b::BMRESULT bmr{};
 
-    // コマンドリストとフェンスを送信
+    // 送信情報を準備
     {
         // 待機フェンス
-        //cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
-        //PrepareFrame(back_buffer_index);
-
         wait_fence_desc.Reset().AddFence(swapchain_fences->signal_fence.Get(), 0).Finalize();
         submit_info.wait_fence = wait_fence_desc.GetAsWait().wait_fence;
 
@@ -1299,7 +1251,13 @@ void HelloConstantBuffer::Render()
         signal_fence_desc.Reset().AddFence(cmd_fences_data[back_buffer_index].Get(), fence_values[back_buffer_index].signal()).Finalize();
         submit_info.signal_fence = signal_fence_desc.GetAsSignal().signal_fence;
 
+    }
+    
+    // コマンドリストとフェンスを送信
+    {
         cmd_fences_data[back_buffer_index]->Wait(fence_values[back_buffer_index].wait(), UINT32_MAX);
+        PrepareFrame(back_buffer_index);
+
         bmr = command_queue->Submit(submit);
         assert(bmr == b::BMRESULT_SUCCEED);
     }
@@ -1317,8 +1275,8 @@ void HelloConstantBuffer::Render()
 void HelloConstantBuffer::OnResize(ResizeEventArgs* _args)
 {
     command_queue->WaitIdle();
-    framebuffers = {};
-    back_buffers = {};
+    framebuffers.clear();
+    back_buffers = nullptr;
 }
 
 void HelloConstantBuffer::OnResized(BufferResizedEventArgs* _args)
@@ -1353,7 +1311,7 @@ void HelloConstantBuffer::Term()
         for (auto& i : *g_fpss)
             res += i;
         std::stringstream ss;
-        ss << "\nprof result: average fps";
+        ss << "prof result: average fps ";
         ss << (res / size) << std::endl;
 
         platform->GetLogger()->LogInfo(ss.str().c_str());

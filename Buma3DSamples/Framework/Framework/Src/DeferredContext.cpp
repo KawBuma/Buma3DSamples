@@ -46,8 +46,8 @@ bool DeferredContext::Init(std::shared_ptr<DeviceResources> _dr, buma3d::util::P
     fence_to_cpu->SetName("DeferredContext::fence_to_cpu");
     fence_to_gpu->SetName("DeferredContext::fence_to_gpu");
 
-    upload_buffer   = std::make_unique<StagingBufferPool>(_dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE, buma3d::hlp::init::BUF_COPYABLE_FLAGS);
-    readback_buffer = std::make_unique<StagingBufferPool>(_dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE, buma3d::hlp::init::BUF_COPYABLE_FLAGS);
+    upload_buffer   = std::make_unique<StagingBufferPool>(_dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_WRITABLE, buma3d::hlp::init::BUF_COPYABLE_FLAGS, util::Mib(16));
+    readback_buffer = std::make_unique<StagingBufferPool>(_dr, buma3d::RESOURCE_HEAP_PROPERTY_FLAG_HOST_READABLE, buma3d::hlp::init::BUF_COPYABLE_FLAGS, util::Mib(16));
 
     submit_info.num_command_lists_to_execute    = 1;
     submit_info.command_lists_to_execute        = list.GetAddressOf();
